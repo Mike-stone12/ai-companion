@@ -1,0 +1,388 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live2D Renderer</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+    }
+
+    body {
+      font-family: "Segoe UI", sans-serif;
+    }
+
+    #stage {
+      position: fixed;
+      inset: 0;
+      background: transparent;
+    }
+
+    #message {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
+      max-width: min(88vw, 420px);
+      padding: 10px 14px;
+      border-radius: 16px;
+      background: rgba(11, 14, 22, 0.68);
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 13px;
+      text-align: center;
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="stage"></div>
+  <div id="message">Loading Live2D...</div>
+
+  <script>
+    const messageEl = document.getElementById("message");
+    const params = new URLSearchParams(window.location.search);
+    const modelInput = params.get("model") || "./1/hiyori_free_en/runtime/hiyori_free_t08.model3.json";
+    const vendorInput = params.get("vendor") || "./vendor/";
+    const cubism4RemoteCandidates = [
+      "https://cdn.jsdelivr.net/npm/pixi-live2d-display/dist/cubism4.min.js",
+      "https://unpkg.com/pixi-live2d-display/dist/cubism4.min.js"
+    ];
+
+    let app = null;
+    let model = null;
+    let talking = false;
+    let motionTimer = null;
+    let idlePhase = 0;
+
+    function showMessage(text) {
+      messageEl.textContent = text;
+    }
+
+    function normalizePath(path) {
+      if (!path) {
+        return "";
+      }
+      if (/^file:\/\//i.test(path) || /^https?:\/\//i.test(path)) {
+        return path;
+      }
+      if (/^[A-Za-z]:[\\/]/.test(path)) {
+        return "file:///" + path.replace(/\\/g, "/");
+      }
+      return path;
+    }
+
+    function ensureTrailingSlash(path) {
+      return path.endsWith("/") ? path : path + "/";
+    }
+
+    function joinPath(base, name) {
+      return ensureTrailingSlash(base) + name;
+    }
+
+    function buildModelCandidates(input) {
+      const normalized = normalizePath(input);
+      const candidates = [];
+      const push = (value) => {
+        if (value && !candidates.includes(value)) {
+          candidates.push(value);
+        }
+      };
+
+      push(normalized);
+      if (/\.model3$/i.test(normalized)) {
+        push(normalized + ".json");
+      } else if (/\.model3\.json$/i.test(normalized)) {
+        push(normalized.slice(0, -5));
+      } else {
+        push(normalized + ".model3.json");
+        push(normalized + ".model3");
+      }
+
+      return candidates;
+    }
+
+    async function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = src;
+        script.onload = () => resolve(src);
+        script.onerror = () => reject(new Error("Failed to load script: " + src));
+        document.head.appendChild(script);
+      });
+    }
+
+    async function loadFirstAvailable(label, candidates) {
+      let lastError = null;
+      for (const src of candidates) {
+        try {
+          console.info(`[Live2D] Loading ${label}: ${src}`);
+          await loadScript(src);
+          console.info(`[Live2D] Loaded ${label}: ${src}`);
+          return src;
+        } catch (error) {
+          lastError = error;
+          console.error(`[Live2D] Failed ${label}: ${src}`, error);
+        }
+      }
+      throw lastError || new Error(`No ${label} candidate could be loaded.`);
+    }
+
+    function resetLive2DNamespace() {
+      if (window.PIXI && window.PIXI.live2d) {
+        try {
+          delete window.PIXI.live2d;
+        } catch (_) {
+          window.PIXI.live2d = undefined;
+        }
+      }
+    }
+
+    async function bootCubism4Runtime() {
+      if (!window.Live2DCubismCore) {
+        throw new Error("Live2DCubismCore is missing after loading live2dcubismcore.min.js.");
+      }
+
+      if (!window.PIXI || !window.PIXI.live2d) {
+        throw new Error("PIXI.live2d was not created by the loaded Cubism4 bundle.");
+      }
+
+      console.info("[Live2D] live2d exports:", Object.keys(window.PIXI.live2d));
+
+      if (window.PIXI.live2d.config) {
+        window.PIXI.live2d.config.logLevel = window.PIXI.live2d.config.LOG_LEVEL_VERBOSE;
+      }
+
+      if (typeof window.PIXI.live2d.startUpCubism4 === "function") {
+        console.info("[Live2D] Calling startUpCubism4().");
+        window.PIXI.live2d.startUpCubism4();
+      }
+
+      if (typeof window.PIXI.live2d.cubism4Ready === "function") {
+        console.info("[Live2D] Waiting for cubism4Ready().");
+        await window.PIXI.live2d.cubism4Ready();
+      }
+
+      if (!window.PIXI.live2d.Live2DModel) {
+        throw new Error("PIXI.live2d.Live2DModel is still missing after Cubism 4 startup.");
+      }
+    }
+
+    async function loadCubism4Bundle(candidates) {
+      let lastError = null;
+      for (const src of candidates) {
+        try {
+          resetLive2DNamespace();
+          console.info(`[Live2D] Trying Cubism4 bundle: ${src}`);
+          await loadScript(src);
+          await bootCubism4Runtime();
+          console.info(`[Live2D] Cubism4 bundle ready: ${src}`);
+          return src;
+        } catch (error) {
+          lastError = error;
+          console.error(`[Live2D] Cubism4 bundle failed: ${src}`, error);
+        }
+      }
+      throw lastError || new Error("No Cubism4 bundle could be initialized.");
+    }
+
+    function fitModel() {
+      if (!app || !model) {
+        return;
+      }
+
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const bounds = model.getLocalBounds();
+      const safeWidth = Math.max(bounds.width, 1);
+      const safeHeight = Math.max(bounds.height, 1);
+      const scale = Math.min((width * 0.88) / safeWidth, (height * 0.9) / safeHeight);
+
+      model.scale.set(scale);
+      if (model.anchor && typeof model.anchor.set === "function") {
+        model.anchor.set(0.5, 1.0);
+      } else if (model.pivot && typeof model.pivot.set === "function") {
+        model.pivot.set(bounds.x + safeWidth / 2, bounds.y + safeHeight);
+      }
+      model.x = width * 0.5;
+      model.y = height - 6;
+    }
+
+    function getMotionManager() {
+      return model?.internalModel?.motionManager || model?.motionManager || null;
+    }
+
+    function tryMotion(groupName) {
+      if (!model || !groupName) {
+        return false;
+      }
+
+      try {
+        if (typeof model.motion === "function") {
+          model.motion(groupName);
+          return true;
+        }
+      } catch (_) {}
+
+      const manager = getMotionManager();
+      if (!manager) {
+        return false;
+      }
+
+      try {
+        if (typeof manager.startRandomMotion === "function") {
+          manager.startRandomMotion(groupName, 3);
+          return true;
+        }
+      } catch (_) {}
+
+      try {
+        if (typeof manager.startMotion === "function") {
+          manager.startMotion(groupName, 0, 3);
+          return true;
+        }
+      } catch (_) {}
+
+      return false;
+    }
+
+    function playRandomMotion() {
+      if (!model || talking) {
+        return false;
+      }
+
+      const groups = ["Idle", "idle", "TapBody", "tap_body", "Main", "main"];
+      const choice = groups[Math.floor(Math.random() * groups.length)];
+      return tryMotion(choice);
+    }
+
+    function setTalking(active) {
+      talking = Boolean(active);
+      if (talking) {
+        const talkGroups = ["Talk", "talk", "TapBody", "tap_body", "Main", "main"];
+        for (const group of talkGroups) {
+          if (tryMotion(group)) {
+            break;
+          }
+        }
+        showMessage("Speaking...");
+        return;
+      }
+
+      showMessage("Ready");
+      playRandomMotion();
+    }
+
+    function animateFallback(delta) {
+      if (!model) {
+        return;
+      }
+
+      idlePhase += delta * 0.03;
+      const bob = talking ? Math.sin(idlePhase * 4.0) * 6 : Math.sin(idlePhase) * 2;
+      const sway = talking ? Math.sin(idlePhase * 2.5) * 0.02 : Math.sin(idlePhase * 0.6) * 0.01;
+
+      model.y = window.innerHeight - 6 + bob;
+      model.rotation = sway;
+    }
+
+    async function loadModelFromCandidates(candidates) {
+      let lastError = null;
+      for (const candidate of candidates) {
+        try {
+          console.info(`[Live2D] Trying model: ${candidate}`);
+          const loaded = await window.PIXI.live2d.Live2DModel.from(candidate);
+          console.info(`[Live2D] Loaded model: ${candidate}`);
+          return { model: loaded, path: candidate };
+        } catch (error) {
+          lastError = error;
+          console.error(`[Live2D] Failed model: ${candidate}`, error);
+        }
+      }
+
+      throw lastError || new Error(`Model load failed. Tried: ${candidates.join(", ")}`);
+    }
+
+    async function init() {
+      const vendorBase = ensureTrailingSlash(normalizePath(vendorInput));
+      const modelCandidates = buildModelCandidates(modelInput);
+      console.info("[Live2D] Vendor base:", vendorBase);
+      console.info("[Live2D] Model candidates:", modelCandidates);
+
+      try {
+        await loadFirstAvailable("PIXI", [
+          joinPath(vendorBase, "pixi.min.js"),
+          joinPath(vendorBase, "pixi.js")
+        ]);
+
+        await loadFirstAvailable("Cubism Core", [
+          joinPath(vendorBase, "live2dcubismcore.min.js"),
+          joinPath(vendorBase, "live2dcubismcore.js")
+        ]);
+
+        await loadCubism4Bundle([
+          joinPath(vendorBase, "cubism4.min.js"),
+          ...cubism4RemoteCandidates
+        ]);
+      } catch (error) {
+        console.error("[Live2D] Runtime dependency load failed.", error);
+        console.error("[Live2D] Hint: vendor/pixi-live2d-display.min.js is a legacy bundle and still needs live2d.min.js. Put dist/cubism4.min.js into vendor for offline use, or let the CDN fallback load it.");
+        showMessage("Live2D runtime failed. Check the console for Cubism4 bundle details.");
+        return;
+      }
+
+      app = new window.PIXI.Application({
+        autoStart: true,
+        resizeTo: window,
+        backgroundAlpha: 0,
+        antialias: true,
+      });
+
+      document.getElementById("stage").appendChild(app.view);
+
+      try {
+        const loaded = await loadModelFromCandidates(modelCandidates);
+        model = loaded.model;
+        console.info("[Live2D] Active model path:", loaded.path);
+      } catch (error) {
+        console.error("[Live2D] Model load failed for every candidate.", error);
+        showMessage("Model load failed. Check the console for exact model3.json paths.");
+        return;
+      }
+
+      app.stage.addChild(model);
+      fitModel();
+      app.ticker.add(animateFallback);
+
+      if (motionTimer) {
+        clearInterval(motionTimer);
+      }
+      motionTimer = setInterval(() => {
+        if (!talking) {
+          playRandomMotion();
+        }
+      }, 10000);
+
+      showMessage("Ready");
+      playRandomMotion();
+    }
+
+    window.Live2DController = {
+      setTalking,
+      playRandomMotion
+    };
+
+    window.addEventListener("resize", fitModel);
+    init().catch((error) => {
+      console.error("[Live2D] Unhandled renderer error.", error);
+      showMessage("Renderer startup failed. Check the console for details.");
+    });
+  </script>
+</body>
+</html>
