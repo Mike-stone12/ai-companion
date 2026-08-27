@@ -14,7 +14,7 @@ A desktop AI companion for Windows with an animated Live2D character, voice outp
 
 Memory is the core of this project. It runs as a two-path extraction pipeline:
 
-1. **Heuristic path** — lightweight regex patterns match common self-disclosure phrasings (e.g. "我叫…", "我喜欢…", "我住在…") and turn them into categorized memory candidates (`identity`, `preference`, `status`, `profile`, `event`) with zero API cost.
+1. **Heuristic path** — lightweight regex patterns match common self-disclosure phrasings (e.g. "My name is…", "I like…", "I live in…") and turn them into categorized memory candidates (`identity`, `preference`, `status`, `profile`, `event`) with zero API cost.
 2. **LLM path** — messages that pass a trigger gate (`should_extract_memory`) are additionally sent to the LLM, which returns structured JSON memories for facts the regexes can't capture.
 
 Extracted memories are deduplicated and upserted into a JSON-backed `MemoryStore` (capped at a configurable limit, recency-sorted). On each turn, the most recent entries are rendered into a compact "long-term memory" block and injected into the system context, so the companion stays consistent without unbounded context growth.
