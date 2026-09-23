@@ -1,67 +1,137 @@
 # AI Companion
 
-A desktop AI companion for Windows with an animated Live2D character, voice output, and persistent long-term memory. The companion sits on your desktop, chats with you through an LLM, speaks its replies aloud, and remembers facts about you across sessions.
+**A desktop companion that remembers the conversation.**
 
-## Features
+A Windows application combining an animated Live2D character, LLM chat, bilingual voice replies, and persistent memory. The project explores how a conversational interface can retain useful facts across sessions while keeping its context compact.
 
-- **Live2D character** — an animated avatar rendered in an embedded web view (PixiJS + `pixi-live2d-display` + Cubism core), displayed in a frameless, draggable desktop window
-- **LLM chat** — works with any OpenAI-compatible API (defaults to Moonshot/Kimi); model, base URL, and key are configured via `.env`
-- **Voice replies** — text-to-speech via Edge-TTS, with automatic voice switching between Chinese and English based on the reply's language
-- **Persistent long-term memory** — the companion extracts durable facts from conversations (your name, preferences, upcoming events) and recalls them in future sessions
-- **Non-blocking UI** — chat, TTS, and memory extraction each run on background worker threads, so the interface stays responsive
+**Stack:** Python · PyQt6 / Qt WebEngine · OpenAI-compatible APIs · Edge-TTS · PixiJS · Live2D
 
-## How the memory system works
+[Quick start](#quick-start) · [Memory design](#memory-design) · [Architecture](#architecture) · [Configuration](#configuration)
 
-Memory is the core of this project. It runs as a two-path extraction pipeline:
+## What it does
 
-1. **Heuristic path** — lightweight regex patterns match common self-disclosure phrasings (e.g. "My name is…", "I like…", "I live in…") and turn them into categorized memory candidates (`identity`, `preference`, `status`, `profile`, `event`) with zero API cost.
-2. **LLM path** — messages that pass a trigger gate (`should_extract_memory`) are additionally sent to the LLM, which returns structured JSON memories for facts the regexes can't capture.
+- **Desktop character:** a transparent, frameless, draggable window with a Live2D avatar.
+- **Configurable chat:** connects to an OpenAI-compatible chat endpoint; the default configuration uses Moonshot/Kimi.
+- **Voice replies:** synthesizes replies with Edge-TTS and selects a Chinese or English voice based on the response.
+- **Persistent memory:** extracts short facts, saves them locally, and includes recent memories in later conversations.
+- **Background processing:** separate Qt workers handle chat requests, memory extraction, and speech synthesis.
 
-Extracted memories are deduplicated and upserted into a JSON-backed `MemoryStore` (capped at a configurable limit, recency-sorted). On each turn, the most recent entries are rendered into a compact "long-term memory" block and injected into the system context, so the companion stays consistent without unbounded context growth.
+## Memory design
 
-## Setup
+The memory pipeline uses a lightweight extraction gate, structured LLM extraction, and a heuristic fallback:
 
-Requirements: Windows, Python 3.11+.
+1. **Detect useful input.** Chinese-language patterns identify personal facts, preferences, status updates, and upcoming events.
+2. **Extract candidates.** Messages that pass the gate are sent to an LLM for structured extraction. Heuristic candidates provide a fallback when extraction fails or returns no usable memories.
+3. **Normalize and store.** Summaries are shortened, deduplicated by exact summary text, timestamped, and stored in `memory.json`.
+4. **Recall into context.** Up to eight recent memories are added to the next chat request alongside a bounded conversation history.
 
-```bash
-git clone https://github.com/Mike-stone12/ai-companion.git
-cd ai-companion
-python -m venv venv && venv\Scripts\activate
-pip install PyQt6 PyQt6-WebEngine edge-tts requests
-copy .env.example .env   # then fill in your API key
-python main.py
-```
+The store retains 24 entries by default, configurable through `MEMORY_LIMIT`. This implementation uses external, text-based memory; it does not update model weights.
 
-### Configuration (`.env`)
+### Current tradeoffs
 
-| Variable | Purpose |
-| --- | --- |
-| `OPENAI_API_KEY` | API key for any OpenAI-compatible provider |
-| `OPENAI_BASE_URL` | Provider endpoint (default: Moonshot) |
-| `OPENAI_MODEL` | Chat model name |
-| `EDGE_TTS_VOICE_ZH` / `EDGE_TTS_VOICE_EN` | TTS voices for Chinese / English replies |
-| `MEMORY_ENABLED` | Toggle the memory pipeline |
-| `MEMORY_LIMIT` | Max number of stored memories |
-
-Your API key and the local memory file (`memory.json`) are git-ignored and never leave your machine except through your configured LLM provider.
+- Extraction rules and gating are primarily designed for Chinese input.
+- Recall uses recency, so an older relevant fact can be missed.
+- Exact-text deduplication does not resolve paraphrases or conflicting facts.
+- Memory is added asynchronously and may become available on a later turn.
 
 ## Architecture
 
-```
-CompanionWindow (PyQt6, frameless)
- ├── Live2D view  ── live2d_renderer.html (PixiJS + Cubism)
- ├── ChatWorker   ── OpenAI-compatible client → reply
- ├── TTSWorker    ── Edge-TTS → audio playback
- └── MemoryWorker ── heuristic + LLM extraction → MemoryStore (JSON)
+```mermaid
+flowchart LR
+    UI["PyQt desktop window"] --> View["Qt WebEngine / Live2D"]
+    UI --> Chat["ChatWorker"]
+    Chat --> API["Configured LLM endpoint"]
+    Chat --> TTS["TTSWorker / Edge-TTS"]
+    TTS --> Audio["Qt audio playback"]
+    Chat --> Memory["MemoryWorker"]
+    Memory --> Store["MemoryStore / local JSON"]
+    Store --> Context["Recent memory context"]
+    Context --> Chat
 ```
 
-## Roadmap
+The Python application owns conversation state and worker lifecycles. The embedded HTML renderer handles the avatar, while Qt signals return worker results to the interface.
 
-- Semantic retrieval over memories (embedding-based) instead of recency-only injection
-- Memory editing UI (view / delete stored facts)
-- Cross-platform support (macOS / Linux)
+## Quick start
+
+**Requirements:** Windows, Python 3.11+, and an API key for a compatible LLM provider. Chat and voice synthesis require network access.
+
+Run these commands in **PowerShell**:
+
+```powershell
+git clone https://github.com/Mike-stone12/ai-companion.git
+cd ai-companion
+py -3.11 -m venv venv
+.\venv\Scripts\python.exe -m pip install PyQt6 PyQt6-WebEngine edge-tts
+Copy-Item .env.example .env
+```
+
+Edit `.env` with your provider's API key, endpoint, and model, then start the application:
+
+```powershell
+.\venv\Scripts\python.exe main.py
+```
+
+Using the environment's Python executable directly avoids requiring shell activation.
+
+### Try the memory flow
+
+1. Send a short fact such as `我喜欢咖啡`.
+2. Wait for the reply and background memory extraction to finish.
+3. Close and restart the application.
+4. Ask `我喜欢什么饮料？` to try recall from the saved context.
+
+Recall depends on extraction and the configured model; this is a manual walkthrough, not a benchmark result.
+
+## Configuration
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | Provider API key | Required for chat |
+| `OPENAI_BASE_URL` | Chat API base URL | `https://api.moonshot.ai/v1` |
+| `OPENAI_MODEL` | Model identifier | `kimi-k2.5` |
+| `OPENAI_TIMEOUT` | Request timeout in seconds | `60` |
+| `OPENAI_RETRIES` | Request retry setting | `2` |
+| `EDGE_TTS_VOICE_ZH` | Chinese voice | `zh-CN-XiaoxiaoNeural` |
+| `EDGE_TTS_VOICE_EN` | English voice | `en-US-AriaNeural` |
+| `MEMORY_ENABLED` | Enable new memory extraction | `1` |
+| `MEMORY_LIMIT` | Maximum retained memory entries | `24` |
+| `COMPANION_SYSTEM_PROMPT` | Companion's system instruction | Built-in companion prompt |
+| `LIVE2D_MODEL` | Optional explicit model file path | Auto-discovered |
+| `LIVE2D_VENDOR_DIR` | Optional renderer dependency directory | `vendor/` |
+
+`MEMORY_ENABLED=0` stops new extraction. Existing memories are still loaded into chat context by the current implementation.
+
+## Project layout
+
+```text
+main.py                 Application, API client, workers, and memory store
+live2d_renderer.html     Embedded avatar renderer
+.env.example            Example provider and voice settings
+models/                 Live2D model assets
+1/                      Additional model search directory
+vendor/                 Renderer dependencies
+```
+
+### Data flow
+
+`.env` and `memory.json` are ignored by Git. Memories are stored locally as plain JSON, and recalled memory text is sent to the configured LLM endpoint with chat requests. Replies are sent to Edge-TTS for speech synthesis. The renderer can fall back to CDN-hosted dependencies.
+
+### Troubleshooting
+
+- **Qt import or DLL errors:** use a fresh virtual environment. The application includes a PyQt5 fallback if that stack is already installed.
+- **No character appears:** check the resource paths printed at startup, or set `LIVE2D_MODEL` and `LIVE2D_VENDOR_DIR` explicitly.
+- **Chat fails:** verify the API key, model identifier, endpoint, and network connectivity.
+- **Memory is not recalled:** check that extraction completed, that `memory.json` contains the fact, and that it remains among the recent entries.
+
+## Next steps
+
+- Evaluate extraction and recall on a repeatable conversation set.
+- Add semantic retrieval and conflict-aware memory updates.
+- Add an interface for inspecting, editing, and removing stored memories.
+- Validate platforms beyond Windows.
 
 ## Credits
 
-- Character model: Live2D sample model "Hiyori" (© Live2D Inc., used under the Live2D Free Material License)
-- Rendering: [pixi-live2d-display](https://github.com/guansss/pixi-live2d-display), PixiJS, Live2D Cubism Core
+Character assets include the Live2D sample model **Hiyori** (© Live2D Inc.). Model and runtime assets remain subject to their respective upstream terms.
+
+Rendering uses [PixiJS](https://github.com/pixijs/pixijs), [pixi-live2d-display](https://github.com/guansss/pixi-live2d-display), and Live2D Cubism Core.
