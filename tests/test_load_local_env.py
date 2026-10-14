@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from companion.core.config import load_local_env
+from companion.env import load_local_env
 
 TEST_KEYS = ("COMPANION_TEST_MODEL", "COMPANION_TEST_A", "COMPANION_TEST_B")
 

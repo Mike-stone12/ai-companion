@@ -2,27 +2,10 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from pathlib import Path
 
-from companion.paths import ENV_PATH
-
-
-def load_local_env(env_path: Path) -> None:
-    if not env_path.exists():
-        return
-
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = value.strip().strip('"').strip("'")
-        os.environ.setdefault(key, value)
-
-
-# AppConfig reads the environment when this module is imported, so .env must load first.
-load_local_env(ENV_PATH)
+# AppConfig reads the environment when this module is imported; importing companion.paths
+# loads the project .env first.
+import companion.paths  # noqa: F401
 
 
 def env_flag(name: str, default: bool) -> bool:
