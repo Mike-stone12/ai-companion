@@ -61,7 +61,7 @@ Run these commands in **PowerShell**:
 git clone https://github.com/Mike-stone12/ai-companion.git
 cd ai-companion
 py -3.11 -m venv venv
-.\venv\Scripts\python.exe -m pip install PyQt6 PyQt6-WebEngine edge-tts
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
@@ -107,14 +107,14 @@ Recall depends on extraction and the configured model; this is a manual walkthro
 main.py                 Application, API client, workers, and memory store
 live2d_renderer.html     Embedded avatar renderer
 .env.example            Example provider and voice settings
+requirements.txt        Pinned Python dependencies
 models/                 Live2D model assets
-1/                      Additional model search directory
-vendor/                 Renderer dependencies
+vendor/                 Renderer dependencies (PixiJS 6, Cubism Core, pixi-live2d-display 0.4.0)
 ```
 
 ### Data flow
 
-`.env` and `memory.json` are ignored by Git. Memories are stored locally as plain JSON, and recalled memory text is sent to the configured LLM endpoint with chat requests. Replies are sent to Edge-TTS for speech synthesis. The renderer can fall back to CDN-hosted dependencies.
+`.env` and `memory.json` are ignored by Git. Memories are stored locally as plain JSON, and recalled memory text is sent to the configured LLM endpoint with chat requests. Replies are sent to Edge-TTS for speech synthesis. The renderer loads all dependencies from `vendor/` and only falls back to a version-pinned CDN copy if a local file is missing.
 
 ### Troubleshooting
 
@@ -130,8 +130,10 @@ vendor/                 Renderer dependencies
 - Add an interface for inspecting, editing, and removing stored memories.
 - Validate platforms beyond Windows.
 
-## Credits
+## License and credits
 
-Character assets include the Live2D sample model **Hiyori** (© Live2D Inc.). Model and runtime assets remain subject to their respective upstream terms.
+The source code is released under the [MIT License](LICENSE).
+
+Character assets include the Live2D sample model **Hiyori** (© Live2D Inc.), used under the Live2D Free Material License; see [`models/LIVE2D_README.txt`](models/LIVE2D_README.txt). Model and runtime assets remain subject to their respective upstream terms and are not covered by the MIT License.
 
 Rendering uses [PixiJS](https://github.com/pixijs/pixijs), [pixi-live2d-display](https://github.com/guansss/pixi-live2d-display), and Live2D Cubism Core.

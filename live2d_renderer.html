@@ -48,11 +48,11 @@
   <script>
     const messageEl = document.getElementById("message");
     const params = new URLSearchParams(window.location.search);
-    const modelInput = params.get("model") || "./1/hiyori_free_en/runtime/hiyori_free_t08.model3.json";
+    const modelInput = params.get("model") || "./models/hiyori_free_t08.model3.json";
     const vendorInput = params.get("vendor") || "./vendor/";
     const cubism4RemoteCandidates = [
-      "https://cdn.jsdelivr.net/npm/pixi-live2d-display/dist/cubism4.min.js",
-      "https://unpkg.com/pixi-live2d-display/dist/cubism4.min.js"
+      "https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js",
+      "https://unpkg.com/pixi-live2d-display@0.4.0/dist/cubism4.min.js"
     ];
 
     let app = null;
