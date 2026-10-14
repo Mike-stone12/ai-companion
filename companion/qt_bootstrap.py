@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 import os
 import site
 import sys
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 def bootstrap_windows_qt_dlls() -> list[Path]:
@@ -105,13 +108,10 @@ def diagnose_pyqt6_icu_mismatch() -> str | None:
 
 
 def report_qt_import_failure(exc: ImportError, active_dll_dirs: list[Path]) -> None:
-    print("[PyQt6 bootstrap] Failed to import PyQt6 modules.")
-    print(f"[PyQt6 bootstrap] ImportError: {exc}")
+    logger.error("Failed to import PyQt6 modules: %s", exc)
     if active_dll_dirs:
-        print("[PyQt6 bootstrap] DLL directories added:")
-        for dll_dir in active_dll_dirs:
-            print(f"  - {dll_dir}")
+        logger.error("DLL directories added: %s", ", ".join(str(dll_dir) for dll_dir in active_dll_dirs))
     diagnosis = diagnose_pyqt6_icu_mismatch()
     if diagnosis:
-        print(diagnosis)
-    print("[PyQt6 bootstrap] Install the pinned dependencies in a fresh virtual environment: pip install -r requirements.txt")
+        logger.error(diagnosis)
+    logger.error("Install the pinned dependencies in a fresh virtual environment: pip install -r requirements.txt")

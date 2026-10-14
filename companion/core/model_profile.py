@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from companion.paths import MODELS_DIR, VENDOR_DIR
+
+logger = logging.getLogger(__name__)
 
 
 DEFAULT_MODEL = "whale-girl"
@@ -27,7 +30,7 @@ def read_profile_settings(model_dir: Path) -> dict:
     try:
         data = json.loads(settings_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        print(f"[resources] Ignoring unreadable {settings_path}: {exc}")
+        logger.warning("Ignoring unreadable %s: %s", settings_path, exc)
         return {}
     return data if isinstance(data, dict) else {}
 
@@ -77,10 +80,10 @@ def discover_model_profile(configured: str = "", models_dir: Path = MODELS_DIR) 
                 profile = load_model_profile(target)
                 if profile is not None:
                     return profile
-        print(f"[resources] LIVE2D_MODEL not found, falling back to default: {configured}")
+        logger.warning("LIVE2D_MODEL not found, falling back to default: %s", configured)
 
     if not models_dir.is_dir():
-        print(f"[resources] Models directory not found: {models_dir}")
+        logger.error("Models directory not found: %s", models_dir)
         return None
 
     default_dir = models_dir / DEFAULT_MODEL
@@ -91,7 +94,7 @@ def discover_model_profile(configured: str = "", models_dir: Path = MODELS_DIR) 
             if profile is not None:
                 return profile
 
-    print(f"[resources] No model found under: {models_dir}")
+    logger.error("No model found under: %s", models_dir)
     return None
 
 
@@ -101,10 +104,10 @@ def discover_vendor_dir() -> Path | None:
         explicit = Path(configured).expanduser()
         if explicit.exists():
             return explicit.resolve()
-        print(f"[resources] Configured LIVE2D_VENDOR_DIR does not exist: {explicit}")
+        logger.warning("Configured LIVE2D_VENDOR_DIR does not exist: %s", explicit)
 
     if VENDOR_DIR.exists():
         return VENDOR_DIR.resolve()
 
-    print(f"[resources] Vendor directory not found: {VENDOR_DIR}")
+    logger.error("Vendor directory not found: %s", VENDOR_DIR)
     return None
