@@ -1,17 +1,27 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
 from collections import deque
 from pathlib import Path
 
-from PyQt6.QtCore import PYQT_VERSION_STR, QPoint, QThread, QTimer, QUrl, QUrlQuery, Qt
+from PyQt6.QtCore import PYQT_VERSION_STR, QPoint, Qt, QThread, QTimer, QUrl, QUrlQuery
 from PyQt6.QtGui import QColor
 from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PyQt6.QtWebEngineCore import QWebEngineSettings
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtWidgets import QApplication, QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (
+    QApplication,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from companion.adapters import tts_edge
 from companion.app.workers import ChatWorker, MemoryWorker, TTSWorker
@@ -19,9 +29,15 @@ from companion.core.config import AppConfig
 from companion.core.llm.client import OpenAICompatibleClient
 from companion.core.memory.gate import should_extract_memory
 from companion.core.memory.store import MemoryStore
-from companion.core.model_profile import DEFAULT_WINDOW_SIZE, discover_model_profile, discover_vendor_dir
+from companion.core.model_profile import (
+    DEFAULT_WINDOW_SIZE,
+    discover_model_profile,
+    discover_vendor_dir,
+)
 from companion.core.text import sanitize_tts_text
 from companion.paths import HTML_PATH, MEMORY_PATH
+
+logger = logging.getLogger(__name__)
 
 
 LIVE2D_LOADER_CANDIDATES = (
@@ -46,10 +62,10 @@ def to_file_url(path: Path | None, *, directory: bool = False) -> str:
 
 
 def print_resource_report(model_path: Path | None, vendor_dir: Path | None) -> None:
-    print(f"[resources] Qt: PyQt6 {PYQT_VERSION_STR}")
-    print(f"[resources] HTML: {HTML_PATH}")
-    print(f"[resources] Model: {model_path or 'NOT FOUND'}")
-    print(f"[resources] Vendor: {vendor_dir or 'NOT FOUND'}")
+    logger.info("Qt: PyQt6 %s", PYQT_VERSION_STR)
+    logger.info("HTML: %s", HTML_PATH)
+    logger.info("Model: %s", model_path or "NOT FOUND")
+    logger.info("Vendor: %s", vendor_dir or "NOT FOUND")
 
     if vendor_dir is None:
         return
@@ -57,19 +73,22 @@ def print_resource_report(model_path: Path | None, vendor_dir: Path | None) -> N
     pixi_path = vendor_dir / "pixi.min.js"
     core_min_path = vendor_dir / "live2dcubismcore.min.js"
     core_path = vendor_dir / "live2dcubismcore.js"
-    print(f"[resources] PIXI exists={pixi_path.exists()} path={pixi_path}")
-    print(f"[resources] Cubism core min exists={core_min_path.exists()} path={core_min_path}")
-    print(f"[resources] Cubism core exists={core_path.exists()} path={core_path}")
+    logger.debug("PIXI exists=%s path=%s", pixi_path.exists(), pixi_path)
+    logger.debug("Cubism core min exists=%s path=%s", core_min_path.exists(), core_min_path)
+    logger.debug("Cubism core exists=%s path=%s", core_path.exists(), core_path)
 
     for candidate in LIVE2D_LOADER_CANDIDATES:
         candidate_path = vendor_dir / candidate
-        print(f"[resources] Loader exists={candidate_path.exists()} path={candidate_path}")
+        logger.debug("Loader exists=%s path=%s", candidate_path.exists(), candidate_path)
 
     legacy_loader = vendor_dir / "pixi-live2d-display.min.js"
     cubism4_bundle = vendor_dir / "cubism4.min.js"
     cubism2_runtime = vendor_dir / "live2d.min.js"
     if legacy_loader.exists() and not cubism4_bundle.exists() and not cubism2_runtime.exists():
-        print("[resources] Warning: 当前本地 pixi-live2d-display.min.js 是旧浏览器 bundle，单独使用会要求 live2d.min.js。渲染器将优先尝试 vendor/cubism4.min.js 或 CDN 的 Cubism4 bundle。")
+        logger.warning(
+            "vendor/pixi-live2d-display.min.js is the legacy browser bundle and needs live2d.min.js; "
+            "the renderer will try vendor/cubism4.min.js or the pinned CDN copy instead."
+        )
 
 
 class CompanionWindow(QWidget):
@@ -247,7 +266,7 @@ class CompanionWindow(QWidget):
         )
 
     def load_live2d_scene(self) -> None:
-        print(f"[resources] Loading HTML from: {HTML_PATH}")
+        logger.debug("Loading HTML from: %s", HTML_PATH)
         url = QUrl.fromLocalFile(str(HTML_PATH))
         query = QUrlQuery()
         query.addQueryItem("model", to_file_url(self.model_path))
@@ -294,7 +313,9 @@ class CompanionWindow(QWidget):
             if self.model_path is None:
                 self.reply_label.setText("No .model3.json or .model3 file was found under the models folder.")
         else:
-            self.reply_label.setText("The Live2D renderer page could not be loaded. Check console output for path details.")
+            self.reply_label.setText(
+                "The Live2D renderer page could not be loaded. Check console output for path details."
+            )
 
     def run_js(self, script: str) -> None:
         if not self.page_ready:
@@ -352,10 +373,10 @@ class CompanionWindow(QWidget):
         if not self.config.memory_enabled or not user_text.strip() or not assistant_text.strip():
             return
         if not should_extract_memory(user_text):
-            print("[memory] Skipped extraction for low-signal message.")
+            logger.debug("Skipped memory extraction for a low-signal message")
             return
         if len(self.memory_jobs) == self.memory_jobs.maxlen:
-            print("[memory] Extraction queue full, dropping the oldest pending job.")
+            logger.warning("Memory extraction queue full, dropping the oldest pending job")
         self.memory_jobs.append((user_text, assistant_text))
         self.run_next_memory_job()
 
@@ -392,7 +413,7 @@ class CompanionWindow(QWidget):
             return
 
         voice = tts_edge.choose_tts_voice(self.config, tts_text)
-        print(f"[tts] voice={voice} text={tts_text}")
+        logger.debug("TTS voice=%s text=%s", voice, tts_text)
 
         self.tts_thread = QThread(self)
         self.tts_worker = TTSWorker(tts_text, voice)
@@ -417,6 +438,7 @@ class CompanionWindow(QWidget):
         self.start_tts_worker(reply)
 
     def on_chat_error(self, error_text: str) -> None:
+        logger.error("Chat request failed: %s", error_text)
         self.reply_label.setText(error_text)
         self.set_status("Error")
         self.finish_interaction()
@@ -428,6 +450,7 @@ class CompanionWindow(QWidget):
         self.player.play()
 
     def on_tts_error(self, error_text: str) -> None:
+        logger.warning("TTS failed: %s", error_text)
         self.reply_label.setText(f"{self.reply_label.text()}\n\n[TTS] {error_text}")
         self.set_status("Ready")
         self.finish_interaction()
@@ -440,15 +463,16 @@ class CompanionWindow(QWidget):
     def on_memory_ready(self, memories: list[dict[str, str]]) -> None:
         added = self.memory_store.upsert_many(memories)
         if added:
-            print(f"[memory] Stored {added} new memories in {MEMORY_PATH}")
+            logger.info("Stored %d new memories in %s", added, MEMORY_PATH)
 
     def on_memory_error(self, error_text: str) -> None:
-        print(f"[memory] Worker error: {error_text}")
+        logger.error("Memory worker error: %s", error_text)
 
     def on_audio_error(self, *args) -> None:
         error_text = str(args[1]) if len(args) >= 2 else ""
 
         if error_text:
+            logger.warning("Audio playback failed: %s", error_text)
             self.reply_label.setText(f"{self.reply_label.text()}\n\n[Audio] {error_text}")
         self.finish_audio_playback()
 

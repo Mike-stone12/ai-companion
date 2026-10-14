@@ -1,5 +1,7 @@
+from companion.app.logging_setup import setup_logging
 from companion.qt_bootstrap import bootstrap_windows_qt_dlls, report_qt_import_failure
 
+setup_logging()
 ACTIVE_DLL_DIRS = bootstrap_windows_qt_dlls()
 
 try:

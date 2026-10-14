@@ -4,7 +4,6 @@ import re
 
 from companion.core.memory.store import clip_memory_text
 
-
 # Gate for calling the LLM extractor. Very common chit-chat openers (我想/我要/今天) are left
 # out on purpose: each extraction costs a request, and the API may be tightly rate limited.
 MEMORY_TRIGGER_RE = re.compile(

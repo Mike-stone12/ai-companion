@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 import urllib.error
 import urllib.request
 
 from companion.core.config import AppConfig
 from companion.core.text import sanitize_reply_text
+
+logger = logging.getLogger(__name__)
 
 
 THINKING_TOGGLE_PROVIDERS = ("moonshot", "deepseek")
@@ -64,7 +67,7 @@ class OpenAICompatibleClient:
         data = None
         for attempt in range(1, attempt_count + 1):
             request = urllib.request.Request(endpoint, data=body, headers=headers, method="POST")
-            print(f"[llm] Requesting {endpoint} model={self.config.model} attempt={attempt}/{attempt_count}")
+            logger.info("Requesting %s model=%s attempt=%d/%d", endpoint, self.config.model, attempt, attempt_count)
             try:
                 with urllib.request.urlopen(request, timeout=self.config.request_timeout) as response:
                     data = json.loads(response.read().decode("utf-8"))
@@ -84,7 +87,7 @@ class OpenAICompatibleClient:
                     if attempt < attempt_count:
                         delay_seconds = retry_delays[attempt - 1]
                         reason = "Rate limited" if rate_limited else "Model busy"
-                        print(f"[llm] {reason}, retrying in {delay_seconds}s.")
+                        logger.warning("%s, retrying in %ss", reason, delay_seconds)
                         time.sleep(delay_seconds)
                         continue
                     if rate_limited:
