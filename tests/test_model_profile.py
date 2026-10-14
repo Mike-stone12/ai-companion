@@ -1,6 +1,6 @@
 import json
 
-from main import DEFAULT_MODEL, DEFAULT_WINDOW_SIZE, discover_model_profile, load_model_profile
+from companion.core.model_profile import DEFAULT_MODEL, DEFAULT_WINDOW_SIZE, discover_model_profile, load_model_profile
 
 
 def make_model(models_dir, name, model_file="avatar.model3.json", companion=None):
