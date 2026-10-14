@@ -293,8 +293,14 @@ def sanitize_reply_text(text: str) -> str:
     return cleaned.strip()
 
 
+# Asides like （轻轻晃了晃脑袋） or (笑) are stage directions: shown on screen, never spoken.
+# Asides with Latin text or digits, such as (比如 Python) or （大约3公里）, carry content and stay.
+STAGE_DIRECTION_RE = re.compile(r"[（(][^（）()A-Za-z0-9\n]{1,30}[）)]")
+
+
 def sanitize_tts_text(text: str) -> str:
     cleaned = EMOJI_RE.sub("", text.strip())
+    cleaned = STAGE_DIRECTION_RE.sub("", cleaned)
     cleaned = re.sub(r"https?://\S+", "", cleaned)
     cleaned = re.sub(r"`([^`]*)`", r"\1", cleaned)
     cleaned = re.sub(r"[*_~#>\-\[\]\(\)]", " ", cleaned)

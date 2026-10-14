@@ -39,6 +39,36 @@ def test_tts_strips_urls_and_markdown():
     assert sanitize_tts_text("# 标题 **重点**") == "标题 重点"
 
 
+@pytest.mark.parametrize(
+    ("text", "spoken"),
+    [
+        ("（轻轻晃了晃脑袋）那得看你最近累不累啦～", "那得看你最近累不累啦～"),
+        ("好呀（笑）", "好呀"),
+        ("(歪头) 你刚才说什么?", "你刚才说什么?"),
+        ("嗯嗯（点头）（眨眨眼），我懂啦", "嗯嗯，我懂啦"),
+        ("（害羞地低下头）", ""),
+    ],
+)
+def test_tts_drops_stage_directions(text, spoken):
+    assert sanitize_tts_text(text) == spoken
+
+
+@pytest.mark.parametrize(
+    ("text", "spoken"),
+    [
+        ("学校离这里（大约3公里）不远", "学校离这里（大约3公里）不远"),
+        ("可以先学一门语言 (比如 Python) 再说", "可以先学一门语言 比如 Python 再说"),
+    ],
+)
+def test_tts_keeps_informative_asides(text, spoken):
+    assert sanitize_tts_text(text) == spoken
+
+
+def test_reply_display_keeps_stage_directions():
+    text = "（轻轻晃了晃脑袋）那得看你最近累不累啦～"
+    assert sanitize_reply_text(text) == text
+
+
 def test_plain_chinese_is_untouched():
     text = "我们明天下午三点见，记得带伞。"
     assert sanitize_reply_text(text) == text
