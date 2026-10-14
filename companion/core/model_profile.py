@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from companion.paths import MODELS_DIR, VENDOR_DIR
@@ -21,6 +21,7 @@ class ModelProfile:
     path: Path
     motions: dict[str, list[str]]
     window_size: tuple[int, int] = DEFAULT_WINDOW_SIZE
+    expressions: dict[str, str] = field(default_factory=dict)
 
 
 def read_profile_settings(model_dir: Path) -> dict:
@@ -53,6 +54,12 @@ def parse_motions(raw: object) -> dict[str, list[str]]:
     return motions
 
 
+def parse_expressions(raw: object) -> dict[str, str]:
+    if not isinstance(raw, dict):
+        return {}
+    return {str(name): path for name, path in raw.items() if isinstance(path, str)}
+
+
 def load_model_profile(target: Path) -> ModelProfile | None:
     model_dir = target.parent if target.is_file() else target
     settings = read_profile_settings(model_dir)
@@ -70,6 +77,7 @@ def load_model_profile(target: Path) -> ModelProfile | None:
         path=model_file.resolve(),
         motions=parse_motions(settings.get("motions")),
         window_size=parse_window_size(settings.get("window")),
+        expressions=parse_expressions(settings.get("expressions")),
     )
 
 

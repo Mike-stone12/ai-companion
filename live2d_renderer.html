@@ -52,7 +52,9 @@
     const params = new URLSearchParams(window.location.search);
     const modelInput = params.get("model") || "./models/whale-girl/c_0120.model3.json";
     const vendorInput = params.get("vendor") || "./vendor/";
-    const motionConfig = parseMotionConfig(params.get("motions"));
+    const motionConfig = parseJsonParam("motions");
+    // emotion name -> exp3.json path relative to the model file, from companion.json
+    const expressionConfig = parseJsonParam("expressions") || {};
     const cubism4RemoteCandidates = [
       "https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js",
       "https://unpkg.com/pixi-live2d-display@0.4.0/dist/cubism4.min.js"
@@ -69,14 +71,15 @@
     const AMBIENT_CHANCE = 0.35;
     const gestureParamIds = new Set();
 
-    function parseMotionConfig(raw) {
+    function parseJsonParam(name) {
+      const raw = params.get(name);
       if (!raw) {
         return null;
       }
       try {
         return JSON.parse(raw);
       } catch (error) {
-        console.error("[Live2D] Invalid motions config:", raw, error);
+        console.error(`[Live2D] Invalid ${name} config:`, raw, error);
         return null;
       }
     }
@@ -344,6 +347,72 @@
         return;
       }
       showMessage("Ready");
+      scheduleEmotionReset();
+    }
+
+    // Emotions map to model expressions through companion.json. The face changes as soon as
+    // the reply's emotion is known and returns to default a few seconds after speaking ends.
+    const EMOTION_HOLD_MS = 4000;
+    let currentEmotion = null;
+    let emotionResetTimer = null;
+
+    function setEmotion(name) {
+      clearTimeout(emotionResetTimer);
+      if (!model || !name || !expressionConfig[name]) {
+        resetEmotion();
+        return false;
+      }
+      currentEmotion = name;
+      model.expression(name).then((applied) => {
+        if (!applied) {
+          console.warn(`[Live2D] Expression did not apply: ${name}`);
+        }
+      });
+      return true;
+    }
+
+    function resetEmotion() {
+      clearTimeout(emotionResetTimer);
+      currentEmotion = null;
+      getMotionManager()?.expressionManager?.resetExpression();
+    }
+
+    function scheduleEmotionReset() {
+      clearTimeout(emotionResetTimer);
+      if (currentEmotion) {
+        emotionResetTimer = setTimeout(resetEmotion, EMOTION_HOLD_MS);
+      }
+    }
+
+    function loadJson(url) {
+      // XMLHttpRequest rather than fetch: Chromium's fetch() refuses file:// URLs.
+      return new Promise((resolve, reject) => {
+        const request = new XMLHttpRequest();
+        request.open("GET", url);
+        request.onload = () => {
+          try {
+            resolve(JSON.parse(request.responseText));
+          } catch (error) {
+            reject(error);
+          }
+        };
+        request.onerror = () => reject(new Error(`Failed to load ${url}`));
+        request.send();
+      });
+    }
+
+    // Register the configured expressions on the settings in memory, so the model files (shared
+    // under their own license) stay byte-for-byte unmodified.
+    async function withExpressions(url) {
+      const entries = Object.entries(expressionConfig);
+      if (!entries.length) {
+        return url;
+      }
+      const settings = await loadJson(url);
+      settings.FileReferences = settings.FileReferences || {};
+      settings.FileReferences.Expressions = entries.map(([name, file]) => ({ Name: name, File: file }));
+      settings.url = url;
+      return settings;
     }
 
     function animateFallback(delta) {
@@ -364,7 +433,7 @@
       for (const candidate of candidates) {
         try {
           console.info(`[Live2D] Trying model: ${candidate}`);
-          const loaded = await window.PIXI.live2d.Live2DModel.from(candidate);
+          const loaded = await window.PIXI.live2d.Live2DModel.from(await withExpressions(candidate));
           console.info(`[Live2D] Loaded model: ${candidate}`);
           return { model: loaded, path: candidate };
         } catch (error) {
@@ -602,6 +671,7 @@
         bridge.playAudio.connect(playAudio);
         bridge.stopAudio.connect(stopAudio);
         bridge.setTalking.connect(setTalking);
+        bridge.setEmotion.connect(setEmotion);
         bridge.playRandomMotion.connect(playRandomMotion);
         bridge.reportReady();
       });
@@ -613,7 +683,9 @@
       getMotionGroups,
       playAudio,
       stopAudio,
-      getLipSyncState: () => ({ parameter: mouthParamId, mouthOpen })
+      getLipSyncState: () => ({ parameter: mouthParamId, mouthOpen }),
+      setEmotion,
+      resetEmotion
     };
 
     window.addEventListener("resize", fitModel);

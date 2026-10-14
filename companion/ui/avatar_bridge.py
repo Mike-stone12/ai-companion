@@ -15,6 +15,7 @@ class AvatarBridge(QObject):
     playAudio = pyqtSignal(str)
     stopAudio = pyqtSignal()
     setTalking = pyqtSignal(bool)
+    setEmotion = pyqtSignal(str)
     playRandomMotion = pyqtSignal()
 
     # renderer -> Python
