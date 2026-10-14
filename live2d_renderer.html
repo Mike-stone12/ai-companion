@@ -48,21 +48,36 @@
   <script>
     const messageEl = document.getElementById("message");
     const params = new URLSearchParams(window.location.search);
-    const modelInput = params.get("model") || "./models/hiyori_free_t08.model3.json";
+    const modelInput = params.get("model") || "./models/whale-girl/c_0120.model3.json";
     const vendorInput = params.get("vendor") || "./vendor/";
+    const motionConfig = parseMotionConfig(params.get("motions"));
     const cubism4RemoteCandidates = [
       "https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js",
       "https://unpkg.com/pixi-live2d-display@0.4.0/dist/cubism4.min.js"
     ];
 
     const MotionPriority = { IDLE: 1, NORMAL: 2, FORCE: 3 };
-    // Patterns are tried in order; the first one that matches any model group wins.
-    // Hiyori ships no Talk group, so tap gestures stand in as conversational motion.
-    const MOTION_ROLES = {
+    const CURVE_TARGET_PARAMETER = 1;
+    // Fallback when the model has no companion.json: patterns are tried in order and the
+    // first one that matches any model group wins.
+    const MOTION_ROLE_PATTERNS = {
       talk: [/^talk/i, /^tap/i],
       ambient: [/^flick/i, /^tap/i],
     };
     const AMBIENT_CHANCE = 0.35;
+    const gestureParamIds = new Set();
+
+    function parseMotionConfig(raw) {
+      if (!raw) {
+        return null;
+      }
+      try {
+        return JSON.parse(raw);
+      } catch (error) {
+        console.error("[Live2D] Invalid motions config:", raw, error);
+        return null;
+      }
+    }
 
     let app = null;
     let model = null;
@@ -232,7 +247,11 @@
 
     function groupsForRole(role) {
       const groups = getMotionGroups();
-      for (const pattern of MOTION_ROLES[role] || []) {
+      const configured = motionConfig?.[role];
+      if (Array.isArray(configured)) {
+        return configured.filter((group) => groups.includes(group));
+      }
+      for (const pattern of MOTION_ROLE_PATTERNS[role] || []) {
         const matches = groups.filter((group) => pattern.test(group));
         if (matches.length) {
           return matches;
@@ -253,6 +272,58 @@
         }
       });
       return true;
+    }
+
+    // pixi-live2d-display saves the parameter snapshot after motions write to it, so a
+    // finished gesture's last frame sticks (props like a phone or a plate stay on screen).
+    // Reset every parameter a gesture drives back to its default when motions finish.
+    function trackGestureParams(group, motion) {
+      if (group === getMotionManager()?.groups?.idle) {
+        return;
+      }
+      for (const curve of motion?._motionData?.curves || []) {
+        if (curve.type === CURVE_TARGET_PARAMETER) {
+          gestureParamIds.add(curve.id);
+        }
+      }
+    }
+
+    function resetGesturePose() {
+      const core = model?.internalModel?.coreModel;
+      if (!core || !gestureParamIds.size) {
+        return;
+      }
+      for (const id of gestureParamIds) {
+        const index = core.getParameterIndex(id);
+        if (index >= 0) {
+          core.setParameterValueByIndex(index, core.getParameterDefaultValue(index));
+        }
+      }
+      core.saveParameters();
+    }
+
+    // The library only auto-loops a group literally named "Idle"; models such as the whale
+    // girl name it "idle", so point the manager at the model's real idle group.
+    function configureIdleGroup(manager) {
+      const groups = getMotionGroups();
+      const configured = (motionConfig?.idle || []).find((group) => groups.includes(group));
+      const idle = configured || groups.find((group) => group.toLowerCase() === "idle");
+      if (idle && manager.groups) {
+        manager.groups.idle = idle;
+      }
+    }
+
+    function setupMotions() {
+      const manager = getMotionManager();
+      if (!manager) {
+        return;
+      }
+      configureIdleGroup(manager);
+      for (const [group, motions] of Object.entries(manager.motionGroups || {})) {
+        (motions || []).forEach((motion) => trackGestureParams(group, motion));
+      }
+      manager.on("motionLoaded", (group, _index, motion) => trackGestureParams(group, motion));
+      manager.on("motionFinish", resetGesturePose);
     }
 
     // The library loops the model's idle group on its own; this only adds occasional gestures.
@@ -350,6 +421,7 @@
         return;
       }
 
+      setupMotions();
       app.stage.addChild(model);
       fitModel();
       app.ticker.add(animateFallback);

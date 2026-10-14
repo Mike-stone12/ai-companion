@@ -233,8 +233,9 @@ HTML_PATH = APP_DIR / "live2d_renderer.html"
 MODELS_DIR = APP_DIR / "models"
 VENDOR_DIR = APP_DIR / "vendor"
 MEMORY_PATH = APP_DIR / "memory.json"
-MODEL_SEARCH_DIRS = (MODELS_DIR,)
-MODEL_PATTERNS = ("*.model3.json", "*.model3", "*.model.json", "*.model")
+DEFAULT_MODEL = "whale-girl"
+DEFAULT_WINDOW_SIZE = (430, 720)
+MODEL_PROFILE_FILE = "companion.json"
 LIVE2D_LOADER_CANDIDATES = (
     "pixi-live2d-display.min.js",
     "pixi-live2d-display.js",
@@ -454,23 +455,85 @@ def should_extract_memory(user_text: str) -> bool:
     return False
 
 
-def discover_model_path() -> Path | None:
-    configured = os.getenv("LIVE2D_MODEL", "").strip()
+@dataclass(slots=True)
+class ModelProfile:
+    path: Path
+    motions: dict[str, list[str]]
+    window_size: tuple[int, int] = DEFAULT_WINDOW_SIZE
+
+
+def read_profile_settings(model_dir: Path) -> dict:
+    settings_path = model_dir / MODEL_PROFILE_FILE
+    if not settings_path.exists():
+        return {}
+    try:
+        data = json.loads(settings_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"[resources] Ignoring unreadable {settings_path}: {exc}")
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def parse_window_size(raw: object) -> tuple[int, int]:
+    if isinstance(raw, dict):
+        width, height = raw.get("width"), raw.get("height")
+        if isinstance(width, int) and isinstance(height, int) and width > 0 and height > 0:
+            return (width, height)
+    return DEFAULT_WINDOW_SIZE
+
+
+def parse_motions(raw: object) -> dict[str, list[str]]:
+    if not isinstance(raw, dict):
+        return {}
+    motions: dict[str, list[str]] = {}
+    for role, groups in raw.items():
+        if isinstance(groups, list):
+            motions[str(role)] = [group for group in groups if isinstance(group, str)]
+    return motions
+
+
+def load_model_profile(target: Path) -> ModelProfile | None:
+    model_dir = target.parent if target.is_file() else target
+    settings = read_profile_settings(model_dir)
+
+    if target.is_file():
+        model_file: Path | None = target
+    elif isinstance(settings.get("model"), str):
+        model_file = model_dir / settings["model"]
+    else:
+        model_file = next(iter(sorted(model_dir.glob("*.model3.json"))), None)
+
+    if model_file is None or not model_file.is_file():
+        return None
+    return ModelProfile(
+        path=model_file.resolve(),
+        motions=parse_motions(settings.get("motions")),
+        window_size=parse_window_size(settings.get("window")),
+    )
+
+
+def discover_model_profile(configured: str = "", models_dir: Path = MODELS_DIR) -> ModelProfile | None:
     if configured:
-        explicit = Path(configured).expanduser()
-        if explicit.exists():
-            return explicit.resolve()
-        print(f"[resources] Configured LIVE2D_MODEL does not exist: {explicit}")
+        for target in (models_dir / configured, Path(configured).expanduser()):
+            if target.exists():
+                profile = load_model_profile(target)
+                if profile is not None:
+                    return profile
+        print(f"[resources] LIVE2D_MODEL not found, falling back to default: {configured}")
 
-    for root in MODEL_SEARCH_DIRS:
-        if not root.exists():
-            continue
-        for pattern in MODEL_PATTERNS:
-            matches = sorted(root.rglob(pattern))
-            if matches:
-                return matches[0].resolve()
+    if not models_dir.is_dir():
+        print(f"[resources] Models directory not found: {models_dir}")
+        return None
 
-    print(f"[resources] No model file found under: {MODEL_SEARCH_DIRS}")
+    default_dir = models_dir / DEFAULT_MODEL
+    candidates = [default_dir] + sorted(p for p in models_dir.iterdir() if p.is_dir() and p != default_dir)
+    for candidate in candidates:
+        if candidate.is_dir():
+            profile = load_model_profile(candidate)
+            if profile is not None:
+                return profile
+
+    print(f"[resources] No model found under: {models_dir}")
     return None
 
 
@@ -791,7 +854,8 @@ class CompanionWindow(QWidget):
         super().__init__()
         self.config = config
         self.client = OpenAICompatibleClient(config)
-        self.model_path = discover_model_path()
+        self.model_profile = discover_model_profile(os.getenv("LIVE2D_MODEL", "").strip())
+        self.model_path = self.model_profile.path if self.model_profile else None
         self.vendor_dir = discover_vendor_dir()
         self.memory_store = MemoryStore(MEMORY_PATH, config.memory_limit)
         self.messages: list[dict[str, str]] = [{"role": "system", "content": config.system_prompt}]
@@ -839,7 +903,7 @@ class CompanionWindow(QWidget):
         self.setWindowFlags(flags)
         self.setAttribute(ATTR_TRANSLUCENT, True)
         self.setObjectName("root")
-        self.resize(430, 720)
+        self.resize(*(self.model_profile.window_size if self.model_profile else DEFAULT_WINDOW_SIZE))
 
     def build_ui(self) -> None:
         root_layout = QVBoxLayout(self)
@@ -973,6 +1037,8 @@ class CompanionWindow(QWidget):
         query = QUrlQuery()
         query.addQueryItem("model", to_file_url(self.model_path))
         query.addQueryItem("vendor", to_file_url(self.vendor_dir, directory=True))
+        if self.model_profile and self.model_profile.motions:
+            query.addQueryItem("motions", json.dumps(self.model_profile.motions, ensure_ascii=False))
         url.setQuery(query)
         self.web_view.setUrl(url)
 
