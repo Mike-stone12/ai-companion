@@ -5,6 +5,7 @@ import asyncio
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from companion.adapters import tts_edge
+from companion.core.chat.emotion import EmotionTagParser
 from companion.core.llm.client import OpenAICompatibleClient
 from companion.core.memory.extractor import extract_memories_with_llm
 from companion.core.text import SentenceSplitter
@@ -17,6 +18,7 @@ DEMO_REPLY = (
 class ChatStreamWorker(QObject):
     """Stream a reply, emitting raw text deltas and each speakable sentence as it completes."""
 
+    emotion = pyqtSignal(str)
     delta = pyqtSignal(str)
     sentence = pyqtSignal(str)
     finished = pyqtSignal(str)
@@ -29,15 +31,28 @@ class ChatStreamWorker(QObject):
 
     @pyqtSlot()
     def run(self) -> None:
+        tags = EmotionTagParser()
         splitter = SentenceSplitter()
         parts: list[str] = []
+        emotion_sent = False
+
+        def publish(text: str) -> None:
+            nonlocal emotion_sent
+            if tags.emotion and not emotion_sent:
+                self.emotion.emit(tags.emotion)
+                emotion_sent = True
+            if not text:
+                return
+            parts.append(text)
+            self.delta.emit(text)
+            for sentence in splitter.feed(text):
+                self.sentence.emit(sentence)
+
         try:
             stream = self.client.stream_chat(self.messages) if self.client.config.api_key else iter([DEMO_REPLY])
             for text in stream:
-                parts.append(text)
-                self.delta.emit(text)
-                for sentence in splitter.feed(text):
-                    self.sentence.emit(sentence)
+                publish(tags.feed(text))
+            publish(tags.flush())
             for sentence in splitter.flush():
                 self.sentence.emit(sentence)
         except Exception as exc:  # noqa: BLE001

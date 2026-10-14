@@ -24,8 +24,7 @@ released under the MIT License.
   That project generated `c_0120.model3.json`; see its
   [PROVENANCE.md](https://github.com/Andersen216/dsh-whale-girl-live2d/blob/cfaa7cd03ca21ab6a4a5e44a7b23ff2072d3bbf6/PROVENANCE.md)
   for per-file origin and the model author's original usage terms.
-- **Changes:** the model files are redistributed unmodified. Only `companion.json` (motion roles and
-  window size) was added.
+- **Changes:** the model files are redistributed unmodified. Only `companion.json` was added (motion roles, window size, and an emotion-to-expression mapping); the renderer registers the listed expressions on the model settings in memory at load time instead of editing `c_0120.model3.json`.
 - **Usage terms from the model author:** shared free of charge; resale or misappropriation is prohibited.
 - This is fan-made artwork. The project is **not affiliated with or endorsed by DeepSeek**.
 - Because of the NonCommercial term, this model must not be used in any paid product or service.

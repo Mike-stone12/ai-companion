@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
 
 from companion.adapters import tts_edge
 from companion.app.workers import ChatStreamWorker, MemoryWorker, TTSWorker
+from companion.core.chat.emotion import EMOTION_INSTRUCTION
 from companion.core.config import AppConfig
 from companion.core.llm.client import OpenAICompatibleClient
 from companion.core.memory.gate import should_extract_memory
@@ -103,7 +104,8 @@ class CompanionWindow(QWidget):
         self.model_path = self.model_profile.path if self.model_profile else None
         self.vendor_dir = discover_vendor_dir()
         self.memory_store = MemoryStore(MEMORY_PATH, config.memory_limit)
-        self.messages: list[dict[str, str]] = [{"role": "system", "content": config.system_prompt}]
+        system_prompt = f"{config.system_prompt}\n\n{EMOTION_INSTRUCTION}"
+        self.messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
 
         print_resource_report(self.model_path, self.vendor_dir)
 
@@ -119,6 +121,7 @@ class CompanionWindow(QWidget):
         self.pending_clips: dict[str, str] = {}
         self.reply_parts: list[str] = []
         self.reply_notes: list[str] = []
+        self.reply_emotion: str | None = None
         self.stream_done = True
         self.speak_reply = False
         self.speech_started = False
@@ -290,6 +293,8 @@ class CompanionWindow(QWidget):
         query.addQueryItem("vendor", to_file_url(self.vendor_dir, directory=True))
         if self.model_profile and self.model_profile.motions:
             query.addQueryItem("motions", json.dumps(self.model_profile.motions, ensure_ascii=False))
+        if self.model_profile and self.model_profile.expressions:
+            query.addQueryItem("expressions", json.dumps(self.model_profile.expressions, ensure_ascii=False))
         url.setQuery(query)
         self.web_view.setUrl(url)
 
@@ -370,6 +375,7 @@ class CompanionWindow(QWidget):
     def reset_reply_state(self) -> None:
         self.reply_parts = []
         self.reply_notes = []
+        self.reply_emotion = None
         self.stream_done = False
         self.speak_reply = tts_edge.is_available() and self.renderer_ready
         self.speech_started = False
@@ -382,6 +388,7 @@ class CompanionWindow(QWidget):
         self.chat_worker.moveToThread(self.chat_thread)
 
         self.chat_thread.started.connect(self.chat_worker.run)
+        self.chat_worker.emotion.connect(self.on_reply_emotion)
         self.chat_worker.delta.connect(self.on_reply_delta)
         self.chat_worker.sentence.connect(self.on_reply_sentence)
         self.chat_worker.finished.connect(self.on_reply_finished)
@@ -434,6 +441,12 @@ class CompanionWindow(QWidget):
             self.reply_notes.append(note)
             self.render_reply()
 
+    def on_reply_emotion(self, emotion: str) -> None:
+        logger.debug("Reply emotion: %s", emotion)
+        self.reply_emotion = emotion
+        if self.renderer_ready:
+            self.bridge.setEmotion.emit(emotion)
+
     def on_reply_delta(self, text: str) -> None:
         if not self.reply_parts:
             self.set_status("Replying")
@@ -451,7 +464,7 @@ class CompanionWindow(QWidget):
     def on_reply_finished(self, raw_reply: str) -> None:
         reply = sanitize_reply_text(raw_reply)
         if reply:
-            self.messages.append({"role": "assistant", "content": reply})
+            self.messages.append({"role": "assistant", "content": self.history_text(reply)})
             self.start_memory_worker(self.pending_user_text, reply)
         self.render_reply()
         self.pending_user_text = ""
@@ -462,7 +475,7 @@ class CompanionWindow(QWidget):
         logger.error("Chat request failed: %s", error_text)
         partial = sanitize_reply_text("".join(self.reply_parts))
         if partial:
-            self.messages.append({"role": "assistant", "content": partial})
+            self.messages.append({"role": "assistant", "content": self.history_text(partial)})
             self.add_reply_note(f"[Interrupted] {error_text}")
         else:
             self.reply_label.setText(error_text)
@@ -470,6 +483,11 @@ class CompanionWindow(QWidget):
         self.pending_user_text = ""
         self.stream_done = True
         self.maybe_finish_reply()
+
+    # The tag stays in the history sent back to the model: without it the model copies its own
+    # untagged earlier replies and stops tagging after a turn or two (2/8 vs 8/8 in testing).
+    def history_text(self, reply: str) -> str:
+        return f"[{self.reply_emotion}] {reply}" if self.reply_emotion else reply
 
     def run_next_tts(self) -> None:
         if self.tts_thread is not None or not self.tts_queue:

@@ -1,8 +1,29 @@
 {
   "model": "c_0120.model3.json",
-  "window": { "width": 430, "height": 580 },
+  "window": {
+    "width": 430,
+    "height": 580
+  },
   "motions": {
-    "talk": ["selfie", "selfieQuick"],
-    "ambient": ["aidale", "bubble", "ketchup", "openLid", "splash"]
+    "talk": [
+      "selfie",
+      "selfieQuick"
+    ],
+    "ambient": [
+      "aidale",
+      "bubble",
+      "ketchup",
+      "openLid",
+      "splash"
+    ]
+  },
+  "expressions": {
+    "happy": "expressions/开心兴奋.exp3.json",
+    "sad": "expressions/悲伤.exp3.json",
+    "angry": "expressions/生气.exp3.json",
+    "surprised": "expressions/感叹号.exp3.json",
+    "shy": "expressions/脸红.exp3.json",
+    "confused": "expressions/问号.exp3.json",
+    "awkward": "expressions/流汗.exp3.json"
   }
 }
