@@ -9,7 +9,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import PYQT_VERSION_STR, QPoint, Qt, QThread, QTimer, QUrl, QUrlQuery
 from PyQt6.QtGui import QColor
-from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
+from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineCore import QWebEngineSettings
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import (
@@ -36,6 +36,7 @@ from companion.core.model_profile import (
 )
 from companion.core.text import sanitize_tts_text
 from companion.paths import HTML_PATH, MEMORY_PATH
+from companion.ui.avatar_bridge import AvatarBridge
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,8 @@ LIVE2D_LOADER_CANDIDATES = (
 
 
 MEMORY_QUEUE_LIMIT = 5
+# Safety net if the renderer never reports the end of playback (e.g. it crashed).
+AUDIO_WATCHDOG_MS = 120_000
 
 
 def to_file_url(path: Path | None, *, directory: bool = False) -> str:
@@ -115,15 +118,18 @@ class CompanionWindow(QWidget):
         self.audio_file_path: str | None = None
         self.audio_active = False
         self.pending_user_text = ""
-        self.page_ready = False
+        self.renderer_ready = False
         self.busy = False
 
-        self.audio_output = QAudioOutput(self)
-        self.audio_output.setVolume(0.90)
-        self.player = QMediaPlayer(self)
-        self.player.setAudioOutput(self.audio_output)
-        self.player.playbackStateChanged.connect(self.on_playback_state_changed)
-        self.player.errorOccurred.connect(self.on_audio_error)
+        self.bridge = AvatarBridge(self)
+        self.bridge.ready.connect(self.on_renderer_ready)
+        self.bridge.audioStarted.connect(self.on_audio_started)
+        self.bridge.audioFinished.connect(self.on_audio_finished)
+        self.bridge.audioFailed.connect(self.on_audio_error)
+
+        self.audio_watchdog = QTimer(self)
+        self.audio_watchdog.setSingleShot(True)
+        self.audio_watchdog.timeout.connect(self.on_audio_watchdog)
 
         self.idle_timer = QTimer(self)
         self.idle_timer.setInterval(9000)
@@ -180,6 +186,11 @@ class CompanionWindow(QWidget):
         settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
         settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
         settings.setAttribute(QWebEngineSettings.WebAttribute.WebGLEnabled, True)
+        # Replies are spoken by the renderer without a click, so allow autoplay.
+        settings.setAttribute(QWebEngineSettings.WebAttribute.PlaybackRequiresUserGesture, False)
+        self.web_channel = QWebChannel(self.web_view.page())
+        self.web_channel.registerObject("avatar", self.bridge)
+        self.web_view.page().setWebChannel(self.web_channel)
         self.web_view.loadFinished.connect(self.on_page_loaded)
         root_layout.addWidget(self.web_view, 1)
 
@@ -305,31 +316,27 @@ class CompanionWindow(QWidget):
         event.accept()
 
     def on_page_loaded(self, ok: bool) -> None:
-        self.page_ready = ok
-        if ok:
-            self.set_status("Ready")
-            self.idle_timer.start()
-            self.play_random_motion()
-            if self.model_path is None:
-                self.reply_label.setText("No .model3.json or .model3 file was found under the models folder.")
-        else:
+        if not ok:
             self.reply_label.setText(
                 "The Live2D renderer page could not be loaded. Check console output for path details."
             )
+        elif self.model_path is None:
+            self.reply_label.setText("No .model3.json or .model3 file was found under the models folder.")
 
-    def run_js(self, script: str) -> None:
-        if not self.page_ready:
-            return
-        self.web_view.page().runJavaScript(script)
+    def on_renderer_ready(self) -> None:
+        logger.info("Renderer connected over QWebChannel")
+        self.renderer_ready = True
+        self.set_status("Ready")
+        self.idle_timer.start()
+        self.play_random_motion()
 
     def set_talking(self, talking: bool) -> None:
-        state = "true" if talking else "false"
-        self.run_js(f"window.Live2DController?.setTalking?.({state});")
+        if self.renderer_ready:
+            self.bridge.setTalking.emit(talking)
 
     def play_random_motion(self) -> None:
-        if self.busy:
-            return
-        self.run_js("window.Live2DController?.playRandomMotion?.();")
+        if self.renderer_ready and not self.busy:
+            self.bridge.playRandomMotion.emit()
 
     def conversation_window(self) -> list[dict[str, str]]:
         history = self.messages[:] if len(self.messages) <= 12 else [self.messages[0], *self.messages[-11:]]
@@ -351,7 +358,6 @@ class CompanionWindow(QWidget):
         self.reply_label.setText(f"You: {user_text}")
         self.pending_user_text = user_text
         self.messages.append({"role": "user", "content": user_text})
-        self.set_talking(True)
         self.start_chat_worker(self.conversation_window())
 
     def start_chat_worker(self, payload: list[dict[str, str]]) -> None:
@@ -445,9 +451,13 @@ class CompanionWindow(QWidget):
 
     def on_tts_ready(self, audio_path: str) -> None:
         self.audio_file_path = audio_path
+        if not self.renderer_ready:
+            logger.warning("Renderer not connected, skipping audio playback")
+            self.finish_audio_playback()
+            return
         self.audio_active = True
-        self.player.setSource(QUrl.fromLocalFile(audio_path))
-        self.player.play()
+        self.audio_watchdog.start(AUDIO_WATCHDOG_MS)
+        self.bridge.playAudio.emit(QUrl.fromLocalFile(audio_path).toString())
 
     def on_tts_error(self, error_text: str) -> None:
         logger.warning("TTS failed: %s", error_text)
@@ -468,19 +478,29 @@ class CompanionWindow(QWidget):
     def on_memory_error(self, error_text: str) -> None:
         logger.error("Memory worker error: %s", error_text)
 
-    def on_audio_error(self, *args) -> None:
-        error_text = str(args[1]) if len(args) >= 2 else ""
+    def on_audio_started(self, duration: float) -> None:
+        logger.debug("Audio started, duration=%.1fs", duration)
 
-        if error_text:
-            logger.warning("Audio playback failed: %s", error_text)
-            self.reply_label.setText(f"{self.reply_label.text()}\n\n[Audio] {error_text}")
-        self.finish_audio_playback()
-
-    def on_playback_state_changed(self, state) -> None:
-        if self.audio_active and state == QMediaPlayer.PlaybackState.StoppedState:
+    def on_audio_finished(self) -> None:
+        if self.audio_active:
             self.finish_audio_playback()
 
+    def on_audio_error(self, error_text: str) -> None:
+        logger.warning("Audio playback failed: %s", error_text)
+        if not self.audio_active:
+            return
+        self.reply_label.setText(f"{self.reply_label.text()}\n\n[Audio] {error_text}")
+        self.finish_audio_playback()
+
+    def on_audio_watchdog(self) -> None:
+        if not self.audio_active:
+            return
+        logger.warning("No playback-finished report from the renderer after %d s, resetting", AUDIO_WATCHDOG_MS // 1000)
+        self.bridge.stopAudio.emit()
+        self.finish_audio_playback()
+
     def finish_audio_playback(self) -> None:
+        self.audio_watchdog.stop()
         self.audio_active = False
         self.pending_user_text = ""
         self.set_status("Idle")
@@ -501,7 +521,8 @@ class CompanionWindow(QWidget):
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
         self.idle_timer.stop()
-        self.player.stop()
+        self.audio_watchdog.stop()
+        self.bridge.stopAudio.emit()
         if self.audio_file_path:
             try:
                 Path(self.audio_file_path).unlink(missing_ok=True)

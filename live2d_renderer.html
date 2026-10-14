@@ -45,6 +45,8 @@
   <div id="stage"></div>
   <div id="message">Loading Live2D...</div>
 
+  <!-- Provided by Qt WebEngine; absent (and harmless) when the page is opened in a normal browser. -->
+  <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
   <script>
     const messageEl = document.getElementById("message");
     const params = new URLSearchParams(window.location.search);
@@ -430,13 +432,90 @@
       showMessage("Ready");
     }
 
+    // Speech plays here rather than in Python so the talking state (and lip sync) follow the
+    // actual audio instead of being guessed from the request.
+    const voice = new Audio();
+    let bridge = null;
+    let awaitingStart = false;
+    // One playAudio() call ends with exactly one report: finished or error (a missing file fires
+    // both an "error" event and a play() rejection).
+    let playbackOpen = false;
+
+    function playAudio(url) {
+      awaitingStart = true;
+      playbackOpen = true;
+      voice.src = url;
+      voice.play().catch((error) => reportAudioError(`play() rejected: ${error}`));
+    }
+
+    function stopAudio() {
+      awaitingStart = false;
+      playbackOpen = false;
+      voice.pause();
+      voice.currentTime = 0;
+      setTalking(false);
+    }
+
+    function closePlayback() {
+      if (!playbackOpen) {
+        return false;
+      }
+      playbackOpen = false;
+      awaitingStart = false;
+      setTalking(false);
+      return true;
+    }
+
+    function reportAudioError(message) {
+      if (closePlayback()) {
+        console.error("[Audio]", message);
+        bridge?.reportAudioError(message);
+      }
+    }
+
+    voice.addEventListener("playing", () => {
+      if (!awaitingStart) {
+        return;
+      }
+      awaitingStart = false;
+      setTalking(true);
+      bridge?.reportAudioStarted(Number.isFinite(voice.duration) ? voice.duration : 0);
+    });
+    voice.addEventListener("ended", () => {
+      if (closePlayback()) {
+        bridge?.reportAudioFinished();
+      }
+    });
+    voice.addEventListener("error", () => {
+      const error = voice.error;
+      reportAudioError(error ? `code ${error.code}: ${error.message}` : "unknown audio error");
+    });
+
+    function connectBridge() {
+      if (typeof QWebChannel === "undefined" || !window.qt?.webChannelTransport) {
+        console.info("[Bridge] Not running inside Qt; bridge disabled.");
+        return;
+      }
+      new QWebChannel(window.qt.webChannelTransport, (channel) => {
+        bridge = channel.objects.avatar;
+        bridge.playAudio.connect(playAudio);
+        bridge.stopAudio.connect(stopAudio);
+        bridge.setTalking.connect(setTalking);
+        bridge.playRandomMotion.connect(playRandomMotion);
+        bridge.reportReady();
+      });
+    }
+
     window.Live2DController = {
       setTalking,
       playRandomMotion,
-      getMotionGroups
+      getMotionGroups,
+      playAudio,
+      stopAudio
     };
 
     window.addEventListener("resize", fitModel);
+    connectBridge();
     init().catch((error) => {
       console.error("[Live2D] Unhandled renderer error.", error);
       showMessage("Renderer startup failed. Check the console for details.");
