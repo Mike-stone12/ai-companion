@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 
-from companion.core.llm.client import THINKING_DISABLED, OpenAICompatibleClient, supports_thinking_toggle
+from companion.core.llm.client import (
+    THINKING_DISABLED,
+    OpenAICompatibleClient,
+    supports_thinking_toggle,
+)
 from companion.core.memory.gate import heuristic_memory_candidates
 from companion.core.memory.store import clip_memory_text
+
+logger = logging.getLogger(__name__)
 
 
 # Extraction runs in the background, so it can wait out per-minute rate limits.
@@ -84,11 +91,12 @@ def extract_memories_with_llm(client: OpenAICompatibleClient, user_text: str, as
             retry_delays=MEMORY_RETRY_DELAYS,
         )
     except RuntimeError as exc:
-        print(f"[memory] LLM extraction failed, falling back to heuristics: {exc}")
+        logger.warning("LLM extraction failed, falling back to heuristics: %s", exc)
         return heuristic_memory_candidates(user_text)
 
     memories = parse_memory_reply(content)
     if memories is None:
-        print(f"[memory] Could not parse extraction reply, falling back to heuristics: {content}")
+        logger.warning("Could not parse extraction reply, falling back to heuristics")
+        logger.debug("Unparseable extraction reply: %s", content)
         return heuristic_memory_candidates(user_text)
     return memories
