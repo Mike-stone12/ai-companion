@@ -20,10 +20,11 @@ A Windows application combining an animated Live2D character, LLM chat, bilingua
 
 The memory pipeline uses a lightweight extraction gate, structured LLM extraction, and a heuristic fallback:
 
-1. **Detect useful input.** Chinese-language patterns identify personal facts, preferences, status updates, and upcoming events.
-2. **Extract candidates.** Messages that pass the gate are sent to an LLM for structured extraction. Heuristic candidates provide a fallback when extraction fails or returns no usable memories.
-3. **Normalize and store.** Summaries are shortened, deduplicated by exact summary text, timestamped, and stored in `memory.json`.
-4. **Recall into context.** Up to eight recent memories are added to the next chat request alongside a bounded conversation history.
+1. **Detect useful input.** Chinese-language patterns identify personal facts, preferences, plans, and upcoming events. Common chit-chat openers are deliberately not triggers, because every extraction costs an API request.
+2. **Extract candidates.** Messages that pass the gate are sent to an LLM in JSON mode. Where the provider supports it (Moonshot, DeepSeek), reasoning is turned off for this call, which makes extraction several times faster. If the LLM finds nothing worth remembering, nothing is stored. High-precision heuristics (name, identity, likes, location) are used only when the request itself fails.
+3. **Queue in the background.** Extraction runs off the UI thread. Jobs queue (up to five) instead of being dropped while one is running, and rate-limited requests are retried after 10 s and 25 s.
+4. **Normalize and store.** Summaries are shortened, deduplicated by exact summary text, timestamped, and stored in `memory.json`.
+5. **Recall into context.** Up to eight recent memories are added to the next chat request alongside a bounded conversation history.
 
 The store retains 24 entries by default, configurable through `MEMORY_LIMIT`. This implementation uses external, text-based memory; it does not update model weights.
 
