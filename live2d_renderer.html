@@ -435,12 +435,13 @@
 
     // Speech plays here rather than in Python so the talking state (and lip sync) follow the
     // actual audio instead of being guessed from the request.
+    // Clips arrive one sentence at a time and play back to back. Each clip ends with exactly one
+    // report, finished or error (a missing file fires both an "error" event and a play() rejection).
     const voice = new Audio();
+    const clipQueue = [];
     let bridge = null;
+    let currentClip = null;
     let awaitingStart = false;
-    // One playAudio() call ends with exactly one report: finished or error (a missing file fires
-    // both an "error" event and a play() rejection).
-    let playbackOpen = false;
 
     // Lip sync: an analyser reads the speech volume every frame and drives the mouth parameter.
     // gate drops breath/noise, gain maps speech RMS (~0.05-0.25) onto 0-1, and the mouth opens
@@ -521,36 +522,50 @@
     }
 
     function playAudio(url) {
+      clipQueue.push(url);
+      if (!currentClip) {
+        playNextClip();
+      }
+    }
+
+    function playNextClip() {
+      currentClip = clipQueue.shift() || null;
+      if (!currentClip) {
+        setTalking(false);
+        return;
+      }
+      const clip = currentClip;
       awaitingStart = true;
-      playbackOpen = true;
       ensureAnalyser();
       audioContext?.resume();
-      voice.src = url;
-      voice.play().catch((error) => reportAudioError(`play() rejected: ${error}`));
+      voice.src = clip;
+      voice.play().catch((error) => reportAudioError(clip, `play() rejected: ${error}`));
     }
 
     function stopAudio() {
+      clipQueue.length = 0;
+      currentClip = null;
       awaitingStart = false;
-      playbackOpen = false;
       voice.pause();
       voice.currentTime = 0;
       setTalking(false);
     }
 
-    function closePlayback() {
-      if (!playbackOpen) {
+    // Returns true only for the first end-of-clip event of the clip that is playing.
+    function closeClip(clip) {
+      if (!clip || clip !== currentClip) {
         return false;
       }
-      playbackOpen = false;
+      currentClip = null;
       awaitingStart = false;
-      setTalking(false);
       return true;
     }
 
-    function reportAudioError(message) {
-      if (closePlayback()) {
+    function reportAudioError(clip, message) {
+      if (closeClip(clip)) {
         console.error("[Audio]", message);
-        bridge?.reportAudioError(message);
+        bridge?.reportAudioError(clip, message);
+        playNextClip();
       }
     }
 
@@ -559,17 +574,22 @@
         return;
       }
       awaitingStart = false;
-      setTalking(true);
-      bridge?.reportAudioStarted(Number.isFinite(voice.duration) ? voice.duration : 0);
+      // One talk gesture per reply: keep talking across sentence boundaries.
+      if (!talking) {
+        setTalking(true);
+      }
+      bridge?.reportAudioStarted(currentClip, Number.isFinite(voice.duration) ? voice.duration : 0);
     });
     voice.addEventListener("ended", () => {
-      if (closePlayback()) {
-        bridge?.reportAudioFinished();
+      const clip = currentClip;
+      if (closeClip(clip)) {
+        bridge?.reportAudioFinished(clip);
+        playNextClip();
       }
     });
     voice.addEventListener("error", () => {
       const error = voice.error;
-      reportAudioError(error ? `code ${error.code}: ${error.message}` : "unknown audio error");
+      reportAudioError(currentClip, error ? `code ${error.code}: ${error.message}` : "unknown audio error");
     });
 
     function connectBridge() {

@@ -24,7 +24,7 @@ from PyQt6.QtWidgets import (
 )
 
 from companion.adapters import tts_edge
-from companion.app.workers import ChatWorker, MemoryWorker, TTSWorker
+from companion.app.workers import ChatStreamWorker, MemoryWorker, TTSWorker
 from companion.core.config import AppConfig
 from companion.core.llm.client import OpenAICompatibleClient
 from companion.core.memory.gate import should_extract_memory
@@ -34,7 +34,7 @@ from companion.core.model_profile import (
     discover_model_profile,
     discover_vendor_dir,
 )
-from companion.core.text import sanitize_tts_text
+from companion.core.text import sanitize_reply_text, sanitize_tts_text
 from companion.paths import HTML_PATH, MEMORY_PATH
 from companion.ui.avatar_bridge import AvatarBridge
 
@@ -51,7 +51,7 @@ LIVE2D_LOADER_CANDIDATES = (
 
 
 MEMORY_QUEUE_LIMIT = 5
-# Safety net if the renderer never reports the end of playback (e.g. it crashed).
+# Safety net if playback stops making progress (e.g. the renderer crashed).
 AUDIO_WATCHDOG_MS = 120_000
 
 
@@ -109,14 +109,20 @@ class CompanionWindow(QWidget):
 
         self.drag_offset: QPoint | None = None
         self.chat_thread: QThread | None = None
-        self.chat_worker: ChatWorker | None = None
+        self.chat_worker: ChatStreamWorker | None = None
         self.tts_thread: QThread | None = None
         self.tts_worker: TTSWorker | None = None
         self.memory_thread: QThread | None = None
         self.memory_worker: MemoryWorker | None = None
         self.memory_jobs: deque[tuple[str, str]] = deque(maxlen=MEMORY_QUEUE_LIMIT)
-        self.audio_file_path: str | None = None
-        self.audio_active = False
+        self.tts_queue: deque[str] = deque()
+        self.pending_clips: dict[str, str] = {}
+        self.reply_parts: list[str] = []
+        self.reply_notes: list[str] = []
+        self.stream_done = True
+        self.speak_reply = False
+        self.speech_started = False
+        self.finish_status = "Idle"
         self.pending_user_text = ""
         self.renderer_ready = False
         self.busy = False
@@ -358,16 +364,28 @@ class CompanionWindow(QWidget):
         self.reply_label.setText(f"You: {user_text}")
         self.pending_user_text = user_text
         self.messages.append({"role": "user", "content": user_text})
+        self.reset_reply_state()
         self.start_chat_worker(self.conversation_window())
+
+    def reset_reply_state(self) -> None:
+        self.reply_parts = []
+        self.reply_notes = []
+        self.stream_done = False
+        self.speak_reply = tts_edge.is_available() and self.renderer_ready
+        self.speech_started = False
+        self.finish_status = "Idle"
+        self.tts_queue.clear()
 
     def start_chat_worker(self, payload: list[dict[str, str]]) -> None:
         self.chat_thread = QThread(self)
-        self.chat_worker = ChatWorker(self.client, payload)
+        self.chat_worker = ChatStreamWorker(self.client, payload)
         self.chat_worker.moveToThread(self.chat_thread)
 
         self.chat_thread.started.connect(self.chat_worker.run)
-        self.chat_worker.finished.connect(self.on_chat_reply)
-        self.chat_worker.error.connect(self.on_chat_error)
+        self.chat_worker.delta.connect(self.on_reply_delta)
+        self.chat_worker.sentence.connect(self.on_reply_sentence)
+        self.chat_worker.finished.connect(self.on_reply_finished)
+        self.chat_worker.error.connect(self.on_reply_error)
         self.chat_worker.finished.connect(self.chat_worker.deleteLater)
         self.chat_worker.error.connect(self.chat_worker.deleteLater)
         self.chat_worker.finished.connect(self.chat_thread.quit)
@@ -406,23 +424,62 @@ class CompanionWindow(QWidget):
         self.memory_thread.finished.connect(self.memory_thread.deleteLater)
         self.memory_thread.start()
 
-    def start_tts_worker(self, text: str) -> None:
-        if not tts_edge.is_available():
-            self.finish_interaction()
-            self.set_status("Ready")
-            return
+    def render_reply(self) -> None:
+        reply = sanitize_reply_text("".join(self.reply_parts))
+        notes = "".join(f"\n\n{note}" for note in self.reply_notes)
+        self.reply_label.setText(f"Companion: {reply}{notes}")
 
-        tts_text = sanitize_tts_text(text)
-        if not tts_text:
-            self.finish_interaction()
-            self.set_status("Ready")
-            return
+    def add_reply_note(self, note: str) -> None:
+        if note not in self.reply_notes:
+            self.reply_notes.append(note)
+            self.render_reply()
 
-        voice = tts_edge.choose_tts_voice(self.config, tts_text)
-        logger.debug("TTS voice=%s text=%s", voice, tts_text)
+    def on_reply_delta(self, text: str) -> None:
+        if not self.reply_parts:
+            self.set_status("Replying")
+        self.reply_parts.append(text)
+        self.render_reply()
+
+    def on_reply_sentence(self, sentence: str) -> None:
+        if not self.speak_reply:
+            return
+        spoken = sanitize_tts_text(sentence)
+        if spoken:
+            self.tts_queue.append(spoken)
+            self.run_next_tts()
+
+    def on_reply_finished(self, raw_reply: str) -> None:
+        reply = sanitize_reply_text(raw_reply)
+        if reply:
+            self.messages.append({"role": "assistant", "content": reply})
+            self.start_memory_worker(self.pending_user_text, reply)
+        self.render_reply()
+        self.pending_user_text = ""
+        self.stream_done = True
+        self.maybe_finish_reply()
+
+    def on_reply_error(self, error_text: str) -> None:
+        logger.error("Chat request failed: %s", error_text)
+        partial = sanitize_reply_text("".join(self.reply_parts))
+        if partial:
+            self.messages.append({"role": "assistant", "content": partial})
+            self.add_reply_note(f"[Interrupted] {error_text}")
+        else:
+            self.reply_label.setText(error_text)
+            self.finish_status = "Error"
+        self.pending_user_text = ""
+        self.stream_done = True
+        self.maybe_finish_reply()
+
+    def run_next_tts(self) -> None:
+        if self.tts_thread is not None or not self.tts_queue:
+            return
+        text = self.tts_queue.popleft()
+        voice = tts_edge.choose_tts_voice(self.config, text)
+        logger.debug("TTS voice=%s text=%s", voice, text)
 
         self.tts_thread = QThread(self)
-        self.tts_worker = TTSWorker(tts_text, voice)
+        self.tts_worker = TTSWorker(text, voice)
         self.tts_worker.moveToThread(self.tts_thread)
 
         self.tts_thread.started.connect(self.tts_worker.run)
@@ -432,38 +489,28 @@ class CompanionWindow(QWidget):
         self.tts_worker.error.connect(self.tts_worker.deleteLater)
         self.tts_worker.finished.connect(self.tts_thread.quit)
         self.tts_worker.error.connect(self.tts_thread.quit)
+        self.tts_thread.finished.connect(self.on_tts_thread_finished)
         self.tts_thread.finished.connect(self.tts_thread.deleteLater)
         self.tts_thread.start()
 
-    def on_chat_reply(self, reply: str) -> None:
-        self.messages.append({"role": "assistant", "content": reply})
-        self.reply_label.setText(f"Companion: {reply}")
-        self.start_memory_worker(self.pending_user_text, reply)
-        self.pending_user_text = ""
-        self.set_status("Speaking")
-        self.start_tts_worker(reply)
-
-    def on_chat_error(self, error_text: str) -> None:
-        logger.error("Chat request failed: %s", error_text)
-        self.reply_label.setText(error_text)
-        self.set_status("Error")
-        self.finish_interaction()
+    def on_tts_thread_finished(self) -> None:
+        self.tts_thread = None
+        self.tts_worker = None
+        self.run_next_tts()
+        self.maybe_finish_reply()
 
     def on_tts_ready(self, audio_path: str) -> None:
-        self.audio_file_path = audio_path
-        if not self.renderer_ready:
-            logger.warning("Renderer not connected, skipping audio playback")
-            self.finish_audio_playback()
+        if not self.speak_reply:
+            delete_file(audio_path)
             return
-        self.audio_active = True
+        url = QUrl.fromLocalFile(audio_path).toString()
+        self.pending_clips[url] = audio_path
         self.audio_watchdog.start(AUDIO_WATCHDOG_MS)
-        self.bridge.playAudio.emit(QUrl.fromLocalFile(audio_path).toString())
+        self.bridge.playAudio.emit(url)
 
     def on_tts_error(self, error_text: str) -> None:
         logger.warning("TTS failed: %s", error_text)
-        self.reply_label.setText(f"{self.reply_label.text()}\n\n[TTS] {error_text}")
-        self.set_status("Ready")
-        self.finish_interaction()
+        self.add_reply_note(f"[TTS] {error_text}")
 
     def on_memory_thread_finished(self) -> None:
         self.memory_thread = None
@@ -478,39 +525,55 @@ class CompanionWindow(QWidget):
     def on_memory_error(self, error_text: str) -> None:
         logger.error("Memory worker error: %s", error_text)
 
-    def on_audio_started(self, duration: float) -> None:
+    def on_audio_started(self, url: str, duration: float) -> None:
         logger.debug("Audio started, duration=%.1fs", duration)
+        if not self.speech_started:
+            self.speech_started = True
+            self.set_status("Speaking")
+        self.audio_watchdog.start(AUDIO_WATCHDOG_MS)
 
-    def on_audio_finished(self) -> None:
-        if self.audio_active:
-            self.finish_audio_playback()
+    def on_audio_finished(self, url: str) -> None:
+        self.release_clip(url)
 
-    def on_audio_error(self, error_text: str) -> None:
+    def on_audio_error(self, url: str, error_text: str) -> None:
         logger.warning("Audio playback failed: %s", error_text)
-        if not self.audio_active:
-            return
-        self.reply_label.setText(f"{self.reply_label.text()}\n\n[Audio] {error_text}")
-        self.finish_audio_playback()
+        if url in self.pending_clips:
+            self.add_reply_note(f"[Audio] {error_text}")
+        self.release_clip(url)
+
+    def release_clip(self, url: str) -> None:
+        path = self.pending_clips.pop(url, None)
+        if path:
+            delete_file(path)
+        if self.pending_clips:
+            self.audio_watchdog.start(AUDIO_WATCHDOG_MS)
+        else:
+            self.audio_watchdog.stop()
+        self.maybe_finish_reply()
 
     def on_audio_watchdog(self) -> None:
-        if not self.audio_active:
+        if not self.pending_clips:
             return
-        logger.warning("No playback-finished report from the renderer after %d s, resetting", AUDIO_WATCHDOG_MS // 1000)
+        logger.warning("Playback made no progress for %d s, dropping the rest of this reply", AUDIO_WATCHDOG_MS // 1000)
         self.bridge.stopAudio.emit()
-        self.finish_audio_playback()
+        self.speak_reply = False
+        self.tts_queue.clear()
+        self.discard_pending_clips()
+        self.maybe_finish_reply()
 
-    def finish_audio_playback(self) -> None:
+    def discard_pending_clips(self) -> None:
+        for path in self.pending_clips.values():
+            delete_file(path)
+        self.pending_clips.clear()
+
+    def maybe_finish_reply(self) -> None:
+        if not self.busy or not self.stream_done:
+            return
+        if self.tts_queue or self.tts_thread is not None or self.pending_clips:
+            return
         self.audio_watchdog.stop()
-        self.audio_active = False
-        self.pending_user_text = ""
-        self.set_status("Idle")
+        self.set_status(self.finish_status)
         self.finish_interaction()
-        if self.audio_file_path:
-            try:
-                Path(self.audio_file_path).unlink(missing_ok=True)
-            except OSError:
-                pass
-            self.audio_file_path = None
 
     def finish_interaction(self) -> None:
         self.busy = False
@@ -523,12 +586,17 @@ class CompanionWindow(QWidget):
         self.idle_timer.stop()
         self.audio_watchdog.stop()
         self.bridge.stopAudio.emit()
-        if self.audio_file_path:
-            try:
-                Path(self.audio_file_path).unlink(missing_ok=True)
-            except OSError:
-                pass
+        self.speak_reply = False
+        self.tts_queue.clear()
+        self.discard_pending_clips()
         super().closeEvent(event)
+
+
+def delete_file(path: str) -> None:
+    try:
+        Path(path).unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 def main() -> int:

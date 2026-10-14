@@ -44,3 +44,69 @@ def sanitize_tts_text(text: str) -> str:
     cleaned = re.sub(r"[*_~#>\-\[\]\(\)]", " ", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned)
     return cleaned.strip()
+
+
+SENTENCE_TERMINATORS = "。！？!?；;…\n"
+CLOSING_MARKS = "”’」』）)】\"'"
+SOFT_BREAKS = "，,、：:"
+
+
+class SentenceSplitter:
+    """Cut streamed text into speakable sentences as soon as each one is complete.
+
+    Fragments shorter than ``min_chars`` (like "嗯。") are merged into the next sentence, and a
+    clause that runs past ``soft_limit`` characters without a terminator is cut at its last
+    comma so speech can start before the model finishes a long sentence. Until the first piece
+    is out, the lower ``first_soft_limit`` applies: that piece gates when the companion starts
+    speaking, so it is cut at the first comma after a few words.
+    """
+
+    def __init__(self, min_chars: int = 4, soft_limit: int = 40, first_soft_limit: int = 10) -> None:
+        self.min_chars = min_chars
+        self.soft_limit = soft_limit
+        self.first_soft_limit = first_soft_limit
+        self.buffer = ""
+        self.emitted_any = False
+
+    def feed(self, text: str) -> list[str]:
+        self.buffer += text
+        sentences: list[str] = []
+        scan_from = 0
+        while (end := self._find_end(scan_from)) is not None:
+            candidate = self.buffer[:end].strip()
+            if len(candidate) < self.min_chars:
+                scan_from = end
+                continue
+            sentences.append(candidate)
+            self.buffer = self.buffer[end:]
+            scan_from = 0
+
+        soft_limit = self.soft_limit if (self.emitted_any or sentences) else self.first_soft_limit
+        tail = self.buffer.rstrip()
+        ends_in_terminator = bool(tail) and (tail[-1] in SENTENCE_TERMINATORS or tail[-1] in CLOSING_MARKS)
+        if len(tail.lstrip()) >= soft_limit and not ends_in_terminator:
+            cut = max(self.buffer.rfind(mark) for mark in SOFT_BREAKS) + 1
+            if len(self.buffer[:cut].strip()) >= self.min_chars:
+                sentences.append(self.buffer[:cut].strip())
+                self.buffer = self.buffer[cut:]
+        self.emitted_any = self.emitted_any or bool(sentences)
+        return sentences
+
+    def flush(self) -> list[str]:
+        tail = self.buffer.strip()
+        self.buffer = ""
+        return [tail] if tail else []
+
+    def _find_end(self, start: int) -> int | None:
+        text = self.buffer
+        for index in range(start, len(text)):
+            char = text[index]
+            is_period = char == "." and index + 1 < len(text) and text[index + 1].isspace()
+            if char not in SENTENCE_TERMINATORS and not is_period:
+                continue
+            end = index + 1
+            while end < len(text) and (text[end] in SENTENCE_TERMINATORS or text[end] in CLOSING_MARKS):
+                end += 1
+            # A terminator at the very end may still be followed by more marks or a closing quote.
+            return end if end < len(text) else None
+        return None
