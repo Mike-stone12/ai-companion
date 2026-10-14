@@ -1,5 +1,31 @@
-﻿.env
-__pycache__/
-venv/
-
+# Secrets and personal data
+.env
 memory.json
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Build output
+build/
+dist/
+
+# Logs
+*.log
+logs/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Private notes (not for the public repo)
+*.docx
+优化计划.md
+
+# Local tooling
+.claude/

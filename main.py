@@ -230,11 +230,10 @@ except ImportError:
 
 
 HTML_PATH = APP_DIR / "live2d_renderer.html"
-EXTRACTED_MODEL_DIR = APP_DIR / "1"
 MODELS_DIR = APP_DIR / "models"
 VENDOR_DIR = APP_DIR / "vendor"
 MEMORY_PATH = APP_DIR / "memory.json"
-MODEL_SEARCH_DIRS = (EXTRACTED_MODEL_DIR, MODELS_DIR)
+MODEL_SEARCH_DIRS = (MODELS_DIR,)
 MODEL_PATTERNS = ("*.model3.json", "*.model3", "*.model.json", "*.model")
 LIVE2D_LOADER_CANDIDATES = (
     "pixi-live2d-display.min.js",
