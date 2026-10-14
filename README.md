@@ -45,14 +45,16 @@ flowchart LR
     UI --> Chat["ChatWorker"]
     Chat --> API["Configured LLM endpoint"]
     Chat --> TTS["TTSWorker / Edge-TTS"]
-    TTS --> Audio["Qt audio playback"]
+    TTS --> Bridge["AvatarBridge / QWebChannel"]
+    Bridge --> Audio["Renderer audio + talk motion"]
+    Audio -- "started / finished" --> Bridge
     Chat --> Memory["MemoryWorker"]
     Memory --> Store["MemoryStore / local JSON"]
     Store --> Context["Recent memory context"]
     Context --> Chat
 ```
 
-The Python application owns conversation state and worker lifecycles. Everything that does not need Qt (configuration, the LLM client, memory, model profiles) lives in `companion/core` and is tested without a GUI. The embedded HTML renderer handles the avatar, while Qt signals return worker results to the interface.
+The Python application owns conversation state and worker lifecycles. Everything that does not need Qt (configuration, the LLM client, memory, model profiles) lives in `companion/core` and is tested without a GUI. The embedded HTML renderer handles the avatar and plays the synthesized speech. Python and the renderer talk over a QWebChannel object (`companion/ui/avatar_bridge.py`): Python sends play / stop / talking / motion commands, and the renderer reports when it is ready and when audio starts, finishes, or fails. The talk gesture therefore starts with the audio rather than when the request is sent, and a two-minute watchdog resets the window if the renderer never reports back. Qt signals return worker results to the interface.
 
 ## Quick start
 
