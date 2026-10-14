@@ -88,7 +88,7 @@ Recall depends on extraction and the configured model; this is a manual walkthro
 | --- | --- | --- |
 | `OPENAI_API_KEY` | Provider API key | Required for chat |
 | `OPENAI_BASE_URL` | Chat API base URL | `https://api.moonshot.ai/v1` |
-| `OPENAI_MODEL` | Model identifier | `kimi-k2.5` |
+| `OPENAI_MODEL` | Model identifier | `kimi-k2.6` |
 | `OPENAI_TIMEOUT` | Request timeout in seconds | `60` |
 | `OPENAI_RETRIES` | Request retry setting | `2` |
 | `EDGE_TTS_VOICE_ZH` | Chinese voice | `zh-CN-XiaoxiaoNeural` |
@@ -98,6 +98,8 @@ Recall depends on extraction and the configured model; this is a manual walkthro
 | `COMPANION_SYSTEM_PROMPT` | Companion's system instruction | Built-in companion prompt |
 | `LIVE2D_MODEL` | Optional explicit model file path | Auto-discovered |
 | `LIVE2D_VENDOR_DIR` | Optional renderer dependency directory | `vendor/` |
+
+Variables already set in the shell take precedence over values in `.env`.
 
 `MEMORY_ENABLED=0` stops new extraction. Existing memories are still loaded into chat context by the current implementation.
 

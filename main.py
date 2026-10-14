@@ -29,7 +29,7 @@ def load_local_env(env_path: Path) -> None:
         key, value = line.split("=", 1)
         key = key.strip()
         value = value.strip().strip('"').strip("'")
-        os.environ[key] = value
+        os.environ.setdefault(key, value)
 
 
 load_local_env(ENV_PATH)
@@ -248,7 +248,7 @@ LIVE2D_LOADER_CANDIDATES = (
 class AppConfig:
     base_url: str = os.getenv("OPENAI_BASE_URL") or os.getenv("MOONSHOT_BASE_URL", "https://api.moonshot.ai/v1")
     api_key: str = os.getenv("OPENAI_API_KEY") or os.getenv("MOONSHOT_API_KEY", "")
-    model: str = os.getenv("OPENAI_MODEL") or os.getenv("MOONSHOT_MODEL", "kimi-k2.5")
+    model: str = os.getenv("OPENAI_MODEL") or os.getenv("MOONSHOT_MODEL", "kimi-k2.6")
     voice: str = os.getenv("EDGE_TTS_VOICE", "zh-CN-XiaoxiaoNeural")
     voice_zh: str = os.getenv("EDGE_TTS_VOICE_ZH", os.getenv("EDGE_TTS_VOICE", "zh-CN-XiaoxiaoNeural"))
     voice_en: str = os.getenv("EDGE_TTS_VOICE_EN", "en-US-AriaNeural")
