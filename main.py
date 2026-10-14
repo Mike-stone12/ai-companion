@@ -246,6 +246,13 @@ LIVE2D_LOADER_CANDIDATES = (
 )
 
 
+def env_flag(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
 @dataclass(slots=True)
 class AppConfig:
     base_url: str = os.getenv("OPENAI_BASE_URL") or os.getenv("MOONSHOT_BASE_URL", "https://api.moonshot.ai/v1")
@@ -262,6 +269,7 @@ class AppConfig:
     request_retries: int = int(os.getenv("OPENAI_RETRIES", "2"))
     memory_enabled: bool = os.getenv("MEMORY_ENABLED", "1").strip() not in {"0", "false", "False"}
     memory_limit: int = int(os.getenv("MEMORY_LIMIT", "24"))
+    chat_thinking: bool = env_flag("CHAT_THINKING", default=False)
 
 
 EMOJI_RE = re.compile(
@@ -604,7 +612,7 @@ class OpenAICompatibleClient:
                 "Demo mode is active. Set OPENAI_API_KEY, OPENAI_BASE_URL, and OPENAI_MODEL "
                 "to enable live responses."
             )
-        return sanitize_reply_text(self.complete(messages, temperature=1))
+        return sanitize_reply_text(self.complete(messages, extra=chat_request_options(self.config)))
 
     def complete(
         self,
@@ -706,15 +714,30 @@ MEMORY_EXTRACTION_PROMPT = (
 
 MEMORY_EXTRACTION_TEMPERATURE = 0.2
 THINKING_TOGGLE_PROVIDERS = ("moonshot", "deepseek")
+THINKING_DISABLED = {"thinking": {"type": "disabled"}}
+
+
+def supports_thinking_toggle(base_url: str) -> bool:
+    # Providers without the toggle reject the unknown "thinking" field.
+    return any(provider in base_url for provider in THINKING_TOGGLE_PROVIDERS)
+
+
+def chat_request_options(config: AppConfig) -> dict:
+    # Reasoning roughly doubles reply latency and makes replies too long to speak; a companion
+    # rarely needs it. Temperature is left to the provider: Moonshot only accepts 1 with
+    # thinking on and 0.6 with it off.
+    if not config.chat_thinking and supports_thinking_toggle(config.base_url):
+        return dict(THINKING_DISABLED)
+    return {}
 
 
 def extraction_request_options(base_url: str) -> dict:
     options: dict = {"response_format": {"type": "json_object"}}
     # Disabling reasoning makes extraction several times faster and cheaper (Kimi ~5s -> ~1s,
-    # DeepSeek ~1.5s -> ~0.8s). Providers without the toggle reject the unknown field.
-    if any(provider in base_url for provider in THINKING_TOGGLE_PROVIDERS):
-        options["thinking"] = {"type": "disabled"}
-    # Moonshot's reasoning models reject any temperature other than 1.
+    # DeepSeek ~1.5s -> ~0.8s).
+    if supports_thinking_toggle(base_url):
+        options.update(THINKING_DISABLED)
+    # Moonshot fixes the temperature per mode (0.6 with thinking off), so only set it elsewhere.
     if "moonshot" not in base_url:
         options["temperature"] = MEMORY_EXTRACTION_TEMPERATURE
     return options

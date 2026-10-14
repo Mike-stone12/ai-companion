@@ -92,6 +92,7 @@ Recall depends on extraction and the configured model; this is a manual walkthro
 | `OPENAI_MODEL` | Model identifier | `kimi-k2.6` |
 | `OPENAI_TIMEOUT` | Request timeout in seconds | `60` |
 | `OPENAI_RETRIES` | Request retry setting | `2` |
+| `CHAT_THINKING` | Let the model reason before chat replies (Moonshot and DeepSeek only). Off is faster and keeps replies short enough to speak. | `0` |
 | `EDGE_TTS_VOICE_ZH` | Chinese voice | `zh-CN-XiaoxiaoNeural` |
 | `EDGE_TTS_VOICE_EN` | English voice | `en-US-AriaNeural` |
 | `MEMORY_ENABLED` | Enable new memory extraction | `1` |
