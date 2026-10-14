@@ -5,15 +5,12 @@ from types import SimpleNamespace
 
 import pytest
 
-import main
-from main import (
-    AppConfig,
-    OpenAICompatibleClient,
-    extract_memories_with_llm,
-    extraction_request_options,
-    heuristic_memory_candidates,
-    should_extract_memory,
-)
+from companion.core.config import AppConfig
+from companion.core.llm import client as llm_client
+from companion.core.llm.client import OpenAICompatibleClient
+from companion.core.memory import extractor
+from companion.core.memory.extractor import extract_memories_with_llm, extraction_request_options
+from companion.core.memory.gate import heuristic_memory_candidates, should_extract_memory
 
 
 class FakeClient:
@@ -119,12 +116,12 @@ def test_without_api_key_uses_heuristics_and_skips_request():
 def test_extraction_uses_background_retry_delays():
     client = FakeClient(reply='{"memories": []}')
     extract_memories_with_llm(client, "我叫小林", "你好")
-    assert client.calls[0]["retry_delays"] == main.MEMORY_RETRY_DELAYS
+    assert client.calls[0]["retry_delays"] == extractor.MEMORY_RETRY_DELAYS
 
 
 JSON_MODE = {"response_format": {"type": "json_object"}}
 THINKING_OFF = {"thinking": {"type": "disabled"}}
-LOW_TEMPERATURE = {"temperature": main.MEMORY_EXTRACTION_TEMPERATURE}
+LOW_TEMPERATURE = {"temperature": extractor.MEMORY_EXTRACTION_TEMPERATURE}
 
 
 def test_moonshot_extraction_disables_thinking_without_temperature():
@@ -174,8 +171,8 @@ def test_rate_limit_is_retried_with_given_delays(monkeypatch):
             raise item
         return item
 
-    monkeypatch.setattr(main.urllib.request, "urlopen", fake_urlopen)
-    monkeypatch.setattr(main.time, "sleep", sleeps.append)
+    monkeypatch.setattr(llm_client.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(llm_client.time, "sleep", sleeps.append)
     assert make_client().complete([{"role": "user", "content": "hi"}], retry_delays=(10, 25)) == "你好"
     assert sleeps == [10]
 
@@ -184,8 +181,8 @@ def test_rate_limit_error_message_after_retries(monkeypatch):
     def fake_urlopen(request, timeout):
         raise http_error(429, '{"error":{"type":"rate_limit_reached_error"}}')
 
-    monkeypatch.setattr(main.urllib.request, "urlopen", fake_urlopen)
-    monkeypatch.setattr(main.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(llm_client.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(llm_client.time, "sleep", lambda seconds: None)
     with pytest.raises(RuntimeError, match="限流"):
         make_client().complete([{"role": "user", "content": "hi"}], retry_delays=(1,))
 
@@ -197,7 +194,7 @@ def test_complete_sends_extra_options(monkeypatch):
         sent.update(json.loads(request.data))
         return ok_response("{}")
 
-    monkeypatch.setattr(main.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(llm_client.urllib.request, "urlopen", fake_urlopen)
     make_client().complete([{"role": "user", "content": "hi"}], extra={"response_format": {"type": "json_object"}})
     assert sent["response_format"] == {"type": "json_object"}
     assert "temperature" not in sent

@@ -3,8 +3,10 @@ import json
 
 import pytest
 
-import main
-from main import AppConfig, OpenAICompatibleClient, chat_request_options
+from companion.core import config
+from companion.core.config import AppConfig
+from companion.core.llm import client as llm_client
+from companion.core.llm.client import OpenAICompatibleClient, chat_request_options
 
 
 def make_config(base_url, chat_thinking=False):
@@ -43,7 +45,7 @@ def test_chat_request_omits_temperature_and_sends_thinking_toggle(monkeypatch):
         sent.update(json.loads(request.data))
         return FakeResponse(json.dumps({"choices": [{"message": {"content": "你好呀?"}}]}).encode())
 
-    monkeypatch.setattr(main.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(llm_client.urllib.request, "urlopen", fake_urlopen)
     reply = OpenAICompatibleClient(make_config("https://api.moonshot.ai/v1")).chat([{"role": "user", "content": "hi"}])
     assert reply == "你好呀?"
     assert sent["thinking"] == {"type": "disabled"}
@@ -53,8 +55,8 @@ def test_chat_request_omits_temperature_and_sends_thinking_toggle(monkeypatch):
 
 def test_chat_thinking_env_flag(monkeypatch):
     monkeypatch.setenv("CHAT_THINKING", "1")
-    assert main.env_flag("CHAT_THINKING", default=False) is True
+    assert config.env_flag("CHAT_THINKING", default=False) is True
     monkeypatch.setenv("CHAT_THINKING", "0")
-    assert main.env_flag("CHAT_THINKING", default=True) is False
+    assert config.env_flag("CHAT_THINKING", default=True) is False
     monkeypatch.delenv("CHAT_THINKING")
-    assert main.env_flag("CHAT_THINKING", default=False) is False
+    assert config.env_flag("CHAT_THINKING", default=False) is False

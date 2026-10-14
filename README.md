@@ -50,7 +50,7 @@ flowchart LR
     Context --> Chat
 ```
 
-The Python application owns conversation state and worker lifecycles. The embedded HTML renderer handles the avatar, while Qt signals return worker results to the interface.
+The Python application owns conversation state and worker lifecycles. Everything that does not need Qt (configuration, the LLM client, memory, model profiles) lives in `companion/core` and is tested without a GUI. The embedded HTML renderer handles the avatar, while Qt signals return worker results to the interface.
 
 ## Quick start
 
@@ -108,7 +108,15 @@ Variables already set in the shell take precedence over values in `.env`.
 ## Project layout
 
 ```text
-main.py                 Application, API client, workers, and memory store
+main.py                 Entry point
+companion/
+  core/                 Pure Python, no Qt: config, text cleanup, LLM client,
+                        memory (store, gate, extractor), model profiles
+  adapters/tts_edge.py  Edge TTS synthesis and voice selection
+  app/workers.py        QThread workers for chat, TTS, and memory extraction
+  ui/main_window.py     The desktop window
+  qt_bootstrap.py       Windows Qt DLL setup and import diagnostics
+tests/                  pytest suite for companion/core (runs without Qt)
 live2d_renderer.html     Embedded avatar renderer
 .env.example            Example provider and voice settings
 requirements.txt        Pinned Python dependencies
@@ -137,7 +145,7 @@ Put a Cubism 4 model in its own folder under `models/` and, optionally, add a `c
 
 ### Troubleshooting
 
-- **Qt import or DLL errors:** use a fresh virtual environment. The application includes a PyQt5 fallback if that stack is already installed.
+- **Qt import or DLL errors:** use a fresh virtual environment and `pip install -r requirements.txt`. On Windows the startup log prints the DLL directories it added and, for Anaconda installs, whether the ICU runtime conflicts with PyQt6.
 - **No character appears:** check the resource paths printed at startup, or set `LIVE2D_MODEL` and `LIVE2D_VENDOR_DIR` explicitly.
 - **Chat fails:** verify the API key, model identifier, endpoint, and network connectivity.
 - **Memory is not recalled:** check that extraction completed, that `memory.json` contains the fact, and that it remains among the recent entries.

@@ -1,6 +1,6 @@
 import pytest
 
-from main import sanitize_reply_text, sanitize_tts_text
+from companion.core.text import sanitize_reply_text, sanitize_tts_text
 
 
 @pytest.mark.parametrize("sanitize", [sanitize_reply_text, sanitize_tts_text])
