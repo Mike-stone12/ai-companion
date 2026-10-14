@@ -10,6 +10,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -402,25 +403,27 @@ class MemoryStore:
         return added
 
 
+# Gate for calling the LLM extractor. Very common chit-chat openers (我想/我要/今天) are left
+# out on purpose: each extraction costs a request, and the API may be tightly rate limited.
 MEMORY_TRIGGER_RE = re.compile(
-    r"(我叫|你可以叫我|我是|我住在|我在|我喜欢|我不喜欢|我讨厌|我想|我要|我打算|我准备|明天|今天|最近|下周|周末|生日|工作|上班|上学|考试|面试|搬家|旅行|男朋友|女朋友|对象|老公|老婆|妈妈|爸爸|姐姐|哥哥|弟弟|妹妹|室友|同事|朋友)"
+    r"(我叫|你可以叫我|我是|我住在|我在|我喜欢|我不喜欢|我讨厌|我打算|我准备|明天|最近|下周|周末|生日|工作|上班|上学|考试|面试|搬家|旅行|男朋友|女朋友|对象|老公|老婆|妈妈|爸爸|姐姐|哥哥|弟弟|妹妹|室友|同事|朋友)"
+)
+MEMORY_GATE_MIN_LENGTH = 6
+
+# Fallback used only when the LLM extractor cannot be reached, so it favours precision.
+HEURISTIC_MEMORY_PATTERNS = (
+    (r"(?:我叫|你可以叫我)([^，。！!？?\s]{1,12})", "identity", "用户名字：{value}"),
+    (r"我是(?!说|不是|在|真|的)([^，。！!？?]{1,20})", "identity", "用户身份：{value}"),
+    (r"我喜欢([^，。！!？?]{1,24})", "preference", "用户喜欢：{value}"),
+    (r"我不喜欢([^，。！!？?]{1,24})", "preference", "用户不喜欢：{value}"),
+    (r"我讨厌([^，。！!？?]{1,24})", "preference", "用户讨厌：{value}"),
+    (r"我住在([^，。！!？?]{1,24})", "profile", "用户住在：{value}"),
 )
 
 
 def heuristic_memory_candidates(user_text: str) -> list[dict[str, str]]:
-    patterns = [
-        (r"(?:我叫|你可以叫我)([^，。！!？?\s]{1,12})", "identity", "用户名字：{value}"),
-        (r"我是([^，。！!？?]{1,20})", "identity", "用户身份：{value}"),
-        (r"我喜欢([^，。！!？?]{1,24})", "preference", "用户喜欢：{value}"),
-        (r"我不喜欢([^，。！!？?]{1,24})", "preference", "用户不喜欢：{value}"),
-        (r"我讨厌([^，。！!？?]{1,24})", "preference", "用户讨厌：{value}"),
-        (r"我在([^，。！!？?]{1,24})", "status", "用户目前在：{value}"),
-        (r"我住在([^，。！!？?]{1,24})", "profile", "用户住在：{value}"),
-        (r"(?:明天|今天|最近|下周|周末)([^。！!？?]{1,36})", "event", "用户近期事件：{value}"),
-    ]
-
     candidates: list[dict[str, str]] = []
-    for pattern, category, template in patterns:
+    for pattern, category, template in HEURISTIC_MEMORY_PATTERNS:
         match = re.search(pattern, user_text)
         if not match:
             continue
@@ -428,16 +431,6 @@ def heuristic_memory_candidates(user_text: str) -> list[dict[str, str]]:
         if not value:
             continue
         candidates.append({"summary": template.format(value=value), "category": category, "source": "heuristic"})
-
-    if not candidates and len(user_text) >= 14 and contains_cjk(user_text):
-        candidates.append(
-            {
-                "summary": "近期提到：" + clip_memory_text(user_text, 32),
-                "category": "event",
-                "source": "heuristic",
-            }
-        )
-
     return candidates[:3]
 
 
@@ -445,14 +438,7 @@ def should_extract_memory(user_text: str) -> bool:
     stripped = user_text.strip()
     if heuristic_memory_candidates(stripped):
         return True
-
-    if len(stripped) < 6:
-        return False
-
-    if len(stripped) >= 16 and MEMORY_TRIGGER_RE.search(stripped):
-        return True
-
-    return False
+    return len(stripped) >= MEMORY_GATE_MIN_LENGTH and bool(MEMORY_TRIGGER_RE.search(stripped))
 
 
 @dataclass(slots=True)
@@ -618,20 +604,30 @@ class OpenAICompatibleClient:
                 "Demo mode is active. Set OPENAI_API_KEY, OPENAI_BASE_URL, and OPENAI_MODEL "
                 "to enable live responses."
             )
+        return sanitize_reply_text(self.complete(messages, temperature=1))
+
+    def complete(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        temperature: float | None = None,
+        extra: dict | None = None,
+        retry_delays: tuple[float, ...] | None = None,
+    ) -> str:
+        if retry_delays is None:
+            retry_delays = tuple(min(4, attempt) for attempt in range(1, self.config.request_retries + 1))
 
         endpoint = self.config.base_url.rstrip("/") + "/chat/completions"
-        payload = {
-            "model": self.config.model,
-            "messages": messages,
-            "temperature": 1,
-        }
+        payload: dict = {"model": self.config.model, "messages": messages, **(extra or {})}
+        if temperature is not None:
+            payload["temperature"] = temperature
         body = json.dumps(payload).encode("utf-8")
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.config.api_key}",
         }
 
-        attempt_count = max(1, self.config.request_retries + 1)
+        attempt_count = len(retry_delays) + 1
         data = None
         for attempt in range(1, attempt_count + 1):
             request = urllib.request.Request(endpoint, data=body, headers=headers, method="POST")
@@ -644,19 +640,23 @@ class OpenAICompatibleClient:
                 details = exc.read().decode("utf-8", errors="ignore")
                 if exc.code == 401 or "invalid_authentication_error" in details:
                     raise RuntimeError(
-                        "Kimi API 鉴权失败：当前 OPENAI_API_KEY 无效、已过期，或不属于 Moonshot 官方平台。"
+                        f"API 鉴权失败：OPENAI_API_KEY 无效、已过期，或不属于 {self.config.base_url}。"
                     ) from exc
                 if exc.code == 404 and "model" in details.lower():
                     raise RuntimeError(
-                        f"Kimi 模型不可用：当前配置的模型名是 {self.config.model}。"
+                        f"模型不可用：{self.config.base_url} 上没有 {self.config.model}。"
                     ) from exc
+                rate_limited = exc.code == 429 and "overloaded" not in details
                 if exc.code == 429 or "engine_overloaded_error" in details:
                     if attempt < attempt_count:
-                        delay_seconds = min(4, attempt)
-                        print(f"[llm] Model busy, retrying in {delay_seconds}s.")
+                        delay_seconds = retry_delays[attempt - 1]
+                        reason = "Rate limited" if rate_limited else "Model busy"
+                        print(f"[llm] {reason}, retrying in {delay_seconds}s.")
                         time.sleep(delay_seconds)
                         continue
-                    raise RuntimeError("Kimi 最新模型当前繁忙，请稍后重试。") from exc
+                    if rate_limited:
+                        raise RuntimeError("请求过于频繁（API 账号限流），请稍后再试。") from exc
+                    raise RuntimeError("模型当前繁忙，请稍后重试。") from exc
                 raise RuntimeError(f"LLM request failed: HTTP {exc.code} {details}") from exc
             except urllib.error.URLError as exc:
                 raise RuntimeError(f"LLM request failed: {exc.reason}") from exc
@@ -681,7 +681,8 @@ class OpenAICompatibleClient:
         if not isinstance(content, str) or not content.strip():
             raise RuntimeError("LLM response content was empty.")
 
-        return sanitize_reply_text(content.strip())
+        return content.strip()
+
 
 def strip_json_fence(text: str) -> str:
     cleaned = text.strip()
@@ -691,92 +692,82 @@ def strip_json_fence(text: str) -> str:
     return cleaned
 
 
+# Extraction runs in the background, so it can wait out per-minute rate limits.
+MEMORY_RETRY_DELAYS = (10, 25)
+MEMORY_QUEUE_LIMIT = 5
+MEMORY_EXTRACTION_PROMPT = (
+    "你是桌面陪伴助手的记忆提取器。"
+    "只提取适合长期记忆的重要信息，例如用户身份、重要人物特征、稳定偏好、待办计划、关键事件。"
+    "忽略寒暄、即时情绪和泛泛回答。"
+    '输出必须是 JSON 对象：{"memories": [{"summary": string, "category": string}]}。'
+    'summary 要压缩、具体、中文、20字以内。最多输出 3 条。没有重要信息就输出 {"memories": []}。'
+)
+
+
+MEMORY_EXTRACTION_TEMPERATURE = 0.2
+THINKING_TOGGLE_PROVIDERS = ("moonshot", "deepseek")
+
+
+def extraction_request_options(base_url: str) -> dict:
+    options: dict = {"response_format": {"type": "json_object"}}
+    # Disabling reasoning makes extraction several times faster and cheaper (Kimi ~5s -> ~1s,
+    # DeepSeek ~1.5s -> ~0.8s). Providers without the toggle reject the unknown field.
+    if any(provider in base_url for provider in THINKING_TOGGLE_PROVIDERS):
+        options["thinking"] = {"type": "disabled"}
+    # Moonshot's reasoning models reject any temperature other than 1.
+    if "moonshot" not in base_url:
+        options["temperature"] = MEMORY_EXTRACTION_TEMPERATURE
+    return options
+
+
+def parse_memory_reply(content: str) -> list[dict[str, str]] | None:
+    try:
+        parsed = json.loads(strip_json_fence(content))
+    except json.JSONDecodeError:
+        return None
+    if isinstance(parsed, dict):
+        parsed = parsed.get("memories")
+    if not isinstance(parsed, list):
+        return None
+
+    memories: list[dict[str, str]] = []
+    for item in parsed:
+        if not isinstance(item, dict):
+            continue
+        summary = clip_memory_text(str(item.get("summary", "")).strip(), 28)
+        if summary:
+            memories.append(
+                {"summary": summary, "category": str(item.get("category") or "memory"), "source": "llm"}
+            )
+    return memories[:3]
+
+
 def extract_memories_with_llm(client: OpenAICompatibleClient, user_text: str, assistant_text: str) -> list[dict[str, str]]:
     if not client.config.api_key:
         return heuristic_memory_candidates(user_text)
 
-    endpoint = client.config.base_url.rstrip("/") + "/chat/completions"
-    prompt_messages = [
-        {
-            "role": "system",
-            "content": (
-                "你是桌面陪伴助手的记忆提取器。"
-                "只提取适合长期记忆的重要信息，例如用户身份、重要人物特征、稳定偏好、待办计划、关键事件。"
-                "忽略寒暄、即时情绪和泛泛回答。"
-                "输出必须是 JSON 数组，每项格式为 {\"summary\": string, \"category\": string}。"
-                "summary 要压缩、具体、中文、20字以内。最多输出 3 条。没有重要信息就输出 []。"
-            ),
-        },
+    messages = [
+        {"role": "system", "content": MEMORY_EXTRACTION_PROMPT},
         {
             "role": "user",
-            "content": json.dumps(
-                {
-                    "user_message": user_text,
-                    "assistant_reply": assistant_text,
-                },
-                ensure_ascii=False,
-            ),
+            "content": json.dumps({"user_message": user_text, "assistant_reply": assistant_text}, ensure_ascii=False),
         },
     ]
-
-    payload = {
-        "model": client.config.model,
-        "messages": prompt_messages,
-        "temperature": 1,
-    }
-    body = json.dumps(payload).encode("utf-8")
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {client.config.api_key}",
-    }
-
-    request = urllib.request.Request(endpoint, data=body, headers=headers, method="POST")
     try:
-        with urllib.request.urlopen(request, timeout=client.config.request_timeout) as response:
-            data = json.loads(response.read().decode("utf-8"))
-    except Exception as exc:  # noqa: BLE001
+        content = client.complete(
+            messages,
+            extra=extraction_request_options(client.config.base_url),
+            retry_delays=MEMORY_RETRY_DELAYS,
+        )
+    except RuntimeError as exc:
         print(f"[memory] LLM extraction failed, falling back to heuristics: {exc}")
         return heuristic_memory_candidates(user_text)
 
-    choices = data.get("choices") or []
-    if not choices:
+    memories = parse_memory_reply(content)
+    if memories is None:
+        print(f"[memory] Could not parse extraction reply, falling back to heuristics: {content}")
         return heuristic_memory_candidates(user_text)
-
-    content = choices[0].get("message", {}).get("content", "")
-    if isinstance(content, list):
-        content = "\n".join(
-            item.get("text", "")
-            for item in content
-            if isinstance(item, dict) and item.get("type") in {"text", "output_text"}
-        )
-
-    try:
-        parsed = json.loads(strip_json_fence(str(content)))
-    except json.JSONDecodeError:
-        print(f"[memory] Could not parse extraction JSON: {content}")
-        return heuristic_memory_candidates(user_text)
-
-    if not isinstance(parsed, list):
-        return heuristic_memory_candidates(user_text)
-
-    memories: list[dict[str, str]] = []
-    for item in parsed[:3]:
-        if not isinstance(item, dict):
-            continue
-        summary = clip_memory_text(str(item.get("summary", "")).strip(), 28)
-        if not summary:
-            continue
-        memories.append(
-            {
-                "summary": summary,
-                "category": str(item.get("category", "memory") or "memory"),
-                "source": "llm",
-            }
-        )
-
-    if memories:
-        return memories
-    return heuristic_memory_candidates(user_text)
+    return memories
 
 
 
@@ -869,6 +860,7 @@ class CompanionWindow(QWidget):
         self.tts_worker: TTSWorker | None = None
         self.memory_thread: QThread | None = None
         self.memory_worker: MemoryWorker | None = None
+        self.memory_jobs: deque[tuple[str, str]] = deque(maxlen=MEMORY_QUEUE_LIMIT)
         self.audio_file_path: str | None = None
         self.audio_active = False
         self.pending_user_text = ""
@@ -1139,14 +1131,15 @@ class CompanionWindow(QWidget):
         if not should_extract_memory(user_text):
             print("[memory] Skipped extraction for low-signal message.")
             return
+        if len(self.memory_jobs) == self.memory_jobs.maxlen:
+            print("[memory] Extraction queue full, dropping the oldest pending job.")
+        self.memory_jobs.append((user_text, assistant_text))
+        self.run_next_memory_job()
 
-        if self.memory_thread is not None:
-            try:
-                if self.memory_thread.isRunning():
-                    return
-            except RuntimeError:
-                self.memory_thread = None
-                self.memory_worker = None
+    def run_next_memory_job(self) -> None:
+        if self.memory_thread is not None or not self.memory_jobs:
+            return
+        user_text, assistant_text = self.memory_jobs.popleft()
 
         self.memory_thread = QThread(self)
         self.memory_worker = MemoryWorker(self.client, user_text, assistant_text)
@@ -1219,6 +1212,7 @@ class CompanionWindow(QWidget):
     def on_memory_thread_finished(self) -> None:
         self.memory_thread = None
         self.memory_worker = None
+        self.run_next_memory_job()
 
     def on_memory_ready(self, memories: list[dict[str, str]]) -> None:
         added = self.memory_store.upsert_many(memories)
