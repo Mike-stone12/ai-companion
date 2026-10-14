@@ -10,7 +10,7 @@ A Windows application combining an animated Live2D character, LLM chat, bilingua
 
 ## What it does
 
-- **Desktop character:** a transparent, frameless, draggable window with a Live2D avatar.
+- **Desktop character:** a transparent, frameless, draggable window with a Live2D avatar. Ships with two models, a whale-girl maid (default) and Hiyori, which can be swapped with one setting.
 - **Configurable chat:** connects to an OpenAI-compatible chat endpoint; the default configuration uses Moonshot/Kimi.
 - **Voice replies:** synthesizes replies with Edge-TTS and selects a Chinese or English voice based on the response.
 - **Persistent memory:** extracts short facts, saves them locally, and includes recent memories in later conversations.
@@ -96,7 +96,7 @@ Recall depends on extraction and the configured model; this is a manual walkthro
 | `MEMORY_ENABLED` | Enable new memory extraction | `1` |
 | `MEMORY_LIMIT` | Maximum retained memory entries | `24` |
 | `COMPANION_SYSTEM_PROMPT` | Companion's system instruction | Built-in companion prompt |
-| `LIVE2D_MODEL` | Optional explicit model file path | Auto-discovered |
+| `LIVE2D_MODEL` | Model folder under `models/` (`whale-girl`, `hiyori`) or a path to a `.model3.json` | `whale-girl` |
 | `LIVE2D_VENDOR_DIR` | Optional renderer dependency directory | `vendor/` |
 
 Variables already set in the shell take precedence over values in `.env`.
@@ -110,9 +110,24 @@ main.py                 Application, API client, workers, and memory store
 live2d_renderer.html     Embedded avatar renderer
 .env.example            Example provider and voice settings
 requirements.txt        Pinned Python dependencies
-models/                 Live2D model assets
+models/whale-girl/      Default model (CC BY-NC-SA 4.0, see NOTICE.md)
+models/hiyori/          Alternative model (Live2D Free Material License)
 vendor/                 Renderer dependencies (PixiJS 6, Cubism Core, pixi-live2d-display 0.4.0)
 ```
+
+### Adding a model
+
+Put a Cubism 4 model in its own folder under `models/` and, optionally, add a `companion.json`:
+
+```json
+{
+  "model": "c_0120.model3.json",
+  "window": { "width": 430, "height": 580 },
+  "motions": { "talk": ["selfie"], "ambient": ["bubble", "splash"] }
+}
+```
+
+`motions.talk` lists the motion groups played when the companion starts replying, and `motions.ambient` lists the groups played occasionally while idle. The model's idle group loops automatically. Without `companion.json`, the renderer uses the first `*.model3.json` in the folder and guesses roles from group names (`Talk`/`Tap`, `Flick`). Select the model with `LIVE2D_MODEL=<folder>`.
 
 ### Data flow
 
@@ -136,6 +151,9 @@ vendor/                 Renderer dependencies (PixiJS 6, Cubism Core, pixi-live2
 
 The source code is released under the [MIT License](LICENSE).
 
-Character assets include the Live2D sample model **Hiyori** (© Live2D Inc.), used under the Live2D Free Material License; see [`models/LIVE2D_README.txt`](models/LIVE2D_README.txt). Model and runtime assets remain subject to their respective upstream terms and are not covered by the MIT License.
+Model and runtime assets are not covered by the MIT License. Full terms are in [NOTICE.md](NOTICE.md).
+
+- **Whale girl** (default), [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), **non-commercial**. Character design by 上善无形, DeepSeek-themed maid redesign by ZipZipPipe, Live2D model by 氵六青, via [Andersen216/dsh-whale-girl-live2d](https://github.com/Andersen216/dsh-whale-girl-live2d). This is fan art; the project is not affiliated with DeepSeek.
+- **Hiyori** (© Live2D Inc.), used under the Live2D Free Material License; see [`models/hiyori/LIVE2D_README.txt`](models/hiyori/LIVE2D_README.txt).
 
 Rendering uses [PixiJS](https://github.com/pixijs/pixijs), [pixi-live2d-display](https://github.com/guansss/pixi-live2d-display), and Live2D Cubism Core.

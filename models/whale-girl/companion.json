@@ -1,0 +1,8 @@
+{
+  "model": "c_0120.model3.json",
+  "window": { "width": 430, "height": 580 },
+  "motions": {
+    "talk": ["selfie", "selfieQuick"],
+    "ambient": ["aidale", "bubble", "ketchup", "openLid", "splash"]
+  }
+}

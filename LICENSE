@@ -24,5 +24,4 @@ SOFTWARE.
 
 This license covers the source code in this repository only. The Live2D model
 assets in `models/` and the runtime libraries in `vendor/` are third-party
-materials distributed under their own terms; see the Credits section of
-README.md and `models/LIVE2D_README.txt`.
+materials distributed under their own terms; see NOTICE.md.
