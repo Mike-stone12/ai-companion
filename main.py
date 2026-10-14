@@ -262,19 +262,14 @@ class AppConfig:
     memory_limit: int = int(os.getenv("MEMORY_LIMIT", "24"))
 
 
-EMOJI_REPLACEMENTS = {
-    "?": "",
-    "?": "",
-    "??": "",
-    "??": "",
-    "??": "",
-    "??": "",
-    "??": "",
-    "??": "",
-    "?": "",
-    "??": "",
-    "??": "",
-}
+EMOJI_RE = re.compile(
+    "["
+    "\U0001F000-\U0001FAFF"  # pictographs, emoticons, flags, skin tones
+    "☀-➿"  # misc symbols and dingbats (incl. ★☆❤)
+    "⭐⭕"
+    "️‍⃣"  # variation selector, ZWJ, keycap joiners
+    "]+"
+)
 
 
 def contains_cjk(text: str) -> bool:
@@ -291,17 +286,13 @@ def sanitize_reply_text(text: str) -> str:
     cleaned = cleaned.replace("```", "")
     cleaned = re.sub(r"`([^`]*)`", r"\1", cleaned)
     cleaned = cleaned.replace("*", "")
-    cleaned = cleaned.replace("?", "")
-    cleaned = re.sub(r"[★☆????????????????]+", "", cleaned)
+    cleaned = EMOJI_RE.sub("", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned)
     return cleaned.strip()
 
 
 def sanitize_tts_text(text: str) -> str:
-    cleaned = text.strip()
-    for source, target in EMOJI_REPLACEMENTS.items():
-        cleaned = cleaned.replace(source, target)
-
+    cleaned = EMOJI_RE.sub("", text.strip())
     cleaned = re.sub(r"https?://\S+", "", cleaned)
     cleaned = re.sub(r"`([^`]*)`", r"\1", cleaned)
     cleaned = re.sub(r"[*_~#>\-\[\]\(\)]", " ", cleaned)
