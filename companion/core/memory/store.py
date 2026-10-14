@@ -61,6 +61,7 @@ class MemoryStore:
         self.items = cleaned[-self.limit :]
 
     def save(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(json.dumps(self.items[-self.limit :], ensure_ascii=False, indent=2), encoding="utf-8")
 
     def render_context(self, max_items: int = 8) -> str:

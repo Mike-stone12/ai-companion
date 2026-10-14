@@ -25,7 +25,7 @@ The memory pipeline uses a lightweight extraction gate, structured LLM extractio
 1. **Detect useful input.** Chinese-language patterns identify personal facts, preferences, plans, and upcoming events. Common chit-chat openers are deliberately not triggers, because every extraction costs an API request.
 2. **Extract candidates.** Messages that pass the gate are sent to an LLM in JSON mode. Where the provider supports it (Moonshot, DeepSeek), reasoning is turned off for this call, which makes extraction several times faster. If the LLM finds nothing worth remembering, nothing is stored. High-precision heuristics (name, identity, likes, location) are used only when the request itself fails.
 3. **Queue in the background.** Extraction runs off the UI thread. Jobs queue (up to five) instead of being dropped while one is running, and rate-limited requests are retried after 10 s and 25 s.
-4. **Normalize and store.** Summaries are shortened, deduplicated by exact summary text, timestamped, and stored in `memory.json`.
+4. **Normalize and store.** Summaries are shortened, deduplicated by exact summary text, timestamped, and stored in `memory.json` in the user data directory (see [Data flow](#data-flow)).
 5. **Recall into context.** Up to eight recent memories are added to the next chat request alongside a bounded conversation history.
 
 The store retains 24 entries by default, configurable through `MEMORY_LIMIT`. This implementation uses external, text-based memory; it does not update model weights.
@@ -95,11 +95,12 @@ Recall depends on extraction and the configured model; this is a manual walkthro
 | `OPENAI_TIMEOUT` | Request timeout in seconds | `60` |
 | `OPENAI_RETRIES` | Request retry setting | `2` |
 | `CHAT_THINKING` | Let the model reason before chat replies (Moonshot and DeepSeek only). Off is faster and keeps replies short enough to speak. | `0` |
-| `LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, or `ERROR`. Logs go to the terminal and `logs/companion.log` (rotated at 1 MB, 3 backups). | `INFO` |
+| `LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, or `ERROR`. Logs go to the terminal and `logs/companion.log` in the user data directory (rotated at 1 MB, 3 backups). | `INFO` |
 | `EDGE_TTS_VOICE_ZH` | Chinese voice | `zh-CN-XiaoxiaoNeural` |
 | `EDGE_TTS_VOICE_EN` | English voice | `en-US-AriaNeural` |
 | `MEMORY_ENABLED` | Enable new memory extraction | `1` |
 | `MEMORY_LIMIT` | Maximum retained memory entries | `24` |
+| `COMPANION_DATA_DIR` | Where memory and logs are stored | Platform user data directory |
 | `COMPANION_SYSTEM_PROMPT` | Companion's system instruction | Built-in companion prompt |
 | `LIVE2D_MODEL` | Model folder under `models/` (`whale-girl`, `hiyori`) or a path to a `.model3.json` | `whale-girl` |
 | `LIVE2D_VENDOR_DIR` | Optional renderer dependency directory | `vendor/` |
@@ -144,14 +145,24 @@ Put a Cubism 4 model in its own folder under `models/` and, optionally, add a `c
 
 ### Data flow
 
-`.env`, `memory.json`, and `logs/` are ignored by Git. At the default `INFO` level the log records requests, memory counts, and errors but no conversation text; reply and TTS text appear only at `DEBUG`. Memories are stored locally as plain JSON, and recalled memory text is sent to the configured LLM endpoint with chat requests. Replies are sent to Edge-TTS for speech synthesis. The renderer loads all dependencies from `vendor/` and only falls back to a version-pinned CDN copy if a local file is missing.
+User data lives outside the project, so a packaged read-only app can still write it:
+
+| Platform | Location |
+| --- | --- |
+| macOS | `~/Library/Application Support/AICompanion/` |
+| Windows | `%APPDATA%\AICompanion\` |
+| Linux | `$XDG_DATA_HOME/ai-companion/` (default `~/.local/share/ai-companion/`) |
+
+It holds `memory.json` and `logs/`. On first start, a `memory.json` left in the project root by older versions is moved there; if one already exists in the data directory, neither file is touched. `.env` (secrets, ignored by Git) and the models stay in the project.
+
+At the default `INFO` level the log records requests, memory counts, and errors but no conversation text; reply and TTS text appear only at `DEBUG`. Memories are stored locally as plain JSON, and recalled memory text is sent to the configured LLM endpoint with chat requests. Replies are sent to Edge-TTS for speech synthesis. The renderer loads all dependencies from `vendor/` and only falls back to a version-pinned CDN copy if a local file is missing.
 
 ### Troubleshooting
 
 - **Qt import or DLL errors:** use a fresh virtual environment and `pip install -r requirements.txt`. On Windows the startup log prints the DLL directories it added and, for Anaconda installs, whether the ICU runtime conflicts with PyQt6.
-- **No character appears:** check the resource paths logged at startup (`logs/companion.log`), or set `LIVE2D_MODEL` and `LIVE2D_VENDOR_DIR` explicitly. `LOG_LEVEL=DEBUG` also lists every renderer file it looked for.
+- **No character appears:** check the resource paths logged at startup (`logs/companion.log` in the data directory), or set `LIVE2D_MODEL` and `LIVE2D_VENDOR_DIR` explicitly. `LOG_LEVEL=DEBUG` also lists every renderer file it looked for.
 - **Chat fails:** verify the API key, model identifier, endpoint, and network connectivity.
-- **Memory is not recalled:** check that extraction completed, that `memory.json` contains the fact, and that it remains among the recent entries.
+- **Memory is not recalled:** check that extraction completed, that `memory.json` in the data directory contains the fact, and that it remains among the recent entries.
 
 ## Development
 
