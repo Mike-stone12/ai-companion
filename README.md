@@ -14,7 +14,7 @@ A Windows application combining an animated Live2D character, LLM chat, bilingua
 
 - **Desktop character:** a transparent, frameless, draggable window with a Live2D avatar. Ships with two models, a whale-girl maid (default) and Hiyori, which can be swapped with one setting.
 - **Configurable chat:** connects to an OpenAI-compatible chat endpoint; the default configuration uses Moonshot/Kimi.
-- **Voice replies:** synthesizes replies with Edge-TTS and selects a Chinese or English voice based on the response.
+- **Voice replies with lip sync:** synthesizes replies with Edge-TTS, selects a Chinese or English voice based on the response, and moves the avatar's mouth with the speech volume (Web Audio analyser driving `ParamMouthOpenY`, or the model's LipSync parameter).
 - **Persistent memory:** extracts short facts, saves them locally, and includes recent memories in later conversations.
 - **Background processing:** separate Qt workers handle chat requests, memory extraction, and speech synthesis.
 
@@ -54,7 +54,7 @@ flowchart LR
     Context --> Chat
 ```
 
-The Python application owns conversation state and worker lifecycles. Everything that does not need Qt (configuration, the LLM client, memory, model profiles) lives in `companion/core` and is tested without a GUI. The embedded HTML renderer handles the avatar and plays the synthesized speech. Python and the renderer talk over a QWebChannel object (`companion/ui/avatar_bridge.py`): Python sends play / stop / talking / motion commands, and the renderer reports when it is ready and when audio starts, finishes, or fails. The talk gesture therefore starts with the audio rather than when the request is sent, and a two-minute watchdog resets the window if the renderer never reports back. Qt signals return worker results to the interface.
+The Python application owns conversation state and worker lifecycles. Everything that does not need Qt (configuration, the LLM client, memory, model profiles) lives in `companion/core` and is tested without a GUI. The embedded HTML renderer handles the avatar and plays the synthesized speech. Python and the renderer talk over a QWebChannel object (`companion/ui/avatar_bridge.py`): Python sends play / stop / talking / motion commands, and the renderer reports when it is ready and when audio starts, finishes, or fails. The talk gesture therefore starts with the audio rather than when the request is sent, and the mouth follows the speech volume frame by frame (applied after motions and physics, right before rendering), and a two-minute watchdog resets the window if the renderer never reports back. Qt signals return worker results to the interface.
 
 ## Quick start
 
