@@ -55,10 +55,18 @@
       "https://unpkg.com/pixi-live2d-display@0.4.0/dist/cubism4.min.js"
     ];
 
+    const MotionPriority = { IDLE: 1, NORMAL: 2, FORCE: 3 };
+    // Patterns are tried in order; the first one that matches any model group wins.
+    // Hiyori ships no Talk group, so tap gestures stand in as conversational motion.
+    const MOTION_ROLES = {
+      talk: [/^talk/i, /^tap/i],
+      ambient: [/^flick/i, /^tap/i],
+    };
+    const AMBIENT_CHANCE = 0.35;
+
     let app = null;
     let model = null;
     let talking = false;
-    let motionTimer = null;
     let idlePhase = 0;
 
     function showMessage(text) {
@@ -218,65 +226,51 @@
       return model?.internalModel?.motionManager || model?.motionManager || null;
     }
 
-    function tryMotion(groupName) {
-      if (!model || !groupName) {
-        return false;
-      }
-
-      try {
-        if (typeof model.motion === "function") {
-          model.motion(groupName);
-          return true;
-        }
-      } catch (_) {}
-
-      const manager = getMotionManager();
-      if (!manager) {
-        return false;
-      }
-
-      try {
-        if (typeof manager.startRandomMotion === "function") {
-          manager.startRandomMotion(groupName, 3);
-          return true;
-        }
-      } catch (_) {}
-
-      try {
-        if (typeof manager.startMotion === "function") {
-          manager.startMotion(groupName, 0, 3);
-          return true;
-        }
-      } catch (_) {}
-
-      return false;
+    function getMotionGroups() {
+      return Object.keys(getMotionManager()?.definitions || {});
     }
 
-    function playRandomMotion() {
-      if (!model || talking) {
+    function groupsForRole(role) {
+      const groups = getMotionGroups();
+      for (const pattern of MOTION_ROLES[role] || []) {
+        const matches = groups.filter((group) => pattern.test(group));
+        if (matches.length) {
+          return matches;
+        }
+      }
+      return [];
+    }
+
+    function startRoleMotion(role, priority) {
+      const candidates = groupsForRole(role);
+      if (!model || !candidates.length) {
         return false;
       }
+      const group = candidates[Math.floor(Math.random() * candidates.length)];
+      model.motion(group, undefined, priority).then((started) => {
+        if (!started) {
+          console.warn(`[Live2D] Motion did not start: role=${role} group=${group}`);
+        }
+      });
+      return true;
+    }
 
-      const groups = ["Idle", "idle", "TapBody", "tap_body", "Main", "main"];
-      const choice = groups[Math.floor(Math.random() * groups.length)];
-      return tryMotion(choice);
+    // The library loops the model's idle group on its own; this only adds occasional gestures.
+    function playRandomMotion() {
+      if (talking || Math.random() > AMBIENT_CHANCE) {
+        return false;
+      }
+      return startRoleMotion("ambient", MotionPriority.NORMAL);
     }
 
     function setTalking(active) {
       talking = Boolean(active);
       if (talking) {
-        const talkGroups = ["Talk", "talk", "TapBody", "tap_body", "Main", "main"];
-        for (const group of talkGroups) {
-          if (tryMotion(group)) {
-            break;
-          }
-        }
+        startRoleMotion("talk", MotionPriority.FORCE);
         showMessage("Speaking...");
         return;
       }
-
       showMessage("Ready");
-      playRandomMotion();
     }
 
     function animateFallback(delta) {
@@ -360,22 +354,14 @@
       fitModel();
       app.ticker.add(animateFallback);
 
-      if (motionTimer) {
-        clearInterval(motionTimer);
-      }
-      motionTimer = setInterval(() => {
-        if (!talking) {
-          playRandomMotion();
-        }
-      }, 10000);
-
+      console.info("[Live2D] Motion groups:", getMotionGroups());
       showMessage("Ready");
-      playRandomMotion();
     }
 
     window.Live2DController = {
       setTalking,
-      playRandomMotion
+      playRandomMotion,
+      getMotionGroups
     };
 
     window.addEventListener("resize", fitModel);
