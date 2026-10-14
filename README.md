@@ -1,5 +1,7 @@
 # AI Companion
 
+[![CI](https://github.com/Mike-stone12/ai-companion/actions/workflows/ci.yml/badge.svg)](https://github.com/Mike-stone12/ai-companion/actions/workflows/ci.yml)
+
 **A desktop companion that remembers the conversation.**
 
 A Windows application combining an animated Live2D character, LLM chat, bilingual voice replies, and persistent memory. The project explores how a conversational interface can retain useful facts across sessions while keeping its context compact.
@@ -150,6 +152,16 @@ Put a Cubism 4 model in its own folder under `models/` and, optionally, add a `c
 - **No character appears:** check the resource paths logged at startup (`logs/companion.log`), or set `LIVE2D_MODEL` and `LIVE2D_VENDOR_DIR` explicitly. `LOG_LEVEL=DEBUG` also lists every renderer file it looked for.
 - **Chat fails:** verify the API key, model identifier, endpoint, and network connectivity.
 - **Memory is not recalled:** check that extraction completed, that `memory.json` contains the fact, and that it remains among the recent entries.
+
+## Development
+
+```bash
+pip install -r requirements-dev.txt
+ruff check .
+pytest
+```
+
+The tests cover `companion/core`, which never imports PyQt or edge-tts, so they run without a display or the GUI dependencies. CI runs `ruff` and `pytest` on Ubuntu, Windows, and macOS for every pull request, with only `requirements-dev.txt` installed; a Qt import added to `companion/core` fails there.
 
 ## Next steps
 

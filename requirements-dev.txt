@@ -1,2 +1,4 @@
--r requirements.txt
+# Test and lint tools only. The tests cover companion/core, which does not need
+# PyQt or edge-tts, so CI installs just this file.
 pytest==9.1.1
+ruff==0.17.0

@@ -313,7 +313,9 @@ class CompanionWindow(QWidget):
             if self.model_path is None:
                 self.reply_label.setText("No .model3.json or .model3 file was found under the models folder.")
         else:
-            self.reply_label.setText("The Live2D renderer page could not be loaded. Check console output for path details.")
+            self.reply_label.setText(
+                "The Live2D renderer page could not be loaded. Check console output for path details."
+            )
 
     def run_js(self, script: str) -> None:
         if not self.page_ready:

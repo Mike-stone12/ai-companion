@@ -73,7 +73,9 @@ def parse_memory_reply(content: str) -> list[dict[str, str]] | None:
     return memories[:3]
 
 
-def extract_memories_with_llm(client: OpenAICompatibleClient, user_text: str, assistant_text: str) -> list[dict[str, str]]:
+def extract_memories_with_llm(
+    client: OpenAICompatibleClient, user_text: str, assistant_text: str
+) -> list[dict[str, str]]:
     if not client.config.api_key:
         return heuristic_memory_candidates(user_text)
 

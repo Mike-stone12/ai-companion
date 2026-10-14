@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 
-
 EMOJI_RE = re.compile(
     "["
     "\U0001F000-\U0001FAFF"  # pictographs, emoticons, flags, skin tones
