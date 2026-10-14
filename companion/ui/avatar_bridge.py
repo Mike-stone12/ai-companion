@@ -7,7 +7,8 @@ class AvatarBridge(QObject):
     """QWebChannel object shared with live2d_renderer.html as `avatar`.
 
     Python drives the renderer through the command signals; the renderer reports back by
-    calling the report* slots, which are re-emitted as Python-side event signals.
+    calling the report* slots, which are re-emitted as Python-side event signals. playAudio
+    queues a clip; every clip is reported back by URL exactly once (finished or failed).
     """
 
     # Python -> renderer
@@ -18,22 +19,22 @@ class AvatarBridge(QObject):
 
     # renderer -> Python
     ready = pyqtSignal()
-    audioStarted = pyqtSignal(float)
-    audioFinished = pyqtSignal()
-    audioFailed = pyqtSignal(str)
+    audioStarted = pyqtSignal(str, float)
+    audioFinished = pyqtSignal(str)
+    audioFailed = pyqtSignal(str, str)
 
     @pyqtSlot()
     def reportReady(self) -> None:
         self.ready.emit()
 
-    @pyqtSlot(float)
-    def reportAudioStarted(self, duration: float) -> None:
-        self.audioStarted.emit(duration)
-
-    @pyqtSlot()
-    def reportAudioFinished(self) -> None:
-        self.audioFinished.emit()
+    @pyqtSlot(str, float)
+    def reportAudioStarted(self, url: str, duration: float) -> None:
+        self.audioStarted.emit(url, duration)
 
     @pyqtSlot(str)
-    def reportAudioError(self, message: str) -> None:
-        self.audioFailed.emit(message)
+    def reportAudioFinished(self, url: str) -> None:
+        self.audioFinished.emit(url)
+
+    @pyqtSlot(str, str)
+    def reportAudioError(self, url: str, message: str) -> None:
+        self.audioFailed.emit(url, message)

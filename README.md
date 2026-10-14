@@ -13,7 +13,7 @@ A Windows application combining an animated Live2D character, LLM chat, bilingua
 ## What it does
 
 - **Desktop character:** a transparent, frameless, draggable window with a Live2D avatar. Ships with two models, a whale-girl maid (default) and Hiyori, which can be swapped with one setting.
-- **Configurable chat:** connects to an OpenAI-compatible chat endpoint; the default configuration uses Moonshot/Kimi.
+- **Streaming chat:** connects to any OpenAI-compatible endpoint (Moonshot/Kimi by default, DeepSeek supported) and streams the reply, so text appears as it is generated and speech starts after the first clause instead of the whole reply. Median time from sending a message to the first spoken word dropped from 2.97 s to 1.70 s (DeepSeek `deepseek-flash`, three prompts) and no longer grows with reply length.
 - **Voice replies with lip sync:** synthesizes replies with Edge-TTS, selects a Chinese or English voice based on the response, and moves the avatar's mouth with the speech volume (Web Audio analyser driving `ParamMouthOpenY`, or the model's LipSync parameter).
 - **Persistent memory:** extracts short facts, saves them locally, and includes recent memories in later conversations.
 - **Background processing:** separate Qt workers handle chat requests, memory extraction, and speech synthesis.
@@ -42,9 +42,10 @@ The store retains 24 entries by default, configurable through `MEMORY_LIMIT`. Th
 ```mermaid
 flowchart LR
     UI["PyQt desktop window"] --> View["Qt WebEngine / Live2D"]
-    UI --> Chat["ChatWorker"]
+    UI --> Chat["ChatStreamWorker (SSE)"]
     Chat --> API["Configured LLM endpoint"]
-    Chat --> TTS["TTSWorker / Edge-TTS"]
+    Chat --> Split["SentenceSplitter"]
+    Split --> TTS["TTSWorker / Edge-TTS (one sentence at a time)"]
     TTS --> Bridge["AvatarBridge / QWebChannel"]
     Bridge --> Audio["Renderer audio + talk motion"]
     Audio -- "started / finished" --> Bridge
@@ -53,6 +54,8 @@ flowchart LR
     Store --> Context["Recent memory context"]
     Context --> Chat
 ```
+
+Replies are streamed: `ChatStreamWorker` reads the SSE stream, shows the text as it arrives, and hands each complete sentence to `SentenceSplitter`-driven TTS. Sentences are synthesized strictly in order and queued in the renderer, which plays them back to back with a single talk gesture; the first clause is cut at a comma after a few words so speech starts early. If the stream breaks, the text received so far is kept and marked as interrupted.
 
 The Python application owns conversation state and worker lifecycles. Everything that does not need Qt (configuration, the LLM client, memory, model profiles) lives in `companion/core` and is tested without a GUI. The embedded HTML renderer handles the avatar and plays the synthesized speech. Python and the renderer talk over a QWebChannel object (`companion/ui/avatar_bridge.py`): Python sends play / stop / talking / motion commands, and the renderer reports when it is ready and when audio starts, finishes, or fails. The talk gesture therefore starts with the audio rather than when the request is sent, and the mouth follows the speech volume frame by frame (applied after motions and physics, right before rendering), and a two-minute watchdog resets the window if the renderer never reports back. Qt signals return worker results to the interface.
 

@@ -5,8 +5,10 @@ import logging
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Iterator
 
 from companion.core.config import AppConfig
+from companion.core.llm.sse import iter_content_deltas
 from companion.core.text import sanitize_reply_text
 
 logger = logging.getLogger(__name__)
@@ -50,13 +52,47 @@ class OpenAICompatibleClient:
         extra: dict | None = None,
         retry_delays: tuple[float, ...] | None = None,
     ) -> str:
+        payload: dict = {"model": self.config.model, "messages": messages, **(extra or {})}
+        if temperature is not None:
+            payload["temperature"] = temperature
+        with self._open(payload, retry_delays) as response:
+            data = json.loads(response.read().decode("utf-8"))
+
+        choices = data.get("choices") or []
+        if not choices:
+            raise RuntimeError("LLM response did not include any choices.")
+
+        message = choices[0].get("message", {})
+        content = message.get("content", "")
+        if isinstance(content, list):
+            text_parts = [
+                item.get("text", "")
+                for item in content
+                if isinstance(item, dict) and item.get("type") in {"text", "output_text"}
+            ]
+            content = "\n".join(part for part in text_parts if part).strip()
+
+        if not isinstance(content, str) or not content.strip():
+            raise RuntimeError("LLM response content was empty.")
+
+        return content.strip()
+
+    def stream_chat(self, messages: list[dict[str, str]]) -> Iterator[str]:
+        """Yield reply text deltas as the model produces them (raw, not sanitized)."""
+        payload = {
+            "model": self.config.model,
+            "messages": messages,
+            "stream": True,
+            **chat_request_options(self.config),
+        }
+        with self._open(payload, None) as response:
+            yield from iter_content_deltas(response)
+
+    def _open(self, payload: dict, retry_delays: tuple[float, ...] | None):
         if retry_delays is None:
             retry_delays = tuple(min(4, attempt) for attempt in range(1, self.config.request_retries + 1))
 
         endpoint = self.config.base_url.rstrip("/") + "/chat/completions"
-        payload: dict = {"model": self.config.model, "messages": messages, **(extra or {})}
-        if temperature is not None:
-            payload["temperature"] = temperature
         body = json.dumps(payload).encode("utf-8")
         headers = {
             "Content-Type": "application/json",
@@ -64,14 +100,11 @@ class OpenAICompatibleClient:
         }
 
         attempt_count = len(retry_delays) + 1
-        data = None
         for attempt in range(1, attempt_count + 1):
             request = urllib.request.Request(endpoint, data=body, headers=headers, method="POST")
             logger.info("Requesting %s model=%s attempt=%d/%d", endpoint, self.config.model, attempt, attempt_count)
             try:
-                with urllib.request.urlopen(request, timeout=self.config.request_timeout) as response:
-                    data = json.loads(response.read().decode("utf-8"))
-                break
+                return urllib.request.urlopen(request, timeout=self.config.request_timeout)
             except urllib.error.HTTPError as exc:
                 details = exc.read().decode("utf-8", errors="ignore")
                 if exc.code == 401 or "invalid_authentication_error" in details:
@@ -96,25 +129,4 @@ class OpenAICompatibleClient:
                 raise RuntimeError(f"LLM request failed: HTTP {exc.code} {details}") from exc
             except urllib.error.URLError as exc:
                 raise RuntimeError(f"LLM request failed: {exc.reason}") from exc
-
-        if data is None:
-            raise RuntimeError("LLM response was empty after retries.")
-
-        choices = data.get("choices") or []
-        if not choices:
-            raise RuntimeError("LLM response did not include any choices.")
-
-        message = choices[0].get("message", {})
-        content = message.get("content", "")
-        if isinstance(content, list):
-            text_parts = [
-                item.get("text", "")
-                for item in content
-                if isinstance(item, dict) and item.get("type") in {"text", "output_text"}
-            ]
-            content = "\n".join(part for part in text_parts if part).strip()
-
-        if not isinstance(content, str) or not content.strip():
-            raise RuntimeError("LLM response content was empty.")
-
-        return content.strip()
+        raise RuntimeError("LLM request failed after retries.")
