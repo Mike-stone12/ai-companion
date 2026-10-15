@@ -157,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.rescore:
         meta, rows_by_id = load_results(args.rescore)
-        meta["rescored_from"] = str(args.rescore)
+        meta["rescored_from"] = args.rescore.as_posix()
         rows = [rows_by_id[case.id] for case in cases if case.id in rows_by_id]
         missing = [case.id for case in cases if case.id not in rows_by_id]
         if missing:
@@ -191,8 +191,9 @@ def main(argv: list[str] | None = None) -> int:
     pipeline = score_extraction(cases, summaries_pipeline)
     extractor_only = None if skipped else score_extraction(cases, summaries_all)
     store = simulate_store(cases, summaries_pipeline)
+    store_all = None if skipped else simulate_store(cases, summaries_all)
 
-    report = render_report(cases, gate, pipeline, extractor_only, store, meta)
+    report = render_report(cases, gate, pipeline, extractor_only, store, meta, store_all)
     print(report)
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)

@@ -494,9 +494,9 @@ def render_extraction_section(title: str, score: ExtractionScore, show_failures:
     return lines
 
 
-def render_store_section(store: StoreResult) -> list[str]:
+def render_store_section(store: StoreResult, title: str = "Store after scenario turns (pipeline)") -> list[str]:
     lines = [
-        "## Store after scenario turns (exact-text dedup, newest first)",
+        f"## {title}",
         "",
         "| Scenario | Group | Stored | Duplicates | Stale | Missing | Entries |",
         "| --- | --- | ---: | ---: | ---: | ---: | --- |",
@@ -528,6 +528,7 @@ def render_report(
     extractor_only: ExtractionScore | None,
     store: StoreResult,
     meta: Mapping[str, object],
+    store_extractor_only: StoreResult | None = None,
 ) -> str:
     extractor = meta.get("extractor", "?")
     lines = [
@@ -548,5 +549,7 @@ def render_report(
                 f"Extractor alone ({extractor} on every message, gate ignored)", extractor_only, show_failures=False
             ),
         ]
-    lines += ["", *render_store_section(store), ""]
-    return "\n".join(lines)
+    lines += ["", *render_store_section(store)]
+    if store_extractor_only is not None:
+        lines += ["", *render_store_section(store_extractor_only, "Store after scenario turns (extractor alone)")]
+    return "\n".join(lines) + "\n"

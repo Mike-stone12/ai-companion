@@ -6,6 +6,7 @@
 | started | 2026-10-14T23:43:34 |
 | cases | cases.jsonl (93 cases) |
 | gated_only | False |
+| rescored_from | eval/memory/results/2026-10-14-heuristic.jsonl |
 
 ## Gate (rule-based, no API calls)
 
@@ -141,7 +142,29 @@
 | lang=zh | 80 | 67 | 12 | 18% | 12 | 12 | 100% |
 | lang=en | 13 | 14 | 0 | 0% | 0 | 0 | n/a |
 
-## Store after scenario turns (exact-text dedup, newest first)
+## Store after scenario turns (pipeline)
+
+| Scenario | Group | Stored | Duplicates | Stale | Missing | Entries |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| dup-coffee | paraphrase | 1 | 0 | 0 | 0/1 | 用户喜欢：喝咖啡 |
+| dup-name | paraphrase | 1 | 0 | 0 | 0/1 | 用户名字：小林 |
+| dup-cat | paraphrase | 0 | 0 | 0 | 1/1 | (empty) |
+| dup-job | paraphrase | 0 | 0 | 0 | 1/1 | (empty) |
+| dup-en | paraphrase | 0 | 0 | 0 | 1/1 | (empty) |
+| upd-city | conflict | 1 | 0 | 1 | 1/1 | 用户住在：杭州 |
+| upd-job | conflict | 0 | 0 | 0 | 1/1 | (empty) |
+| upd-drink | conflict | 1 | 0 | 1 | 1/1 | 用户喜欢：喝奶茶 |
+| upd-relationship | conflict | 0 | 0 | 0 | 1/1 | (empty) |
+| upd-en | conflict | 0 | 0 | 0 | 1/1 | (empty) |
+
+| Metric | Value |
+| --- | --- |
+| Stored entries | 4 |
+| Duplicate rate (entries that repeat a fact already stored) | 0/4 (0%) |
+| Stale rate (entries a later message contradicted) | 2/4 (50%) |
+| Current facts missing from the store | 8/10 |
+
+## Store after scenario turns (extractor alone)
 
 | Scenario | Group | Stored | Duplicates | Stale | Missing | Entries |
 | --- | --- | ---: | ---: | ---: | ---: | --- |
