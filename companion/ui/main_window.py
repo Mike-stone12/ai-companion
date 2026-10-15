@@ -7,8 +7,8 @@ import sys
 from collections import deque
 from pathlib import Path
 
-from PyQt6.QtCore import PYQT_VERSION_STR, QPoint, Qt, QThread, QTimer, QUrl, QUrlQuery
-from PyQt6.QtGui import QColor
+from PyQt6.QtCore import PYQT_VERSION_STR, QPoint, QRect, Qt, QThread, QTimer, QUrl, QUrlQuery
+from PyQt6.QtGui import QAction, QActionGroup, QColor
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineCore import QWebEngineSettings
 from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMenu,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -37,7 +38,17 @@ from companion.core.model_profile import (
     discover_vendor_dir,
 )
 from companion.core.text import sanitize_reply_text, sanitize_tts_text
-from companion.paths import HISTORY_PATH, HTML_PATH, MEMORY_PATH
+from companion.core.window_state import (
+    OPACITY_STEPS,
+    SCALE_STEPS,
+    Rect,
+    fits_on_screens,
+    load_window_state,
+    resized_rect,
+    save_window_state,
+    scaled_size,
+)
+from companion.paths import CONFIG_PATH, HISTORY_PATH, HTML_PATH, MEMORY_PATH
 from companion.ui.avatar_bridge import AvatarBridge
 from companion.ui.chat_panel import ChatPanel
 
@@ -54,7 +65,8 @@ LIVE2D_LOADER_CANDIDATES = (
 
 
 MEMORY_QUEUE_LIMIT = 5
-CHAT_PANEL_HEIGHT = 170
+CHAT_PANEL_HEIGHT = 170  # at scale 1.0
+MIN_CHAT_PANEL_HEIGHT = 110
 # Safety net if playback stops making progress (e.g. the renderer crashed).
 AUDIO_WATCHDOG_MS = 120_000
 
@@ -66,6 +78,10 @@ def to_file_url(path: Path | None, *, directory: bool = False) -> str:
     if directory and not url.endswith("/"):
         url += "/"
     return url
+
+
+def rect_tuple(rect: QRect) -> Rect:
+    return rect.x(), rect.y(), rect.width(), rect.height()
 
 
 def print_resource_report(model_path: Path | None, vendor_dir: Path | None) -> None:
@@ -106,6 +122,8 @@ class CompanionWindow(QWidget):
         self.model_profile = discover_model_profile(os.getenv("LIVE2D_MODEL", "").strip())
         self.model_path = self.model_profile.path if self.model_profile else None
         self.vendor_dir = discover_vendor_dir()
+        self.base_size = self.model_profile.window_size if self.model_profile else DEFAULT_WINDOW_SIZE
+        self.window_state = load_window_state(CONFIG_PATH)
         self.memory_store = MemoryStore(MEMORY_PATH, config.memory_limit)
         self.history = ConversationHistory(HISTORY_PATH)
         system_prompt = f"{config.system_prompt}\n\n{EMOTION_INSTRUCTION}"
@@ -151,14 +169,15 @@ class CompanionWindow(QWidget):
         self.setup_window()
         self.build_ui()
         self.load_live2d_scene()
-        self.position_near_taskbar()
+        self.restore_position()
 
     def setup_window(self) -> None:
         flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool
         self.setWindowFlags(flags)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setObjectName("root")
-        self.resize(*(self.model_profile.window_size if self.model_profile else DEFAULT_WINDOW_SIZE))
+        self.resize(*scaled_size(self.base_size, self.window_state.scale))
+        self.setWindowOpacity(self.window_state.opacity)
 
     def build_ui(self) -> None:
         root_layout = QVBoxLayout(self)
@@ -205,10 +224,16 @@ class CompanionWindow(QWidget):
         self.web_channel.registerObject("avatar", self.bridge)
         self.web_view.page().setWebChannel(self.web_channel)
         self.web_view.loadFinished.connect(self.on_page_loaded)
+        # Chromium would otherwise pop its own Back/Reload/Inspect menu over the avatar. The view
+        # does not pass context-menu events up to its parent, so hook its signal instead.
+        self.web_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.web_view.customContextMenuRequested.connect(
+            lambda pos: self.show_context_menu(self.web_view.mapToGlobal(pos))
+        )
         root_layout.addWidget(self.web_view, 1)
 
         self.chat_panel = ChatPanel()
-        self.chat_panel.setFixedHeight(CHAT_PANEL_HEIGHT)
+        self.chat_panel.setFixedHeight(self.chat_panel_height())
         root_layout.addWidget(self.chat_panel)
         if self.history.entries:
             self.chat_panel.load([(entry["role"], display_text(entry)) for entry in self.history.entries])
@@ -308,6 +333,24 @@ class CompanionWindow(QWidget):
                 background-color: rgba(255, 255, 255, 0.28);
                 color: rgba(255, 255, 255, 0.65);
             }
+            QMenu {
+                background-color: rgb(22, 26, 38);
+                border: 1px solid rgba(255, 255, 255, 40);
+                padding: 6px;
+                color: #f6f7fb;
+            }
+            QMenu::item {
+                padding: 6px 28px 6px 12px;
+                border-radius: 6px;
+            }
+            QMenu::item:selected {
+                background-color: rgba(97, 189, 255, 90);
+            }
+            QMenu::separator {
+                height: 1px;
+                background: rgba(255, 255, 255, 30);
+                margin: 4px 6px;
+            }
             """
         )
 
@@ -334,6 +377,73 @@ class CompanionWindow(QWidget):
         target_y = geometry.bottom() - self.height() + 8
         self.move(max(geometry.left(), target_x), max(geometry.top(), target_y))
 
+    # --- placement: position, size, opacity (persisted under "window" in config.json) ---
+
+    def screen_rects(self) -> list[Rect]:
+        return [rect_tuple(screen.availableGeometry()) for screen in QApplication.screens()]
+
+    def restore_position(self) -> None:
+        state = self.window_state
+        if state.has_position:
+            if fits_on_screens((state.x, state.y, self.width(), self.height()), self.screen_rects()):
+                self.move(state.x, state.y)
+                return
+            logger.info("Saved window position (%d, %d) is off every screen, using the default", state.x, state.y)
+        self.position_near_taskbar()
+
+    def save_window_state(self) -> None:
+        self.window_state.x, self.window_state.y = self.pos().x(), self.pos().y()
+        save_window_state(CONFIG_PATH, self.window_state)
+
+    def chat_panel_height(self) -> int:
+        return max(MIN_CHAT_PANEL_HEIGHT, round(CHAT_PANEL_HEIGHT * self.window_state.scale))
+
+    def set_scale(self, scale: float) -> None:
+        self.window_state.scale = scale
+        screen = self.screen() or QApplication.primaryScreen()
+        screen_rect = rect_tuple(screen.geometry()) if screen else rect_tuple(self.geometry())
+        target = resized_rect(rect_tuple(self.geometry()), scaled_size(self.base_size, scale), screen_rect)
+        self.chat_panel.setFixedHeight(self.chat_panel_height())
+        self.setGeometry(*target)  # the renderer refits the model on its resize event
+        self.save_window_state()
+
+    def set_opacity(self, opacity: float) -> None:
+        self.window_state.opacity = opacity
+        self.setWindowOpacity(opacity)
+        self.save_window_state()
+
+    def reset_position(self) -> None:
+        self.position_near_taskbar()
+        self.save_window_state()
+
+    def contextMenuEvent(self, event) -> None:  # type: ignore[override]
+        self.show_context_menu(event.globalPos())
+        event.accept()
+
+    def show_context_menu(self, global_pos: QPoint) -> QMenu:
+        menu = QMenu(self)
+        menu.aboutToHide.connect(menu.deleteLater)
+        self.add_choices(menu.addMenu("Size"), SCALE_STEPS, self.window_state.scale, self.set_scale)
+        self.add_choices(menu.addMenu("Opacity"), OPACITY_STEPS, self.window_state.opacity, self.set_opacity)
+        menu.addSeparator()
+        menu.addAction("Reset position", self.reset_position)
+        menu.addSeparator()
+        menu.addAction("Quit", self.close)
+        menu.popup(global_pos)
+        return menu
+
+    @staticmethod
+    def add_choices(menu: QMenu, steps: tuple[float, ...], current: float, apply) -> None:
+        group = QActionGroup(menu)
+        group.setExclusive(True)
+        for step in steps:
+            action = QAction(f"{round(step * 100)}%", menu)
+            action.setCheckable(True)
+            action.setChecked(abs(step - current) < 0.001)
+            action.triggered.connect(lambda _checked=False, value=step: apply(value))
+            group.addAction(action)
+            menu.addAction(action)
+
     def set_status(self, text: str) -> None:
         self.status_label.setText(text)
 
@@ -349,7 +459,9 @@ class CompanionWindow(QWidget):
         event.accept()
 
     def handle_drag_release(self, event) -> None:  # type: ignore[override]
-        self.drag_offset = None
+        if self.drag_offset is not None:
+            self.drag_offset = None
+            self.save_window_state()
         event.accept()
 
     def on_page_loaded(self, ok: bool) -> None:
@@ -641,6 +753,7 @@ class CompanionWindow(QWidget):
         self.set_talking(False)
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
+        self.save_window_state()
         self.idle_timer.stop()
         self.audio_watchdog.stop()
         self.bridge.stopAudio.emit()

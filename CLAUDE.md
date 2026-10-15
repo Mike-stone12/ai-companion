@@ -18,7 +18,7 @@ expressions, and persistent memory and chat history.
 main.py                    entry point (logging, legacy data migration, Qt bootstrap)
 companion/core/            pure Python, never imports Qt: config, text, llm (client, SSE),
                            chat (emotion tags, history), memory (store, gate, extractor),
-                           model profiles
+                           model profiles, window state (settings file, placement rules)
 companion/adapters/        Edge TTS
 companion/app/             QThread workers, logging setup
 companion/ui/              main window, chat panel, QWebChannel bridge to the renderer
@@ -28,8 +28,9 @@ models/<name>/             Live2D models; companion.json holds window size, moti
 tests/                     pytest suite for companion/core and adapters (no Qt needed)
 ```
 
-User data (memory, chat history, logs) lives in the platform user data directory, e.g.
-`~/Library/Application Support/AICompanion/` on macOS, not in the repo.
+User data (memory, chat history, logs, and `config.json` with the window placement) lives in the
+platform user data directory, e.g. `~/Library/Application Support/AICompanion/` on macOS, not in
+the repo.
 
 ## Setup and commands
 
