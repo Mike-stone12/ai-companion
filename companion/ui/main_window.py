@@ -403,6 +403,7 @@ class CompanionWindow(QWidget):
         self.reply_parts = []
         self.reply_notes = []
         self.reply_emotion = None
+        self.chat_panel.end_reply()
         self.stream_done = False
         self.speak_reply = tts_edge.is_available() and self.renderer_ready
         self.speech_started = False
@@ -494,7 +495,6 @@ class CompanionWindow(QWidget):
             self.record_reply(reply)
             self.start_memory_worker(self.pending_user_text, reply)
         self.render_reply()
-        self.chat_panel.end_reply()
         self.pending_user_text = ""
         self.stream_done = True
         self.maybe_finish_reply()
@@ -508,7 +508,6 @@ class CompanionWindow(QWidget):
         else:
             self.chat_panel.add_notice(error_text)
             self.finish_status = "Error"
-        self.chat_panel.end_reply()
         self.pending_user_text = ""
         self.stream_done = True
         self.maybe_finish_reply()
@@ -561,8 +560,12 @@ class CompanionWindow(QWidget):
         self.bridge.playAudio.emit(url)
 
     def on_tts_error(self, error_text: str) -> None:
-        logger.warning("TTS failed: %s", error_text)
+        logger.warning("TTS failed, not speaking the rest of this reply: %s", error_text)
         self.add_reply_note(f"[TTS] {error_text}")
+        # Failures come from the network and repeat; retrying every remaining sentence would
+        # stack one timeout per sentence. Clips already queued still play.
+        self.speak_reply = False
+        self.tts_queue.clear()
 
     def on_memory_thread_finished(self) -> None:
         self.memory_thread = None
@@ -624,6 +627,9 @@ class CompanionWindow(QWidget):
         if self.tts_queue or self.tts_thread is not None or self.pending_clips:
             return
         self.audio_watchdog.stop()
+        # Close the bubble only now: TTS and audio notes can arrive after the text stream ends
+        # and must land in this reply's bubble, not open a new one.
+        self.chat_panel.end_reply()
         self.set_status(self.finish_status)
         self.finish_interaction()
 

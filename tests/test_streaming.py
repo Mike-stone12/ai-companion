@@ -164,3 +164,68 @@ def test_stream_chat_retries_rate_limit_before_streaming(monkeypatch):
     monkeypatch.setattr(llm_client.time, "sleep", sleeps.append)
     assert list(make_client().stream_chat([{"role": "user", "content": "hi"}])) == ["ok"]
     assert sleeps == [1]
+
+
+# --- stream deadlines (servers may send only keep-alive comments while queueing) ---
+
+
+class FakeClock:
+    def __init__(self):
+        self.now = 0.0
+
+    def __call__(self):
+        return self.now
+
+
+def timed_lines(clock, items):
+    """items: (seconds_after_previous, raw_line) pairs; advances the fake clock per line."""
+    for delay, line in items:
+        clock.now += delay
+        yield line
+
+
+def content_line(text):
+    return f"data: {json.dumps(delta(text), ensure_ascii=False)}\n".encode()
+
+
+def test_keep_alives_without_content_hit_the_first_content_deadline():
+    clock = FakeClock()
+    lines = timed_lines(clock, [(12, b": keep-alive\n"), (12, b": keep-alive\n"), (12, b": keep-alive\n")])
+    with pytest.raises(RuntimeError, match="30"):
+        list(iter_content_deltas(lines, first_content_timeout=30, idle_timeout=30, clock=clock))
+
+
+def test_long_gap_between_content_hits_the_idle_deadline():
+    clock = FakeClock()
+    items = [(1, content_line("你好")), (0, b"\n"), (20, b": keep-alive\n"), (20, b": keep-alive\n")]
+    lines = timed_lines(clock, items)
+    received = []
+    with pytest.raises(RuntimeError, match="30"):
+        for text in iter_content_deltas(lines, first_content_timeout=30, idle_timeout=30, clock=clock):
+            received.append(text)
+    assert received == ["你好"]
+
+
+def test_steady_content_within_deadlines_completes():
+    clock = FakeClock()
+    items = []
+    for text in ["一", "二", "三"]:
+        items += [(10, content_line(text)), (0, b"\n")]
+    items += [(1, b"data: [DONE]\n"), (0, b"\n")]
+    lines = timed_lines(clock, items)
+    deltas = iter_content_deltas(lines, first_content_timeout=30, idle_timeout=30, clock=clock)
+    assert list(deltas) == ["一", "二", "三"]
+
+
+def test_client_applies_stream_deadlines(monkeypatch):
+    seen = {}
+
+    def fake_iter(lines, **kwargs):
+        seen.update(kwargs)
+        return iter(["ok"])
+
+    monkeypatch.setattr(llm_client, "iter_content_deltas", fake_iter)
+    monkeypatch.setattr(llm_client.urllib.request, "urlopen", lambda request, timeout: FakeStream(b""))
+    assert list(make_client().stream_chat([{"role": "user", "content": "hi"}])) == ["ok"]
+    assert seen["first_content_timeout"] == llm_client.STREAM_FIRST_CONTENT_TIMEOUT_S
+    assert seen["idle_timeout"] == llm_client.STREAM_IDLE_TIMEOUT_S

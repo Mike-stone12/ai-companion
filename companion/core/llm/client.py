@@ -14,6 +14,10 @@ from companion.core.text import sanitize_reply_text
 logger = logging.getLogger(__name__)
 
 
+# Bound the wait for streamed content: DeepSeek, when overloaded, answers 200 and then sends only
+# keep-alive comments every ~12 s, which never trips the socket timeout.
+STREAM_FIRST_CONTENT_TIMEOUT_S = 30
+STREAM_IDLE_TIMEOUT_S = 30
 THINKING_TOGGLE_PROVIDERS = ("moonshot", "deepseek")
 THINKING_DISABLED = {"thinking": {"type": "disabled"}}
 
@@ -86,7 +90,11 @@ class OpenAICompatibleClient:
             **chat_request_options(self.config),
         }
         with self._open(payload, None) as response:
-            yield from iter_content_deltas(response)
+            yield from iter_content_deltas(
+                response,
+                first_content_timeout=STREAM_FIRST_CONTENT_TIMEOUT_S,
+                idle_timeout=STREAM_IDLE_TIMEOUT_S,
+            )
 
     def _open(self, payload: dict, retry_delays: tuple[float, ...] | None):
         if retry_delays is None:
