@@ -39,6 +39,7 @@ VENDOR_DIR = APP_DIR / "vendor"
 # User data lives outside the project so a packaged, read-only app can still write it.
 DATA_DIR = user_data_dir()
 MEMORY_PATH = DATA_DIR / "memory.json"
+HISTORY_PATH = DATA_DIR / "history.json"
 LOG_DIR = DATA_DIR / "logs"
 
 LEGACY_MEMORY_PATH = APP_DIR / "memory.json"
