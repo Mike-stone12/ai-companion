@@ -258,5 +258,9 @@ def test_render_report_contains_every_section():
     assert "| Precision (extracted summaries that match an expected fact) | 3/3 (100%) |" in report
     assert "| Recall (expected facts found in some summary) | 3/3 (100%) |" in report
     assert "| Duplicate rate (entries that repeat a fact already stored) | 1/2 (50%) |" in report
-    assert "Extractor alone" not in report
+    assert "Extractor alone" not in report and "extractor alone" not in report
     assert "every case was extracted exactly as expected" in report
+
+    full = render_report(cases, gate, pipeline, pipeline, store, {"extractor": "llm"}, store)
+    assert "## Extractor alone (llm on every message, gate ignored)" in full
+    assert "## Store after scenario turns (extractor alone)" in full

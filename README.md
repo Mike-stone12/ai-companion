@@ -44,18 +44,19 @@ The store retains 24 entries by default, configurable through `MEMORY_LIMIT`. Th
 
 `eval/memory/cases.jsonl` holds 93 user messages (80 Chinese, 13 English) with the facts a memory system should keep from each one: identity, preferences, plans, events, people around the user, chit-chat that must not be stored, the same fact paraphrased across turns (dedup), and later messages that contradict an earlier one (update). `python -m eval.memory.run_benchmark` scores the rule-based gate without any API call, runs an extractor on every message (the heuristic fallback by default, the real LLM extractor with `--extractor llm`), and feeds each multi-turn scenario through a `MemoryStore` to count duplicate and stale entries. Raw extractor output and the markdown report of each run are kept in `eval/memory/results/`; `--rescore <file>` re-scores a saved run without new requests.
 
-Baseline measured on 2026-10-14, before any change to the gate or extractor:
+Baseline measured on 2026-10-14/15, before any change to the gate, extractor, or store (LLM runs use `deepseek-flash`, thinking off, median 1.1 s per call):
 
 | Stage | Metric | Result |
 | --- | --- | --- |
 | Gate | Messages with a fact that reach the extractor | 33/74 (45 %) |
 | Gate | Passed messages that actually hold a fact | 33/40 (82 %) |
 | Gate | English messages with a fact that pass | 0/11 |
+| Gate + LLM extractor (what the app stores) | Precision / recall of extracted facts | 34/34 (100 %) / 36/81 (44 %) |
+| LLM extractor alone (gate ignored) | Precision / recall of extracted facts | 76/77 (99 %) / 81/81 (100 %), nothing on chit-chat |
 | Gate + heuristic fallback | Precision / recall of extracted facts | 12/12 (100 %) / 12/81 (15 %) |
-| Gate + LLM extractor | Precision / recall of extracted facts | not yet measured (needs an API key; see `eval/memory/results/`) |
-| Store (heuristic run) | Duplicate / stale entries | 0 / 2 of 4 stored; only 2 of 10 scenarios stored anything |
+| Store, LLM extractor alone | Duplicate / stale entries after the paraphrase and conflict scenarios | 8/23 (35 %) / 5/23 (22 %) |
 
-The gate is the main loss. It is keyword-based and Chinese-only, so it drops 41 of the 74 fact-bearing messages: every English one, every event phrased without a trigger word (拿到 offer, 录取, 入职, 升职, 领证, 搬到, 手术), and plain facts such as 我今年24岁, 我对花生过敏, 我不吃辣, 我养了一只猫. Seven of the 19 chit-chat messages pass the gate and cost a request (明天再说吧, 我是说真的啦, 周末快乐呀, ...). The store keeps whatever the extractor hands it with exact-text dedup only, so a fact the user later corrects stays next to the new one.
+The gate is the main loss. It is keyword-based and Chinese-only, so it drops 41 of the 74 fact-bearing messages: every English one, every event phrased without a trigger word (拿到 offer, 录取, 入职, 升职, 领证, 搬到, 手术), and plain facts such as 我今年24岁, 我对花生过敏, 我不吃辣, 我养了一只猫. Seven of the 19 chit-chat messages pass the gate and cost a request (明天再说吧, 我是说真的啦, 周末快乐呀, ...). The extractor itself is not the problem: given every message, it finds all 81 expected facts, adds one unrequested but true one, and stores nothing from chit-chat. The store keeps whatever it is handed with exact-text dedup only, so three paraphrases of 我喜欢咖啡 become three entries and a corrected fact (搬到上海) stays next to the old one (住在杭州).
 
 ## Architecture
 
