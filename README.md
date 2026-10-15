@@ -40,6 +40,23 @@ The store retains 24 entries by default, configurable through `MEMORY_LIMIT`. Th
 - Exact-text deduplication does not resolve paraphrases or conflicting facts.
 - Memory is added asynchronously and may become available on a later turn.
 
+### Memory benchmark
+
+`eval/memory/cases.jsonl` holds 93 user messages (80 Chinese, 13 English) with the facts a memory system should keep from each one: identity, preferences, plans, events, people around the user, chit-chat that must not be stored, the same fact paraphrased across turns (dedup), and later messages that contradict an earlier one (update). `python -m eval.memory.run_benchmark` scores the rule-based gate without any API call, runs an extractor on every message (the heuristic fallback by default, the real LLM extractor with `--extractor llm`), and feeds each multi-turn scenario through a `MemoryStore` to count duplicate and stale entries. Raw extractor output and the markdown report of each run are kept in `eval/memory/results/`; `--rescore <file>` re-scores a saved run without new requests.
+
+Baseline measured on 2026-10-14, before any change to the gate or extractor:
+
+| Stage | Metric | Result |
+| --- | --- | --- |
+| Gate | Messages with a fact that reach the extractor | 33/74 (45 %) |
+| Gate | Passed messages that actually hold a fact | 33/40 (82 %) |
+| Gate | English messages with a fact that pass | 0/11 |
+| Gate + heuristic fallback | Precision / recall of extracted facts | 12/12 (100 %) / 12/81 (15 %) |
+| Gate + LLM extractor | Precision / recall of extracted facts | not yet measured (needs an API key; see `eval/memory/results/`) |
+| Store (heuristic run) | Duplicate / stale entries | 0 / 2 of 4 stored; only 2 of 10 scenarios stored anything |
+
+The gate is the main loss. It is keyword-based and Chinese-only, so it drops 41 of the 74 fact-bearing messages: every English one, every event phrased without a trigger word (拿到 offer, 录取, 入职, 升职, 领证, 搬到, 手术), and plain facts such as 我今年24岁, 我对花生过敏, 我不吃辣, 我养了一只猫. Seven of the 19 chit-chat messages pass the gate and cost a request (明天再说吧, 我是说真的啦, 周末快乐呀, ...). The store keeps whatever the extractor hands it with exact-text dedup only, so a fact the user later corrects stays next to the new one.
+
 ## Architecture
 
 ```mermaid
@@ -132,6 +149,7 @@ companion/
   ui/main_window.py     The desktop window
   qt_bootstrap.py       Windows Qt DLL setup and import diagnostics
 tests/                  pytest suite for companion/core (runs without Qt)
+eval/memory/            memory benchmark: cases.jsonl, scoring, runner, saved results
 live2d_renderer.html     Embedded avatar renderer
 .env.example            Example provider and voice settings
 requirements.txt        Pinned Python dependencies
@@ -188,9 +206,18 @@ pytest
 
 The tests cover `companion/core`, which never imports PyQt or edge-tts, so they run without a display or the GUI dependencies. CI runs `ruff` and `pytest` on Ubuntu, Windows, and macOS for every pull request, with only `requirements-dev.txt` installed; a Qt import added to `companion/core` fails there.
 
+The memory benchmark (see [Memory benchmark](#memory-benchmark)) runs from the repository root:
+
+```bash
+python -m eval.memory.run_benchmark                   # gate + heuristic fallback, no API calls
+python -m eval.memory.run_benchmark --extractor llm   # the real extractor, key from .env; --rpm 3 on Moonshot's free tier
+```
+
+Each run writes its raw output to `eval/memory/results/<date>-<extractor>.jsonl` and prints a markdown report (`--report <file>` saves it). Re-run it after any change to `companion/core/memory` and update the table above.
+
 ## Next steps
 
-- Evaluate extraction and recall on a repeatable conversation set.
+- Consolidate memories (ADD / UPDATE / DELETE / NOOP against the stored entries) so paraphrases stop piling up and corrected facts replace the old ones, and widen the extraction gate, which the benchmark shows drops every English message and most life events. Re-run `eval/memory/run_benchmark.py` after each change and update the baseline table.
 - Add semantic retrieval and conflict-aware memory updates.
 - Add an interface for inspecting, editing, and removing stored memories.
 - Validate platforms beyond Windows.
