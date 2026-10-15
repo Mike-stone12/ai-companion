@@ -1,0 +1,94 @@
+{"meta": {"extractor": "heuristic", "started": "2026-10-14T23:43:34", "cases": "cases.jsonl (93 cases)", "gated_only": false}}
+{"id": "identity-01", "gate": true, "skipped": false, "memories": [{"summary": "用户名字：小林", "category": "identity", "source": "heuristic"}], "errors": [], "elapsed_s": 0.0}
+{"id": "identity-02", "gate": true, "skipped": false, "memories": [{"summary": "用户名字：阿杰", "category": "identity", "source": "heuristic"}], "errors": [], "elapsed_s": 0.0}
+{"id": "identity-03", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "identity-04", "gate": true, "skipped": false, "memories": [{"summary": "用户身份：一名大学生", "category": "identity", "source": "heuristic"}], "errors": [], "elapsed_s": 0.0}
+{"id": "identity-05", "gate": true, "skipped": false, "memories": [{"summary": "用户住在：上海浦东", "category": "profile", "source": "heuristic"}], "errors": [], "elapsed_s": 0.0}
+{"id": "identity-06", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "identity-07", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "identity-08", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "identity-09", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "identity-10", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "identity-11", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "identity-12", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "preference-01", "gate": true, "skipped": false, "memories": [{"summary": "用户喜欢：喝冰美式", "category": "preference", "source": "heuristic"}], "errors": [], "elapsed_s": 0.0}
+{"id": "preference-02", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "preference-03", "gate": true, "skipped": false, "memories": [{"summary": "用户不喜欢：吃香菜", "category": "preference", "source": "heuristic"}], "errors": [], "elapsed_s": 0.0}
+{"id": "preference-04", "gate": true, "skipped": false, "memories": [{"summary": "用户讨厌：下雨天", "category": "preference", "source": "heuristic"}], "errors": [], "elapsed_s": 0.0}
+{"id": "preference-05", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "preference-06", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "preference-07", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "preference-08", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "preference-09", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "preference-10", "gate": true, "skipped": false, "memories": [{"summary": "用户喜欢：你叫我小宝", "category": "preference", "source": "heuristic"}], "errors": [], "elapsed_s": 0.0}
+{"id": "preference-11", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "preference-12", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "plan-01", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "plan-02", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "plan-03", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "plan-04", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "plan-05", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "plan-06", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "plan-07", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "plan-08", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "plan-09", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "plan-10", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "event-01", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "event-02", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "event-03", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "event-04", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "event-05", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "event-06", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "event-07", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "event-08", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "event-09", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "event-10", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "event-11", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "event-12", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "relation-01", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "relation-02", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "relation-03", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "relation-04", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "relation-05", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "relation-06", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "chitchat-01", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "chitchat-02", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "chitchat-03", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "chitchat-04", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "chitchat-05", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "chitchat-06", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "chitchat-07", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "chitchat-08", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "chitchat-09", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "chitchat-10", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "chitchat-11", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "chitchat-12", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "chitchat-13", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "chitchat-14", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "chitchat-15", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "chitchat-16", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "chitchat-17", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "chitchat-18", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "chitchat-19", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "paraphrase-01", "gate": true, "skipped": false, "memories": [{"summary": "用户喜欢：喝咖啡", "category": "preference", "source": "heuristic"}], "errors": [], "elapsed_s": 0.0}
+{"id": "paraphrase-02", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "paraphrase-03", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "paraphrase-04", "gate": true, "skipped": false, "memories": [{"summary": "用户名字：小林", "category": "identity", "source": "heuristic"}], "errors": [], "elapsed_s": 0.0}
+{"id": "paraphrase-05", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "paraphrase-06", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "paraphrase-07", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "paraphrase-08", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "paraphrase-09", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "paraphrase-10", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "paraphrase-11", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "paraphrase-12", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "conflict-01", "gate": true, "skipped": false, "memories": [{"summary": "用户住在：杭州", "category": "profile", "source": "heuristic"}], "errors": [], "elapsed_s": 0.0}
+{"id": "conflict-02", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "conflict-03", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "conflict-04", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "conflict-05", "gate": true, "skipped": false, "memories": [{"summary": "用户喜欢：喝奶茶", "category": "preference", "source": "heuristic"}], "errors": [], "elapsed_s": 0.0}
+{"id": "conflict-06", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "conflict-07", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "conflict-08", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "conflict-09", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
+{"id": "conflict-10", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.0}
