@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Iterable, Iterator
+import time
+from collections.abc import Callable, Iterable, Iterator
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +29,33 @@ def iter_sse_data(lines: Iterable[bytes | str]) -> Iterator[str]:
         yield "\n".join(data_lines)
 
 
-def iter_content_deltas(lines: Iterable[bytes | str]) -> Iterator[str]:
-    """Yield `choices[].delta.content` text until `[DONE]`; reasoning deltas are skipped."""
-    for data in iter_sse_data(lines):
+def iter_content_deltas(
+    lines: Iterable[bytes | str],
+    *,
+    first_content_timeout: float | None = None,
+    idle_timeout: float | None = None,
+    clock: Callable[[], float] = time.monotonic,
+) -> Iterator[str]:
+    """Yield `choices[].delta.content` text until `[DONE]`; reasoning deltas are skipped.
+
+    An overloaded server can hold the stream open with keep-alive comments and no content,
+    which never trips the socket timeout. The deadlines bound the wait for the first piece of
+    content and the gap between pieces; they are checked on every incoming line.
+    """
+    started = clock()
+    last_content: float | None = None
+
+    def guarded() -> Iterator[bytes | str]:
+        for raw in lines:
+            now = clock()
+            if last_content is None:
+                if first_content_timeout is not None and now - started > first_content_timeout:
+                    raise RuntimeError(f"模型服务繁忙：{first_content_timeout:g} 秒内没有返回内容，请稍后再试。")
+            elif idle_timeout is not None and now - last_content > idle_timeout:
+                raise RuntimeError(f"回复中断：{idle_timeout:g} 秒内没有收到新内容。")
+            yield raw
+
+    for data in iter_sse_data(guarded()):
         if data.strip() == "[DONE]":
             return
         try:
@@ -47,4 +72,5 @@ def iter_content_deltas(lines: Iterable[bytes | str]) -> Iterator[str]:
         for choice in event.get("choices") or []:
             content = (choice.get("delta") or {}).get("content")
             if content:
+                last_content = clock()
                 yield content

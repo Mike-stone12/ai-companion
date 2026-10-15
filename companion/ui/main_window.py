@@ -26,6 +26,7 @@ from PyQt6.QtWidgets import (
 from companion.adapters import tts_edge
 from companion.app.workers import ChatStreamWorker, MemoryWorker, TTSWorker
 from companion.core.chat.emotion import EMOTION_INSTRUCTION
+from companion.core.chat.history import ConversationHistory, display_text
 from companion.core.config import AppConfig
 from companion.core.llm.client import OpenAICompatibleClient
 from companion.core.memory.gate import should_extract_memory
@@ -36,8 +37,9 @@ from companion.core.model_profile import (
     discover_vendor_dir,
 )
 from companion.core.text import sanitize_reply_text, sanitize_tts_text
-from companion.paths import HTML_PATH, MEMORY_PATH
+from companion.paths import HISTORY_PATH, HTML_PATH, MEMORY_PATH
 from companion.ui.avatar_bridge import AvatarBridge
+from companion.ui.chat_panel import ChatPanel
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +54,7 @@ LIVE2D_LOADER_CANDIDATES = (
 
 
 MEMORY_QUEUE_LIMIT = 5
+CHAT_PANEL_HEIGHT = 170
 # Safety net if playback stops making progress (e.g. the renderer crashed).
 AUDIO_WATCHDOG_MS = 120_000
 
@@ -104,8 +107,9 @@ class CompanionWindow(QWidget):
         self.model_path = self.model_profile.path if self.model_profile else None
         self.vendor_dir = discover_vendor_dir()
         self.memory_store = MemoryStore(MEMORY_PATH, config.memory_limit)
+        self.history = ConversationHistory(HISTORY_PATH)
         system_prompt = f"{config.system_prompt}\n\n{EMOTION_INSTRUCTION}"
-        self.messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
+        self.messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}, *self.history.messages()]
 
         print_resource_report(self.model_path, self.vendor_dir)
 
@@ -203,10 +207,13 @@ class CompanionWindow(QWidget):
         self.web_view.loadFinished.connect(self.on_page_loaded)
         root_layout.addWidget(self.web_view, 1)
 
-        self.reply_label = QLabel("Type a message to wake your companion.")
-        self.reply_label.setWordWrap(True)
-        self.reply_label.setObjectName("replyLabel")
-        root_layout.addWidget(self.reply_label)
+        self.chat_panel = ChatPanel()
+        self.chat_panel.setFixedHeight(CHAT_PANEL_HEIGHT)
+        root_layout.addWidget(self.chat_panel)
+        if self.history.entries:
+            self.chat_panel.load([(entry["role"], display_text(entry)) for entry in self.history.entries])
+        else:
+            self.chat_panel.add_notice("Type a message to wake your companion.")
 
         controls = QFrame()
         controls.setObjectName("controls")
@@ -233,10 +240,33 @@ class CompanionWindow(QWidget):
                 color: #f6f7fb;
                 font-family: "Segoe UI";
             }
-            QFrame#topBar, QFrame#controls, QLabel#replyLabel {
+            QFrame#topBar, QFrame#controls {
                 background-color: rgba(15, 18, 28, 170);
                 border: 1px solid rgba(255, 255, 255, 28);
                 border-radius: 18px;
+            }
+            QScrollArea#chatPanel, QWidget#chatContainer {
+                background: transparent;
+            }
+            QLabel#userBubble, QLabel#assistantBubble {
+                padding: 7px 11px;
+                border-radius: 12px;
+            }
+            QLabel#userBubble {
+                background-color: rgba(97, 189, 255, 0.92);
+                color: #08131f;
+            }
+            QLabel#assistantBubble {
+                background-color: rgba(15, 18, 28, 200);
+                border: 1px solid rgba(255, 255, 255, 28);
+                color: rgba(255, 255, 255, 0.94);
+            }
+            QLabel#noticeBubble {
+                padding: 3px 9px;
+                border-radius: 8px;
+                background-color: rgba(0, 0, 0, 0.35);
+                color: rgba(255, 255, 255, 0.7);
+                font-size: 11px;
             }
             QLabel#dragLabel {
                 color: rgba(255, 255, 255, 0.88);
@@ -248,10 +278,6 @@ class CompanionWindow(QWidget):
                 padding: 2px 10px;
                 background-color: rgba(76, 175, 80, 40);
                 border-radius: 10px;
-            }
-            QLabel#replyLabel {
-                padding: 12px 14px;
-                color: rgba(255, 255, 255, 0.94);
             }
             QLineEdit {
                 min-height: 40px;
@@ -328,11 +354,11 @@ class CompanionWindow(QWidget):
 
     def on_page_loaded(self, ok: bool) -> None:
         if not ok:
-            self.reply_label.setText(
+            self.chat_panel.add_notice(
                 "The Live2D renderer page could not be loaded. Check console output for path details."
             )
         elif self.model_path is None:
-            self.reply_label.setText("No .model3.json or .model3 file was found under the models folder.")
+            self.chat_panel.add_notice("No .model3.json or .model3 file was found under the models folder.")
 
     def on_renderer_ready(self) -> None:
         logger.info("Renderer connected over QWebChannel")
@@ -366,9 +392,10 @@ class CompanionWindow(QWidget):
         self.chat_input.setEnabled(False)
         self.send_button.setEnabled(False)
         self.set_status("Thinking")
-        self.reply_label.setText(f"You: {user_text}")
+        self.chat_panel.add_user(user_text)
         self.pending_user_text = user_text
         self.messages.append({"role": "user", "content": user_text})
+        self.history.append("user", user_text)
         self.reset_reply_state()
         self.start_chat_worker(self.conversation_window())
 
@@ -376,6 +403,7 @@ class CompanionWindow(QWidget):
         self.reply_parts = []
         self.reply_notes = []
         self.reply_emotion = None
+        self.chat_panel.end_reply()
         self.stream_done = False
         self.speak_reply = tts_edge.is_available() and self.renderer_ready
         self.speech_started = False
@@ -434,7 +462,7 @@ class CompanionWindow(QWidget):
     def render_reply(self) -> None:
         reply = sanitize_reply_text("".join(self.reply_parts))
         notes = "".join(f"\n\n{note}" for note in self.reply_notes)
-        self.reply_label.setText(f"Companion: {reply}{notes}")
+        self.chat_panel.update_reply(f"{reply}{notes}")
 
     def add_reply_note(self, note: str) -> None:
         if note not in self.reply_notes:
@@ -464,7 +492,7 @@ class CompanionWindow(QWidget):
     def on_reply_finished(self, raw_reply: str) -> None:
         reply = sanitize_reply_text(raw_reply)
         if reply:
-            self.messages.append({"role": "assistant", "content": self.history_text(reply)})
+            self.record_reply(reply)
             self.start_memory_worker(self.pending_user_text, reply)
         self.render_reply()
         self.pending_user_text = ""
@@ -475,10 +503,10 @@ class CompanionWindow(QWidget):
         logger.error("Chat request failed: %s", error_text)
         partial = sanitize_reply_text("".join(self.reply_parts))
         if partial:
-            self.messages.append({"role": "assistant", "content": self.history_text(partial)})
+            self.record_reply(partial)
             self.add_reply_note(f"[Interrupted] {error_text}")
         else:
-            self.reply_label.setText(error_text)
+            self.chat_panel.add_notice(error_text)
             self.finish_status = "Error"
         self.pending_user_text = ""
         self.stream_done = True
@@ -488,6 +516,11 @@ class CompanionWindow(QWidget):
     # untagged earlier replies and stops tagging after a turn or two (2/8 vs 8/8 in testing).
     def history_text(self, reply: str) -> str:
         return f"[{self.reply_emotion}] {reply}" if self.reply_emotion else reply
+
+    def record_reply(self, reply: str) -> None:
+        content = self.history_text(reply)
+        self.messages.append({"role": "assistant", "content": content})
+        self.history.append("assistant", content)
 
     def run_next_tts(self) -> None:
         if self.tts_thread is not None or not self.tts_queue:
@@ -527,8 +560,12 @@ class CompanionWindow(QWidget):
         self.bridge.playAudio.emit(url)
 
     def on_tts_error(self, error_text: str) -> None:
-        logger.warning("TTS failed: %s", error_text)
+        logger.warning("TTS failed, not speaking the rest of this reply: %s", error_text)
         self.add_reply_note(f"[TTS] {error_text}")
+        # Failures come from the network and repeat; retrying every remaining sentence would
+        # stack one timeout per sentence. Clips already queued still play.
+        self.speak_reply = False
+        self.tts_queue.clear()
 
     def on_memory_thread_finished(self) -> None:
         self.memory_thread = None
@@ -590,6 +627,9 @@ class CompanionWindow(QWidget):
         if self.tts_queue or self.tts_thread is not None or self.pending_clips:
             return
         self.audio_watchdog.stop()
+        # Close the bubble only now: TTS and audio notes can arrive after the text stream ends
+        # and must land in this reply's bubble, not open a new one.
+        self.chat_panel.end_reply()
         self.set_status(self.finish_status)
         self.finish_interaction()
 
