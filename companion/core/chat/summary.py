@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import re
 
 from companion.core.chat.emotion import EmotionTagParser
+from companion.core.llm.client import OpenAICompatibleClient
+from companion.core.memory.extractor import MEMORY_RETRY_DELAYS, extraction_request_options
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_SUMMARY_MAX_CHARS = 400
 
@@ -88,3 +93,35 @@ def parse_summary(text: str, max_chars: int = DEFAULT_SUMMARY_MAX_CHARS) -> str 
         if sentence_end >= 0:
             cleaned = cleaned[: sentence_end + 1]
     return cleaned.rstrip()
+
+
+def request_summary(
+    client: OpenAICompatibleClient,
+    turns: list[dict[str, str]],
+    previous_summary: str | None = None,
+    max_chars: int = DEFAULT_SUMMARY_MAX_CHARS,
+) -> str | None:
+    """Request a running summary using an injected client's config and complete().
+
+    Return None on request failures (including timeouts) or invalid replies.
+    Reuse consolidation's provider options and retries, but request plain text.
+    No conversation history or previous summary is changed.
+    """
+    try:
+        options = extraction_request_options(client.config.base_url)
+        # The summary protocol expects plain text, unlike memory extraction.
+        options.pop("response_format", None)
+        content = client.complete(
+            build_summary_messages(previous_summary, turns, max_chars),
+            extra=options,
+            retry_delays=MEMORY_RETRY_DELAYS,
+        )
+        summary = parse_summary(content, max_chars)
+    except Exception:
+        # Provider and parse exceptions may contain conversation text.
+        logger.warning("LLM conversation summary failed")
+        return None
+
+    if summary is None:
+        logger.warning("Could not validate conversation summary reply")
+    return summary
