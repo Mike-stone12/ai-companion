@@ -53,6 +53,38 @@ def test_update_replaces_in_place_and_preserves_other_memories(store):
     assert (result.added, result.updated, result.unchanged) == (0, 1, 0)
 
 
+def test_added_memory_appears_in_recent_context(store):
+    before = [entry(f"Older memory {index}") for index in range(9)]
+    store.items = deepcopy(before)
+    store.save()
+
+    consolidate(store, [entry("Coffee")], lambda *_: ConsolidationDecision("ADD", None, "Likes coffee"))
+
+    assert store.items == [*before, entry("Likes coffee", NOW)]
+    assert "- [preference] Likes coffee" in store.render_context().splitlines()
+    persisted = MemoryStore(store.path)
+    assert persisted.items == store.items
+    assert "- [preference] Likes coffee" in persisted.render_context().splitlines()
+
+
+def test_updated_memory_appears_in_recent_context(store):
+    before = [entry(f"Older memory {index}") for index in range(9)]
+    store.items = deepcopy(before)
+    store.save()
+    assert "- [preference] Older memory 8" not in store.render_context().splitlines()
+
+    consolidate(
+        store, [entry("Moved")], lambda *_: ConsolidationDecision("UPDATE", 8, "Lives in Shanghai")
+    )
+
+    assert len(store.items) == len(before)
+    assert store.items == [*before[:8], entry("Lives in Shanghai", NOW)]
+    assert "- [preference] Lives in Shanghai" in store.render_context().splitlines()
+    persisted = MemoryStore(store.path)
+    assert persisted.items == store.items
+    assert "- [preference] Lives in Shanghai" in persisted.render_context().splitlines()
+
+
 @pytest.mark.parametrize("action,target", [("NOOP", None), ("DELETE", 1)])
 def test_noop_and_delete_leave_store_unchanged(store, action, target):
     before = deepcopy(store.items)
