@@ -93,6 +93,32 @@ def test_partial_pipeline_failure_discards_unpersisted_updates(store):
     assert result.added == 2
 
 
+@pytest.mark.parametrize("external_entries", [[entry("Externally edited"), entry("Likes coffee")], []])
+@pytest.mark.parametrize("request_fails", [False, True])
+def test_concurrent_write_falls_back_on_fresh_store(store, external_entries, request_fails):
+    candidates = [entry("Likes coffee"), entry("Likes hiking")]
+
+    def request(*_):
+        other_store = MemoryStore(store.path)
+        other_store.items = deepcopy(external_entries)
+        other_store.save()
+        if request_fails:
+            raise RuntimeError("private memory text")
+        return ConsolidationDecision("ADD", None, "Consolidated candidate")
+
+    result = consolidate(store, candidates, request)
+    persisted = MemoryStore(store.path).items
+    expected_summaries = {item["summary"] for item in external_entries + candidates}
+    assert {item["summary"] for item in persisted} == expected_summaries
+    assert len(persisted) == len(expected_summaries)
+    assert persisted == store.items
+    if external_entries:
+        assert external_entries[0] in persisted
+    added = len(expected_summaries) - len(external_entries)
+    assert (result.added, result.updated, result.unchanged) == (added, 0, len(candidates) - added)
+    assert result.fallback_count == len(candidates)
+
+
 def test_retention_keeps_newest_entries_at_store_limit(store):
     store.limit = 3
     store.items[1]["updated_at"] = "2026-10-02T12:00:00+00:00"

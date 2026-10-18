@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from copy import deepcopy
 from dataclasses import dataclass
 
 from companion.core.memory import store as store_module
@@ -85,25 +86,28 @@ def consolidate_store(
     Counts describe candidate outcomes before retention. Any pipeline or request
     failure discards the provisional result and uses upsert_many for the entire
     batch, including its exact-dedupe metadata and timestamp refresh behavior.
+    Changes persisted during consolidation also trigger fallback on freshly
+    loaded state, so edits and clears made during LLM calls are preserved.
     Successful updates retain their positions; overflow retains the newest
     entries by timestamp, as upsert_many does. Existing duplicates are preserved.
     Storage errors propagate to the caller.
     """
     store.load()
+    snapshot = deepcopy(store.items)
     try:
         result = consolidate_candidates(store.items, candidates, request_decision, now=store_module.utc_now_iso)
     except Exception:
         # Exception messages can contain private memory text.
         result = None
 
-    if result is None or result.fallback_count:
+    store.load()
+    if result is None or result.fallback_count or store.items != snapshot:
         added = store.upsert_many(candidates)
         return StoreConsolidationSummary(added, 0, len(candidates) - added, len(candidates))
 
-    entries = result.entries
-    if len(entries) > store.limit:
-        entries = sorted(entries, key=lambda item: item.get("updated_at", ""), reverse=True)[: store.limit]
-    store.items = entries
+    store.items = result.entries
+    if len(store.items) > store.limit:
+        store.trim()
     if candidates:
         store.save()
     return StoreConsolidationSummary(

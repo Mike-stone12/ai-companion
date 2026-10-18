@@ -72,6 +72,10 @@ class MemoryStore:
         lines = [f"- [{item.get('category', 'memory')}] {item['summary']}" for item in recent]
         return "长期记忆（已压缩）:\n" + "\n".join(lines)
 
+    def trim(self) -> None:
+        """Order entries by recency and retain at most the store limit."""
+        self.items = sorted(self.items, key=lambda item: item.get("updated_at", ""), reverse=True)[: self.limit]
+
     def upsert_many(self, memories: list[dict[str, str]]) -> int:
         added = 0
         for item in memories:
@@ -98,7 +102,7 @@ class MemoryStore:
             )
             added += 1
 
-        self.items = sorted(self.items, key=lambda item: item.get("updated_at", ""), reverse=True)[: self.limit]
+        self.trim()
         if memories:
             self.save()
         return added
