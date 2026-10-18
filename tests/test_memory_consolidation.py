@@ -1,14 +1,125 @@
 import json
+import logging
 from dataclasses import FrozenInstanceError
+from types import SimpleNamespace
 
 import pytest
 
+from companion.core.memory import consolidator
 from companion.core.memory.consolidator import (
     ConsolidationDecision,
     apply_decision,
     build_consolidation_messages,
     parse_consolidation_response,
 )
+from companion.core.memory.extractor import MEMORY_RETRY_DELAYS, extraction_request_options
+
+
+class FakeConsolidationClient:
+    def __init__(self, response=None, error=None, base_url="https://api.deepseek.com"):
+        self.config = SimpleNamespace(base_url=base_url)
+        self.response = response
+        self.error = error
+        self.calls = []
+
+    def complete(self, messages, **kwargs):
+        self.calls.append((messages, kwargs))
+        if self.error is not None:
+            raise self.error
+        return self.response
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        ({"action": "ADD", "summary": "New fact"}, ConsolidationDecision("ADD", None, "New fact")),
+        (
+            {"action": "UPDATE", "target": 1, "summary": "Merged fact"},
+            ConsolidationDecision("UPDATE", 1, "Merged fact"),
+        ),
+        ({"action": "DELETE", "target": 0}, ConsolidationDecision("DELETE", 0, None)),
+        ({"action": "NOOP"}, ConsolidationDecision("NOOP", None, None)),
+    ],
+)
+def test_decide_passes_through_valid_decisions(payload, expected):
+    client = FakeConsolidationClient(json.dumps(payload))
+    existing = ["Old fact", "Another fact"]
+
+    assert consolidator.decide("Candidate fact", existing, client) == expected
+    assert len(client.calls) == 1
+    assert client.calls[0][0] == build_consolidation_messages("Candidate fact", existing)
+    assert existing == ["Old fact", "Another fact"]
+
+
+def test_decide_without_existing_memories_skips_request():
+    client = FakeConsolidationClient(error=AssertionError("Must not call LLM"))
+    candidate = " Candidate fact\n"
+
+    assert consolidator.decide(candidate, [], client) == ConsolidationDecision("ADD", None, candidate)
+    assert client.calls == []
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        "not JSON: private candidate, private existing",
+        '{"action": "UPDATE", "target": 1, "summary": "private candidate"}',
+        '{"action": "DELETE", "target": -1}',
+        '{"action": "UPDATE", "target": "memory-id", "summary": "private candidate"}',
+        '{"action": "MERGE"}',
+        '{"action": "ADD", "summary": ""}',
+        None,
+    ],
+)
+def test_decide_invalid_response_falls_back_without_logging_memory(response, caplog):
+    client = FakeConsolidationClient(response)
+    with caplog.at_level(logging.INFO):
+        result = consolidator.decide("private candidate", ["private existing"], client)
+
+    assert result == ConsolidationDecision("ADD", None, "private candidate")
+    assert len(client.calls) == 1
+    assert any(record.levelno == logging.WARNING for record in caplog.records)
+    assert "private candidate" not in caplog.text
+    assert "private existing" not in caplog.text
+
+
+@pytest.mark.parametrize("error_type", [RuntimeError, TimeoutError, ValueError])
+def test_decide_request_error_falls_back_without_logging_memory(error_type, caplog):
+    candidate = " private candidate\n"
+    client = FakeConsolidationClient(error=error_type(f"Request contained {candidate} and private existing"))
+    with caplog.at_level(logging.INFO):
+        result = consolidator.decide(candidate, ["private existing"], client)
+
+    assert result == ConsolidationDecision("ADD", None, candidate)
+    assert len(client.calls) == 1
+    assert any(record.levelno == logging.WARNING for record in caplog.records)
+    assert "private candidate" not in caplog.text
+    assert "private existing" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("base_url", "thinking_disabled", "temperature"),
+    [
+        ("https://api.deepseek.com", True, 0.2),
+        ("https://api.moonshot.cn/v1", True, None),
+        ("https://example.com/v1", False, 0.2),
+    ],
+)
+def test_decide_uses_extractor_request_conventions(base_url, thinking_disabled, temperature):
+    client = FakeConsolidationClient('{"action": "NOOP"}', base_url=base_url)
+
+    assert consolidator.decide("Candidate fact", ["Old fact"], client).action == "NOOP"
+    options = client.calls[0][1]
+    assert options == {"extra": extraction_request_options(base_url), "retry_delays": MEMORY_RETRY_DELAYS}
+    assert options["extra"]["response_format"] == {"type": "json_object"}
+    if thinking_disabled:
+        assert options["extra"]["thinking"] == {"type": "disabled"}
+    else:
+        assert "thinking" not in options["extra"]
+    if temperature is None:
+        assert "temperature" not in options["extra"]
+    else:
+        assert options["extra"]["temperature"] == temperature
 
 
 def test_decision_is_frozen():
