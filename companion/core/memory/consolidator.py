@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from dataclasses import dataclass
 from typing import Literal
+
+from companion.core.llm.client import OpenAICompatibleClient
+from companion.core.memory.extractor import MEMORY_RETRY_DELAYS, extraction_request_options
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -82,6 +88,36 @@ def parse_consolidation_response(raw: str, existing_count: int) -> Consolidation
     if not isinstance(summary, str) or not summary.strip():
         return None
     return ConsolidationDecision(action, target, summary.strip())
+
+
+def decide(
+    candidate: str, existing_memories: list[str], client: OpenAICompatibleClient
+) -> ConsolidationDecision:
+    """Request a decision using an injected client; preserve the candidate on failure.
+
+    The client supplies config.base_url and complete(), as in the extractor.
+    Targets refer to indices in existing_memories; no stored memories are changed.
+    """
+    fallback = ConsolidationDecision("ADD", None, candidate)
+    if not existing_memories:
+        return fallback
+
+    try:
+        content = client.complete(
+            build_consolidation_messages(candidate, existing_memories),
+            extra=extraction_request_options(client.config.base_url),
+            retry_delays=MEMORY_RETRY_DELAYS,
+        )
+        decision = parse_consolidation_response(content, len(existing_memories))
+    except Exception:
+        # Provider exceptions may contain memory text; keep details out of warnings.
+        logger.warning("LLM consolidation failed, falling back to ADD")
+        return fallback
+
+    if decision is None:
+        logger.warning("Could not validate consolidation reply, falling back to ADD")
+        return fallback
+    return decision
 
 
 def apply_decision(existing: list[str], candidate: str, decision: ConsolidationDecision | None) -> list[str]:
