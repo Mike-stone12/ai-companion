@@ -685,6 +685,9 @@ class CompanionWindow(QWidget):
         self.run_next_memory_job()
 
     def on_memory_ready(self, memories: list[dict[str, str]]) -> None:
+        if self.config.memory_consolidation:
+            self.memory_store.load()
+            return
         added = self.memory_store.upsert_many(memories)
         if added:
             logger.info("Stored %d new memories in %s", added, MEMORY_PATH)

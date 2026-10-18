@@ -31,13 +31,15 @@ The memory pipeline uses a lightweight extraction gate, structured LLM extractio
 4. **Normalize and store.** Summaries are shortened, deduplicated by exact summary text, timestamped, and stored in `memory.json` in the user data directory (see [Data flow](#data-flow)).
 5. **Recall into context.** Up to eight recent memories are added to the next chat request alongside a bounded conversation history.
 
+With `MEMORY_CONSOLIDATION=1` (the default), new candidates are compared with stored memories, and duplicates or updates are merged instead of appended; DELETE decisions leave memories unchanged.
+
 The store retains 24 entries by default, configurable through `MEMORY_LIMIT`. This implementation uses external, text-based memory; it does not update model weights.
 
 ### Current tradeoffs
 
 - Extraction rules and gating are primarily designed for Chinese input.
 - Recall uses recency, so an older relevant fact can be missed.
-- Exact-text deduplication does not resolve paraphrases or conflicting facts.
+- When consolidation is disabled or fails, exact-text deduplication does not resolve paraphrases or conflicting facts.
 - Memory is added asynchronously and may become available on a later turn.
 
 ## Architecture
@@ -109,6 +111,7 @@ Recall depends on extraction and the configured model; this is a manual walkthro
 | `EDGE_TTS_VOICE_ZH` | Chinese voice | `zh-CN-XiaoxiaoNeural` |
 | `EDGE_TTS_VOICE_EN` | English voice | `en-US-AriaNeural` |
 | `MEMORY_ENABLED` | Enable new memory extraction | `1` |
+| `MEMORY_CONSOLIDATION` | Compare and merge candidates with stored memories; `0` restores exact-text deduplication only | `1` |
 | `MEMORY_LIMIT` | Maximum retained memory entries | `24` |
 | `COMPANION_DATA_DIR` | Where memory and logs are stored | Platform user data directory |
 | `COMPANION_SYSTEM_PROMPT` | Companion's system instruction | Built-in companion prompt |
