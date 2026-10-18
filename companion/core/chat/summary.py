@@ -12,6 +12,7 @@ from companion.core.memory.extractor import MEMORY_RETRY_DELAYS, extraction_requ
 logger = logging.getLogger(__name__)
 
 DEFAULT_SUMMARY_MAX_CHARS = 400
+DEFAULT_SUMMARY_BATCH = 8
 
 SUMMARY_PROMPT = (
     "Update a concise running summary of the conversation using the supplied turns and any previous summary. "
@@ -40,6 +41,55 @@ def split_for_summary(
     ):
         boundary -= 1
     return messages[:boundary], messages[boundary:]
+
+
+def plan_summary_update(
+    turns: list[dict[str, str]],
+    window: int,
+    summarized_count: int,
+    batch: int = DEFAULT_SUMMARY_BATCH,
+) -> tuple[list[dict[str, str]], int] | None:
+    """Plan a summary update, counting individual messages as history.py does.
+
+    Return (all eligible turns, new covered-prefix count), or None below the
+    batch threshold. Keep user/assistant pairs together at the recent boundary.
+    Only advance the caller's count after a summary request succeeds.
+
+    summarized_count is a prefix length in the supplied history, normally from
+    a previous successful plan. Clamp it to the history length without replaying
+    covered turns. If older entries are dropped, the caller must subtract their
+    count (down to zero) from the cursor; a list alone cannot reveal that offset.
+    Inputs are left unchanged. window and summarized_count must be nonnegative,
+    and batch must be positive.
+    """
+    if summarized_count < 0:
+        raise ValueError("summarized_count must be nonnegative")
+    if batch <= 0:
+        raise ValueError("batch must be positive")
+    older, _ = split_for_summary(turns, window)
+    covered = min(summarized_count, len(turns))
+    if len(older) - covered < batch:
+        return None
+    return older[covered:], len(older)
+
+
+def build_chat_messages(
+    system_prompt: str,
+    recent_turns: list[dict[str, str]],
+    memory_context: str | None = None,
+    summary: str | None = None,
+) -> list[dict[str, str]]:
+    """Assemble chat context from already-windowed turns without changing inputs.
+
+    Preserve the app's system/memory/recent order when no summary is supplied.
+    A nonblank summary adds a labelled system message immediately before turns.
+    """
+    messages = [{"role": "system", "content": system_prompt}]
+    if memory_context:
+        messages.append({"role": "system", "content": memory_context})
+    if summary and summary.strip():
+        messages.append({"role": "system", "content": "Conversation summary:\n" + summary.strip()})
+    return [*messages, *recent_turns]
 
 
 def build_summary_messages(
