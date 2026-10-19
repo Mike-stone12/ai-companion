@@ -328,6 +328,29 @@ one-folder build on Windows and Linux. The bundle includes the renderer, Live2D
 models, and vendor assets. Optional `vosk` is excluded, so wake-word detection
 is unavailable in this build; push-to-talk remains supported.
 
+Check a build (or a source checkout) without network access or touching your data:
+
+```bash
+"dist/AI Companion.app/Contents/MacOS/AI Companion" --self-test report.txt   # macOS
+"dist/AI Companion/AI Companion" --self-test report.txt                      # Linux
+python main.py --self-test                                                   # source
+```
+
+The self-test checks bundled resources, imports, and the keychain backend, then
+opens the real window and waits for the Live2D model to render. It uses a
+temporary data directory (deleted afterwards), never reads the keychain or calls
+an API, prints a PASS/FAIL report (also written to the optional path), and exits
+non-zero if a required check fails.
+
+The **Package** GitHub Actions workflow builds with `ai-companion.spec` on macOS,
+Windows, and Linux for every pull request and push to `master`/`agent-dev`, runs
+the self-test on each frozen build, and uploads `AI-Companion-macOS.zip`,
+`AI-Companion-Windows.zip`, and `AI-Companion-Linux.tar.gz` as workflow artifacts
+(kept 14 days). Builds are unsigned. Each build bundles the default whale-girl
+character, which is licensed under CC BY-NC-SA 4.0: **the builds must not be used
+commercially** (see [NOTICE.md](NOTICE.md)). `LICENSE` and `NOTICE.md` are included
+inside every bundle and at the top level of every archive.
+
 User data still lives in the platform data directory described above (or the
 `COMPANION_DATA_DIR` override). `.env` is never bundled. To use it, place it next
 to the executable: `dist/AI Companion/.env` on Windows/Linux, or
@@ -393,7 +416,8 @@ and non-editable settings (including `COMPANION_DATA_DIR`) are rejected.
 - [x] Voice input (push-to-talk).
 - [x] Wake word (opt-in Vosk; excluded from the packaged build).
 - [x] PyInstaller packaging: macOS `.app` and Windows/Linux one-folder build.
-- [ ] Verify packaged builds on each target OS (macOS, Windows, and Linux).
+- [x] CI packaging on macOS, Windows, and Linux with a frozen-build self-test.
+- [ ] Try the packaged builds by hand on Windows and Linux desktops.
 - [ ] Refine the implemented voice input and wake word with real-device feedback.
 - [ ] Add a demo GIF.
 - [x] Secure API key storage in the OS keychain, with `.env` as a fallback.

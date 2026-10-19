@@ -51,6 +51,8 @@ def user_data_dir(
 HTML_PATH = APP_DIR / "live2d_renderer.html"
 MODELS_DIR = APP_DIR / "models"
 VENDOR_DIR = APP_DIR / "vendor"
+LICENSE_PATH = APP_DIR / "LICENSE"
+NOTICE_PATH = APP_DIR / "NOTICE.md"
 
 # User data lives outside the project so a packaged, read-only app can still write it.
 DATA_DIR = user_data_dir()
