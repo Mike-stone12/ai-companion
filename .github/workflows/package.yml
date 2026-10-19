@@ -70,7 +70,10 @@ jobs:
           # Ubuntu runners restrict the unprivileged user namespaces Chromium's sandbox needs.
           QTWEBENGINE_DISABLE_SANDBOX: "1"
           # Hosted runners have no GPU and Chromium blocklists WebGL; render it in software.
-          QTWEBENGINE_CHROMIUM_FLAGS: --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader
+          # Compositing stays in software too: Chromium crashed (SIGTRAP) about half the time
+          # when it tried hardware compositing on the Mesa software rasterizer.
+          QTWEBENGINE_CHROMIUM_FLAGS: --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader --disable-gpu-compositing
+          QT_QUICK_BACKEND: software
         # Software WebGL on the runner occasionally crashes Chromium (SIGTRAP) after the
         # renderer connects; retry once so a real break still fails twice in a row.
         run: |
