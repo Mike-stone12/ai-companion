@@ -133,6 +133,8 @@ Recall depends on extraction and the configured model; this is a manual walkthro
 
 Variables already set in the shell take precedence over values in `.env`.
 
+You can also add an optional `"settings"` object to `config.json` in the user data directory, alongside `"window"`, for example `"settings": {"MEMORY_LIMIT": 32, "CHAT_THINKING": true, "LOG_LEVEL": "DEBUG"}`. Keys use the environment variable names above; values may be strings, numbers, or booleans (`true` becomes `"1"`, `false` becomes `"0"`). Precedence is built-in defaults < `config.json` settings < environment variables (including `.env`). API keys and any key containing `KEY`, `SECRET`, `TOKEN`, or `PASSWORD`, as well as `COMPANION_DATA_DIR`, are ignored in this object. Loading these settings never writes to `config.json`.
+
 `MEMORY_ENABLED=0` stops new extraction. Existing memories are still loaded into chat context by the current implementation.
 
 ## Project layout

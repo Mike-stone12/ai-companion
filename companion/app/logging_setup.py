@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import logging
-import os
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from companion.core.settings_values import load_setting_values
 from companion.paths import LOG_DIR
 
 LOG_FILE_NAME = "companion.log"
@@ -26,7 +26,7 @@ class _FileHandler(_CompanionHandler, RotatingFileHandler):
 
 
 def setup_logging(level: str | None = None, log_dir: Path = LOG_DIR) -> Path:
-    requested = (level or os.getenv("LOG_LEVEL") or "INFO").strip().upper()
+    requested = (level or load_setting_values().get("LOG_LEVEL") or "INFO").strip().upper()
     resolved = logging.getLevelName(requested)
     invalid = not isinstance(resolved, int)
     if invalid:

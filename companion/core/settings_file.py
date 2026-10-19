@@ -15,9 +15,9 @@ def load_settings(path: Path) -> dict:
 
 def load_json(path: Path, expected_type: type[dict] | type[list]) -> dict | list:
     """Read a JSON container, treating missing, corrupt, or mismatched data as empty."""
-    if not path.exists():
-        return expected_type()
     try:
+        if not path.exists():
+            return expected_type()
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         logger.warning("Ignoring unreadable settings file %s: %s", path, exc)
