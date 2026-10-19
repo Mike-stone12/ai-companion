@@ -20,6 +20,8 @@ companion/core/            pure Python, never imports Qt: config, text, llm (cli
                            chat (emotion tags, history, conversation summary),
                            memory (store, gate, extractor, recall, consolidation),
                            model profiles, window state (settings file, placement rules)
+                           voice_input.py (push-to-talk capture model, WAV encoder),
+                           llm/transcription.py (transcription client); microphone/window wiring pending
 companion/core/proactive/  events, policy, triggers (including active-app trigger active_app.py),
                            composer, engine tick; opt-in via PROACTIVE_CHAT
 companion/core/tools/      function-calling tools, opt-in via CHAT_TOOLS
@@ -28,6 +30,7 @@ companion/app/             QThread workers, logging setup
 companion/memory_cli.py    memory inspection and editing (dry run unless --write)
 companion/settings_cli.py  non-secret settings inspection and editing
 companion/ui/              main window, chat panel, QWebChannel bridge to the renderer
+                           settings_dialog.py and memory_dialog.py (settings and memory dialogs)
 live2d_renderer.html       avatar renderer (PixiJS + pixi-live2d-display, lip sync, queue)
 models/                    Live2D models; companion.json holds window size, motion roles,
                            and the emotion -> expression map
