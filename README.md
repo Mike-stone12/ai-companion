@@ -244,6 +244,31 @@ the correction and updates that entry's timestamp. Invalid indices, empty text,
 missing files, and exact duplicate summaries are rejected. Only `edit --write`
 saves data; none of these commands migrate data.
 
+### Edit settings
+
+Inspect or change the editable, non-secret settings in the user data directory's
+`config.json` without GUI dependencies:
+
+```bash
+python -m companion.settings_cli list
+python -m companion.settings_cli show LOG_LEVEL
+python -m companion.settings_cli set MEMORY_LIMIT 32
+python -m companion.settings_cli set CHAT_TOOLS true --write
+python -m companion.settings_cli --data-dir /path/to/data set LOG_LEVEL DEBUG --write
+```
+
+`list` and `show` report merged configuration values and their source: default,
+`config.json`, or environment (highest precedence). Values use the core loader's
+text representation, including `"1"`/`"0"` for stored booleans; `show` also describes
+the setting's type and allowed values. For `set`, use `true`/`false` for booleans,
+JSON numbers for numeric settings, and plain text for strings and choices.
+By default, `set` prints the old and new stored values without changing the file.
+`--write` saves atomically, creating a missing file and preserving the `window`
+section and all other keys. Changes apply on the next configuration load; an
+environment override is reported when editing. Directory selection follows the
+memory CLI, including `COMPANION_DATA_DIR` and `.env`. Unknown, invalid, secret,
+and non-editable settings (including `COMPANION_DATA_DIR`) are rejected.
+
 ## Next steps
 
 Conflict-aware consolidation already supports ADD, UPDATE, and NOOP; DELETE decisions are ignored.
