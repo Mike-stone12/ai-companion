@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import sys
 from pathlib import Path
 
-from companion.core.memory.edit import edit_memory, memory_rows
-from companion.core.memory.store import MemoryStore
+from companion.core.memory.edit import (
+    edit_memory,
+    filter_memory_rows,
+    load_memory_entries,
+    memory_rows,
+    save_memory_edits,
+)
 
 
 def _nonnegative_int(value: str) -> int:
@@ -48,11 +52,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         # MemoryStore.load normalizes, clips and limits entries and swallows read
         # errors. Inspection needs the complete stored JSON and explicit errors.
-        entries = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(entries, list) or any(
-            not isinstance(entry, dict) or not isinstance(entry.get("summary"), str) for entry in entries
-        ):
-            raise ValueError("expected a JSON list of memory objects with string summaries")
+        entries = load_memory_entries(path)
     except FileNotFoundError:
         if args.command == "edit":
             print(f"Error: memory file does not exist: {path}", file=sys.stderr)
@@ -83,14 +83,8 @@ def main(argv: list[str] | None = None) -> int:
             print("Dry run: nothing was saved. Use --write to save.")
             return 0
 
-        backup = path.with_name("memory.json.bak")
         try:
-            # Preserve all raw entries and metadata, bypassing load's cleanup.
-            # Match the file's length so save() cannot drop older memories.
-            store = MemoryStore(path, limit=len(edited))
-            store.items = edited
-            shutil.copyfile(path, backup)
-            store.save()
+            backup = save_memory_edits(path, edited)
         except OSError as exc:
             print(f"Error saving {path}: {exc}", file=sys.stderr)
             return 1
@@ -105,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "list" and args.limit is not None:
         rows = rows[: args.limit]
     elif args.command == "search":
-        rows = [row for row in rows if args.query.casefold() in row.summary.casefold()]
+        rows = filter_memory_rows(rows, args.query)
     for row in rows:
         timestamp = f" [{row.timestamp}]" if row.timestamp else ""
         # Keep each memory on one line, even for manually authored summaries.
