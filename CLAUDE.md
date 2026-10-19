@@ -62,6 +62,7 @@ live2d_renderer.html       avatar renderer (PixiJS + pixi-live2d-display, lip sy
 models/                    Live2D models; companion.json holds window size, motion roles,
                            and the emotion -> expression map
 evals/                     offline memory evaluation cases
+docs/                      configuration.md, architecture.md, development.md (README stays user-facing)
 tests/                     pytest suite for companion/core and adapters (no Qt needed)
 ```
 

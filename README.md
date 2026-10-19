@@ -1,435 +1,168 @@
 # AI Companion
 
 [![CI](https://github.com/Mike-stone12/ai-companion/actions/workflows/ci.yml/badge.svg)](https://github.com/Mike-stone12/ai-companion/actions/workflows/ci.yml)
+[![Package](https://github.com/Mike-stone12/ai-companion/actions/workflows/package.yml/badge.svg)](https://github.com/Mike-stone12/ai-companion/actions/workflows/package.yml)
 
-**A desktop companion that remembers the conversation.**
+**A Live2D character that lives on your desktop, talks with you out loud, and remembers what you tell it.**
 
-A desktop application combining an animated Live2D character, LLM chat, bilingual voice replies, and persistent memory. The project explores how a conversational interface can retain useful facts across sessions while keeping its context compact.
+AI Companion puts an animated character in a small transparent window on your screen. You chat with it in text or by voice; it answers in a natural voice with matching lip sync and facial expressions, keeps the conversation across restarts, and gradually remembers facts about you. Out of the box it plays your childhood friend from next door (青梅竹马), and you can describe any other personality you like.
 
-Windows is the most tested platform; the maintainer also works on macOS. CI tests the core without GUI dependencies on Ubuntu, Windows, and macOS; it does not validate the GUI on those platforms.
+It runs on macOS, Windows, and Linux, and works with any OpenAI-compatible chat API (Moonshot/Kimi, DeepSeek, and others) using your own API key.
 
-**Stack:** Python · PyQt6 / Qt WebEngine · OpenAI-compatible APIs · Edge-TTS · PixiJS · Live2D
+[Quick start](#quick-start) · [Persona](#persona) · [Configuration](#configuration) · [Privacy](#privacy) · [License](#license)
 
-[Quick start](#quick-start) · [Memory design](#memory-design) · [Architecture](#architecture) · [Configuration](#configuration)
+## Highlights
 
-## What it does
-
-- **Desktop character:** a transparent, frameless, draggable window with a Live2D avatar. Ships with two models, a whale-girl maid (default) and Hiyori, which can be swapped with one setting.
-- **Persona:** on first start a dialog asks who the companion should be; the default is a childhood friend who grew up next door (青梅竹马). Pick a preset or edit the name, what it calls you, relationship, personality, speaking style, and background; change it any time with **Persona…** in the right-click menu. The persona becomes the system prompt and applies from the next reply, including proactive messages. It is saved to `persona.json` in the user data directory.
-- **Window controls:** right-click the character or the drag bar for a menu with size presets (70–150 %), opacity presets (55–100 %), reset position, and quit. Position, size, and opacity are saved to `config.json` in the user data directory and restored on the next start; a saved position that is no longer on any screen (an unplugged monitor, for example) falls back to the default spot above the taskbar.
-- **Chat history:** a scrollable bubble panel shows the conversation (user right, companion left, notices centered) and the current reply fills in as it streams. The conversation is saved to `history.json` in the user data directory and restored on the next start, both on screen and as context for the model.
-- **Settings and memories:** right-click and choose **Settings…** to edit non-secret settings (applied on the next start), or **Memories…** to view, search, and edit stored memory summaries.
-- **Emotional expressions:** the model is instructed to open each reply with an emotion tag (`[happy]`, `[sad]`, `[angry]`, `[surprised]`, `[shy]`, `[confused]`, `[awkward]`, `[neutral]`). The tag is stripped from the stream before display and speech, and the avatar switches to the matching expression when the model profile provides one, returning to default a few seconds after it stops speaking.
-- **Streaming chat:** connects to an OpenAI-compatible endpoint (Moonshot/Kimi by default, with DeepSeek configuration in `.env.example`) and streams the reply, so text appears as it is generated and speech can start after the first clause instead of the whole reply. Median time from sending a message to the first spoken word dropped from 2.97 s to 1.70 s (DeepSeek `deepseek-flash`, three prompts) and no longer grows with reply length.
-- **Voice replies with lip sync:** synthesizes replies with Edge-TTS, selects a Chinese or English voice based on the response, and moves the avatar's mouth with the speech volume (Web Audio analyser driving `ParamMouthOpenY`, or the model's LipSync parameter).
-- **Voice input (opt-in):** enable `VOICE_INPUT` and set `TRANSCRIPTION_MODEL` to show **Hold to talk** beside the chat input. Hold to record, then release to transcribe and send as a normal chat message. Empty speech or errors show a short notice. Disabled by default; no microphone is created or QtMultimedia imported when disabled.
-- **Wake word (opt-in):** enable `WAKE_WORD` with usable voice input, wake phrases, and a local Vosk model (see [setup](#set-up-the-wake-word)). “Wake word on” indicates microphone listening; a detected phrase starts roughly 5 seconds of capture, then transcribes and sends through normal chat. Listening pauses during capture and replies.
-- **Persistent memory:** extracts short facts, saves them locally, and includes relevant and recent memories in later conversations.
-- **Proactive chat (opt-in):** set `PROACTIVE_CHAT=1` for idle chat, time-of-day greetings, and spoken due reminders; off by default (`PROACTIVE_CHAT=0`). Checks run every 30 seconds. Policy blocks events during an active reply or while the input contains text, applies a two-minute grace period after a user message, and enforces cooldowns of 30 minutes for idle chat and four hours for greetings (none for reminders). Enable `CHAT_TOOLS` to set persistent reminders.
-- **Active-app comments (opt-in):** set `ACTIVE_APP_MONITOR=1` together with `PROACTIVE_CHAT=1` (monitor off by default). After the same foreground app has been sampled for at least 40 minutes, the monitor proposes one brief, caring comment per streak, spoken in the current persona's voice and addressed to the user at the computer, subject to proactive policy and a 60-minute cooldown between active-app comments. Only the foreground app name and streak duration are sent to the LLM for this event, never a process list. Supported on Windows and macOS; unsupported platforms return no sample and trigger no active-app comments.
-- **Background processing:** separate Qt workers handle chat requests, memory extraction, and speech synthesis.
-
-## Memory design
-
-The memory pipeline uses a lightweight extraction gate, structured LLM extraction, and a heuristic fallback:
-
-1. **Detect useful input.** Chinese-language patterns identify personal facts, preferences, plans, and upcoming events. Common chit-chat openers are deliberately not triggers, because every extraction costs an API request.
-2. **Extract candidates.** Messages that pass the gate are sent to an LLM in JSON mode. For Moonshot and DeepSeek endpoints, the request disables reasoning. If the LLM finds nothing worth remembering, nothing is stored. Heuristics (name, identity, likes, location) are used when no API key is configured, the request fails, or the reply cannot be parsed into the expected memory list.
-3. **Queue in the background.** Extraction runs off the UI thread. Up to five jobs can wait while one runs; a full queue drops the oldest pending job. Rate-limited requests are retried after 10 s and 25 s.
-4. **Normalize and store.** Summaries are shortened, deduplicated by exact summary text, timestamped, and stored in `memory.json` in the user data directory (see [Data flow](#data-flow)).
-5. **Recall into context.** Up to eight memories are added to the next chat request alongside a bounded conversation history. With `MEMORY_RELEVANT_RECALL=1` (the default), up to half the slots prefer lexical matches to the current user message; remaining slots are filled by recency. Empty queries or no overlap fall back to selecting recent entries. Selections are returned in stored order. Setting the flag to `0` restores the previous recency-only selection in newest-first order.
-
-Optional semantic recall is enabled with `MEMORY_SEMANTIC_RECALL=1` and an explicit `EMBEDDING_MODEL`. It uses embedding similarity for up to half the slots, then fills by recency in stored order. Embedding requests run in the chat worker with a 30-second socket timeout, and a window-session cache reuses stored memory embeddings. On failure, recall falls back to the configured `MEMORY_RELEVANT_RECALL` behavior. Enabling semantic recall sends stored memory text and the current user message to the configured API's `/embeddings` endpoint, using the same base URL and API key as chat.
-
-With `MEMORY_CONSOLIDATION=1` (the default), new candidates are compared with stored memories, and duplicates or updates are merged instead of appended; DELETE decisions leave memories unchanged.
-
-Older turns beyond the context window are folded in the background into a running summary, saved with chat history and included in later requests.
-
-The store retains 24 entries by default, configurable through `MEMORY_LIMIT`. This implementation uses external, text-based memory; it does not update model weights.
-
-### Current tradeoffs
-
-- Extraction rules and gating are primarily designed for Chinese input.
-- Default recall combines lexical overlap and recency, so paraphrases without shared words or CJK features can still be missed. Optional semantic recall requires a compatible embedding model and adds embedding request latency for uncached text.
-- When consolidation is disabled or fails, exact-text deduplication does not resolve paraphrases or conflicting facts.
-- Memory is added asynchronously and may become available on a later turn.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    UI["PyQt desktop window"] --> View["Qt WebEngine / Live2D"]
-    UI --> Chat["ChatStreamWorker (SSE)"]
-    Chat --> API["Configured LLM endpoint"]
-    Chat --> Split["SentenceSplitter"]
-    Split --> TTS["TTSWorker / Edge-TTS (one sentence at a time)"]
-    TTS --> Bridge["AvatarBridge / QWebChannel"]
-    Bridge --> Audio["Renderer audio + talk motion"]
-    Audio -- "started / finished" --> Bridge
-    Chat --> Memory["MemoryWorker"]
-    Memory --> Store["MemoryStore / local JSON"]
-    Store --> Context["Recalled memory context"]
-    Context --> Chat
-```
-
-When proactive chat is enabled, triggers propose events, policy checks eligibility, and the engine passes at most one eligible event per tick to the composer. Its instruction is appended to conversation context for a chat request through the existing streaming and speech pipeline. Proposals that are rejected or lose priority are not queued or retried. The proactive core is pure Python; its Qt timer lives only in the UI layer (`companion/ui/main_window.py`).
-
-With `ACTIVE_APP_MONITOR=1`, the UI samples the foreground-app adapter on each proactive tick and feeds app names to the pure-Python active-app streak trigger (`companion/core/proactive/active_app.py`).
-
-Push-to-talk routes microphone PCM through `VoiceInputController`, then finalizes and transcribes the in-memory WAV on a `TranscriptionWorker`; successful, non-empty transcripts enter the same `submit_message` path as typed chat. The local Vosk `WakeWordWorker` triggers that same capture path with a roughly five-second timer in place of button release.
-
-Replies are streamed: `ChatStreamWorker` reads the SSE stream, shows the text as it arrives, and uses `SentenceSplitter` to hand speakable chunks to TTS. Chunks are synthesized strictly in order and queued in the renderer; the talk gesture starts when playback starts and continues across queued clips. The splitter can cut the first chunk at a comma so speech starts early. If the stream breaks, the text received so far is kept and marked as interrupted.
-
-Emotion tags are parsed off the start of the stream (`companion/core/chat/emotion.py`); only a possible leading tag is held back. The tag is kept in the conversation history sent back to the model because without it the model imitates its own untagged replies and stops tagging after a turn or two (2/8 tagged replies vs 8/8 in an eight-turn test).
-
-The Python application owns conversation state and worker lifecycles. `companion/core` contains configuration, the LLM client, memory, and model profiles and is tested without a GUI. The embedded HTML renderer handles the avatar and plays the synthesized speech. Python and the renderer talk over a QWebChannel object (`companion/ui/avatar_bridge.py`): Python sends play / stop / talking / motion commands, and the renderer reports when it is ready and when audio starts, finishes, or fails. The talk gesture starts with the audio, and the mouth follows the speech volume frame by frame (applied after motions and physics, right before rendering). A two-minute watchdog stops playback and discards pending audio if playback makes no progress. Qt signals return worker results to the interface.
+- **A character, not a chat box.** A frameless, draggable Live2D avatar with idle motions, emotion expressions picked by the model (happy, shy, surprised, …), and mouth movement that follows its voice.
+- **Speaks as it thinks.** Replies stream in and the first sentence is spoken while the rest is still being written; median time to the first spoken word is about 1.7 s. Chinese and English voices are chosen automatically (Edge TTS), with a lively, slightly raised Chinese voice by default.
+- **A life of its own.** Its mood carries over from one reply to the next and fades over a couple of hours; after a day without hearing from you it misses you, and the idle face shows how it feels. It also keeps a daily routine: in class in the morning, free in the evening, sleepy late at night, asleep after half past midnight. It still answers when asleep (groggily), and while asleep it starts nothing but your reminders.
+- **Remembers you.** Short facts ("you like coffee", "your exam is on Friday") are extracted in the background, merged with what it already knows, and brought back when relevant. Older conversation is folded into a running summary.
+- **A personality you choose.** Pick or write the companion's name, relationship to you, personality, and speaking style. See [Persona](#persona).
+- **Your key stays in the keychain.** The API key is stored in the operating system's keychain from the Settings dialog, never in a settings file or the logs.
+- **Optional extras**, all off by default: hold-to-talk voice input, an offline wake word, proactive chat (greetings, check-ins, reminders), and a gentle nudge after long sessions in the same app, such as 40 minutes of gaming.
 
 ## Quick start
 
-**Requirements:** Python 3.11+ and an API key for a compatible LLM provider. Live chat and voice synthesis require network access.
+You need an API key from an OpenAI-compatible provider. The defaults point at [Moonshot (Kimi)](https://platform.moonshot.ai/); DeepSeek and others work by changing the endpoint and model.
 
-### Windows (PowerShell)
+### Option A: download a build
 
-```powershell
-git clone https://github.com/Mike-stone12/ai-companion.git
-cd ai-companion
-py -3.11 -m venv venv
-.\venv\Scripts\python.exe -m pip install -r requirements.txt
-Copy-Item .env.example .env
-```
+Builds for macOS, Windows, and Linux are produced automatically by the [Package workflow](https://github.com/Mike-stone12/ai-companion/actions/workflows/package.yml). There is no tagged release yet; until there is, open the latest successful run on `agent-dev` or `master` and download the archive for your system from **Artifacts** (a GitHub login is required).
 
-Edit `.env` with your provider's API key, endpoint, and model, then start the application:
+| System | Archive | Start it |
+| --- | --- | --- |
+| macOS (Apple silicon) | `AI-Companion-macOS.zip` | Unzip and open `AI Companion.app`. The build is not signed: the first time, right-click the app and choose **Open**, or run `xattr -dr com.apple.quarantine "AI Companion.app"`. |
+| Windows | `AI-Companion-Windows.zip` | Unzip and run `AI Companion\AI Companion.exe`. If SmartScreen warns about an unknown publisher, choose **More info → Run anyway**. |
+| Linux | `AI-Companion-Linux.tar.gz` | `tar -xzf AI-Companion-Linux.tar.gz` and run `"AI Companion/AI Companion"`. |
 
-```powershell
-.\venv\Scripts\python.exe main.py
-```
+The packaged builds include both characters and everything except the optional wake word. They bundle the default whale-girl character, which is licensed for **non-commercial use only** (CC BY-NC-SA 4.0); `LICENSE` and `NOTICE.md` are in every archive. See [License](#license).
 
-### macOS / Linux
+### Option B: run from source
 
-Use Python 3.11 or newer for `python3`:
+Requires Python 3.11 or newer.
 
 ```bash
 git clone https://github.com/Mike-stone12/ai-companion.git
 cd ai-companion
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-cp .env.example .env
-```
-
-Edit `.env` with your provider's API key, endpoint, and model, then start the application:
-
-```bash
 .venv/bin/python main.py
 ```
 
-Using the environment's Python executable directly avoids requiring shell activation.
+On Windows (PowerShell):
 
-### Try the memory flow
+```powershell
+git clone https://github.com/Mike-stone12/ai-companion.git
+cd ai-companion
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe main.py
+```
 
-1. Send a short fact such as `我喜欢咖啡`.
-2. Wait for the reply and background memory extraction to finish.
-3. Close and restart the application.
-4. Ask `我喜欢什么饮料？` to try recall from the saved context.
+### First start
 
-Recall depends on extraction and the configured model; this is a manual walkthrough, not a benchmark result.
+1. **Choose a persona.** A dialog asks who your companion should be. Keep the childhood friend or edit it, then click **Save** (or **Keep default**).
+2. **Add your API key.** Right-click the character and choose **Settings…**. Paste the key under *API key* and click **Save to keychain**; chat uses it immediately.
+3. **Pick a provider (optional).** In the same dialog, set *Chat API base URL* and *Chat model*, for example `https://api.deepseek.com/v1` and `deepseek-flash`, click **Save**, and restart the app.
+4. **Say hi.** Type in the box under the character and press Enter.
+
+Without a key the app runs in a demo mode that answers with a fixed message. Right-click the character any time for size, opacity, persona, settings, memories, and quit; drag the **Drag me** bar above it to move it.
+
+To check an installation without using the network, run it with `--self-test` (for example `.venv/bin/python main.py --self-test`). It prints a PASS/FAIL report and exits.
+
+## Persona
+
+The persona is who the companion is. It becomes the model's instructions, so it shapes every reply, including the messages the companion starts on its own.
+
+| Field | What it does |
+| --- | --- |
+| Companion's name | Its name. Leave it empty and it will take a name you give it in conversation. |
+| What it calls you | Your name or nickname, if you want one used. |
+| Relationship to you | Who it is to you: childhood friend, older sister, study partner, … |
+| Personality | Temperament and attitude. |
+| Speaking style | How it talks: casual or polite, teasing, short sentences, … |
+| Background | Anything else it should know about its situation. |
+| Daily routine | One time block per line, e.g. `08:30-12:00 [busy] in class`; kinds are `busy`, `drowsy`, `asleep`, or free time. The top bar shows what it is doing. |
+
+The default persona is a **childhood friend** who grew up next door: warm, a little teasing, honest rather than flattering, and quick to notice when you are tired. Whatever persona you choose, the companion talks directly to you, replies in the language you write in, and does not invent shared memories you never mentioned.
+
+Change it any time with **Persona…** in the right-click menu; the next reply uses it. The persona is saved in `persona.json` in your [data directory](#privacy). Proactive messages and the long-session nudge also speak in the persona's voice, to you. Advanced users can replace the whole instruction with the `COMPANION_SYSTEM_PROMPT` setting, which overrides the persona.
 
 ## Configuration
 
-The right-click menu has a **Settings…** entry that edits the same `config.json` settings.
-Use **Memories…** in the right-click menu to view, search, and edit stored memory summaries.
+Most things can be changed from **Settings…** in the right-click menu; changes apply on the next start. You can also put settings in a `.env` file (copy [`.env.example`](.env.example)), which takes precedence. For a source checkout `.env` sits in the repository folder; for a packaged build it goes next to the executable (`AI Companion.app/Contents/MacOS/.env` on macOS).
 
-| Variable | Purpose | Default |
+| Setting | Default | |
 | --- | --- | --- |
-| `OPENAI_API_KEY` | Provider API key; used only when the system keychain holds none (see below) | Required for chat |
-| `OPENAI_BASE_URL` | Chat API base URL | `https://api.moonshot.ai/v1` |
-| `OPENAI_MODEL` | Model identifier | `kimi-k2.6` |
-| `OPENAI_TIMEOUT` | Request timeout in seconds | `60` |
-| `OPENAI_RETRIES` | Request retry setting | `2` |
-| `CHAT_THINKING` | Let the model reason before chat replies (Moonshot and DeepSeek only). Off is faster and keeps replies short enough to speak. | `0` |
-| `CHAT_TOOLS` | Enable time and reminder tools (up to 3 model requests per turn). Reminders persist across restarts in `reminders.json` in the user data directory. When off, this file is not read or written. | `0` |
-| `VOICE_INPUT` | Show the opt-in **Hold to talk** button beside chat input; release to transcribe and send. Requires a non-empty `TRANSCRIPTION_MODEL`. Off creates no button or microphone. | `0` |
-| `TRANSCRIPTION_MODEL` | Transcription model identifier; uses the chat base URL and API key. Empty or whitespace-only disables voice input even when its flag is on. | Empty |
-| `WAKE_WORD` | Enable offline wake detection; requires `WAKE_WORD_PHRASES`, `WAKE_WORD_MODEL_DIR`, `VOICE_INPUT=1`, a non-empty `TRANSCRIPTION_MODEL`, and the separately installed `vosk` package. “Wake word on” indicates microphone listening. Detection captures roughly 5 seconds, then transcribes and sends through normal chat. Listening pauses during capture and replies. | `0` |
-| `WAKE_WORD_PHRASES` | Comma-separated wake phrases, e.g. `小鲸,hey whale`; full-width commas are also accepted. Empty disables the wake word. | Empty |
-| `WAKE_WORD_MODEL_DIR` | Path to an unpacked Vosk model directory for offline recognition. Empty or whitespace-only disables the wake word. Missing Vosk or an invalid model disables only wake detection for the session and logs a warning. | Empty |
-| `PROACTIVE_CHAT` | Opt in to idle chat, time-of-day greetings, and spoken due reminders, checked every 30 seconds. Enable `CHAT_TOOLS` to set persistent reminders. Off creates no proactive timer or requests. | `0` |
-| `ACTIVE_APP_MONITOR` | Opt in to comments after a long foreground-app streak; requires `PROACTIVE_CHAT=1`. Uses only the foreground app name locally to track duration, then sends a short app-name/duration summary to the LLM. | `0` |
-| `LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, or `ERROR`. Logs go to the terminal and `logs/companion.log` in the user data directory (rotated at 1 MB, 3 backups). | `INFO` |
-| `EDGE_TTS_VOICE_ZH` | Chinese voice | `zh-CN-XiaoxiaoNeural` |
-| `EDGE_TTS_VOICE_EN` | English voice | `en-US-AriaNeural` |
-| `MEMORY_ENABLED` | Enable new memory extraction | `1` |
-| `MEMORY_CONSOLIDATION` | Compare and merge candidates with stored memories; `0` restores exact-text deduplication only | `1` |
-| `MEMORY_RELEVANT_RECALL` | Prefer lexical matches to the current user message, then fill by recency; `0` restores newest-first recall | `1` |
-| `MEMORY_SEMANTIC_RECALL` | Enable semantic recall when an embedding model is configured; sends stored memory text and the user message to the embeddings endpoint | `0` |
-| `EMBEDDING_MODEL` | Embedding model identifier; uses the chat base URL and API key. Empty disables semantic recall even when its flag is on | Empty |
-| `CONVERSATION_SUMMARY` | Fold older turns into a running summary; `0` disables updates and summary context | `1` |
-| `MEMORY_LIMIT` | Maximum retained memory entries | `24` |
-| `COMPANION_DATA_DIR` | Where memory, chat history, settings, and logs are stored | Platform user data directory |
-| `COMPANION_SYSTEM_PROMPT` | Expert override for the whole system instruction; when set it replaces the persona and the first-start persona dialog is skipped | Empty (use the persona) |
-| `LIVE2D_MODEL` | Model folder under `models/` (`whale-girl`, `hiyori`) or a path to a `.model3.json` | `whale-girl` |
-| `LIVE2D_VENDOR_DIR` | Optional renderer dependency directory | `vendor/` |
+| `OPENAI_BASE_URL` | `https://api.moonshot.ai/v1` | Chat endpoint (OpenAI-compatible) |
+| `OPENAI_MODEL` | `kimi-k2.6` | Chat model |
+| `OPENAI_API_KEY` | | Fallback when no key is in the keychain |
+| `LIVE2D_MODEL` | `whale-girl` | Character: `whale-girl` or `hiyori` |
+| `EDGE_TTS_VOICE_ZH` / `EDGE_TTS_VOICE_EN` | Xiaoyi / Aria | Voices for Chinese and English replies |
+| `TTS_PITCH` / `TTS_RATE` | `+10Hz` / `+6%` | Pitch and speed offsets for the Chinese voice |
+| `COMPANION_STATE` | on | Mood that carries over between replies (`MOOD_HALF_LIFE_MINUTES`, default 120) |
+| `DAILY_SCHEDULE` | on | The daily routine from the persona: sleeping, busy, and drowsy times |
+| `VOICE_INPUT` + `TRANSCRIPTION_MODEL` | off | Hold-to-talk button (needs a transcription model from your provider) |
+| `PROACTIVE_CHAT` | off | Greetings, idle check-ins, and spoken reminders |
+| `ACTIVE_APP_MONITOR` | off | One caring remark after about 40 minutes in the same app (needs `PROACTIVE_CHAT`; Windows and macOS) |
+| `CHAT_TOOLS` | off | Lets the model tell the time and set reminders |
+| `WAKE_WORD` | off | Offline wake phrase (source install with Vosk; see the guide) |
 
-Variables already set in the shell take precedence over values in `.env`.
+The full list, the wake word setup, and command-line tools for memories and settings are in **[docs/configuration.md](docs/configuration.md)**.
 
-**API key in the system keychain.** Open **Settings…** from the right-click menu and paste a key under *API key* to store it in the operating system's keychain (macOS Keychain, Windows Credential Manager, or the Secret Service on Linux) through the `keyring` package. A key in the keychain takes precedence over `OPENAI_API_KEY`/`MOONSHOT_API_KEY`; **Remove from keychain** deletes it and falls back to the environment again. Chat uses a new key immediately. The dialog shows only where the key comes from, never the key itself, and the key is never written to `config.json` or the logs. Set `COMPANION_KEYCHAIN=0` to skip the keychain entirely, for example on a headless Linux machine without a secret service.
+## Privacy
 
-You can also add an optional `"settings"` object to `config.json` in the user data directory, alongside `"window"`, for example `"settings": {"MEMORY_LIMIT": 32, "CHAT_THINKING": true, "LOG_LEVEL": "DEBUG"}`. Keys use the environment variable names above; values may be strings, numbers, or booleans (`true` becomes `"1"`, `false` becomes `"0"`). Precedence is built-in defaults < `config.json` settings < environment variables (including `.env`). API keys and any key containing `KEY`, `SECRET`, `TOKEN`, or `PASSWORD`, as well as `COMPANION_DATA_DIR`, are ignored in this object. Loading these settings never writes to `config.json`.
+- Your messages, recalled memories, and the persona are sent to the chat API you configure. Replies are sent to Microsoft Edge's text-to-speech service to be spoken. Voice input, when enabled, is sent to your provider's transcription endpoint.
+- The long-session nudge sends only the foreground app's name and how long it has been in front, nothing else.
+- Memories, chat history, settings, and the persona are stored locally as plain JSON in your data directory: `~/Library/Application Support/AICompanion/` on macOS, `%APPDATA%\AICompanion\` on Windows, `~/.local/share/ai-companion/` on Linux. **Memories…** in the right-click menu lets you review and edit what it remembers.
+- The API key lives in the system keychain (or your own `.env`), never in those files or the logs.
 
-`MEMORY_ENABLED=0` stops new extraction. Existing memories are still loaded into chat context by the current implementation.
+## Troubleshooting
 
-### Set up the wake word
+- **It answers with a demo message:** no API key was found. Add one in **Settings…** (see [First start](#first-start)).
+- **Chat fails:** check the key, the endpoint, the model name, and your network. Logs are in `logs/companion.log` in the data directory.
+- **No voice:** speech needs network access to Edge TTS; on a slow connection a reply may be shown as text only.
+- **No character appears (virtual machine or no GPU):** the avatar needs WebGL, which Chromium disables without a usable GPU. Start the app with the environment variable `QTWEBENGINE_CHROMIUM_FLAGS` set to render it in software: `--ignore-gpu-blocklist` on Windows, or `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader` on macOS and Linux. `--self-test` shows whether the model renders.
+- **The character is off-screen or too big:** right-click it and choose **Reset position** or a smaller size.
+- **macOS says the app is damaged:** it is unsigned; see [Option A](#option-a-download-a-build).
+- **macOS asks for keychain access again after an update:** an unsigned build gets a new code signature with every version, so macOS asks once more whether it may read the stored key. Choose **Always Allow**.
 
-Wake detection is off by default. The optional `vosk` package is not in `requirements.txt`; install it separately with pip into the same Python environment that runs the app:
+More in [docs/configuration.md](docs/configuration.md#settings) and [docs/architecture.md](docs/architecture.md).
 
-```powershell
-# Windows (PowerShell), using the Quick start environment
-.\venv\Scripts\python.exe -m pip install vosk
-```
+## For developers
 
 ```bash
-# macOS / Linux, using the Quick start environment
-.venv/bin/python -m pip install vosk
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/ruff check .
+.venv/bin/pytest
 ```
 
-Download a model for your wake phrases' language from the [official Vosk models page](https://alphacephei.com/vosk/models) and unpack it. Set `WAKE_WORD_MODEL_DIR` to the unpacked model directory, not the downloaded archive. For example, add this to `.env`, replacing both placeholders with your model directory's absolute path and a transcription model supported by your chat provider:
-
-```dotenv
-WAKE_WORD=1
-WAKE_WORD_PHRASES=hey whale,hello whale
-WAKE_WORD_MODEL_DIR=<unpacked-model-directory>
-VOICE_INPUT=1
-TRANSCRIPTION_MODEL=<provider-transcription-model>
-```
-
-Restart the app after changing settings. Wake phrases are comma-separated (full-width commas also work). Voice transcription requires the configured chat endpoint to support `/audio/transcriptions`, using the same base URL and API key as chat. When “Wake word on” is visible, say a wake phrase, then speak your message during the roughly five-second capture. Listening pauses during capture, transcription, and replies; detections are ignored while the chat input contains typed text.
-
-Empty wake phrases or an empty model directory leave wake detection disabled, as do disabled voice input or an empty transcription model. If `vosk` or a required dependency is missing, the model directory does not exist, or the model fails to load, the app logs a warning, stops wake listening, and disables wake detection for the session. Hold-to-talk and typed chat remain available; fix the installation or model path and restart to retry.
-
-## Project layout
-
-```text
-main.py                           Entry point
-ai-companion.spec                 PyInstaller build: macOS .app, Windows/Linux one-folder
-companion/
-  core/                           Pure Python, no Qt: config, text cleanup, model profiles, window state
-    settings_file.py              JSON loading and atomic writes
-    settings_form.py              GUI-independent settings form model with validation and staged edits
-    settings_schema.py            Editable settings metadata, validation, and persistence
-    settings_values.py            Merge config.json settings with environment overrides
-    legacy_data.py                Migrate legacy memory.json at startup
-    voice_input.py                Push-to-talk capture model and WAV encoder (no microphone access)
-    voice_input_controller.py     Capture and transcription session controller (no Qt)
-    wake_word.py                  Pure-Python wake-word matcher
-    wake_word_controller.py       Wake-word listening session controller (no Qt)
-    chat/                         Emotion tags, history, conversation summary
-    llm/                          API client, SSE streaming, embeddings
-      transcription.py            OpenAI-compatible speech transcription client
-    memory/                       Store, extraction, consolidation, lexical/semantic recall, cache, evals, edits
-      browser.py                  GUI-independent memory browser model with search and staged edits
-    proactive/                    Events, policy, triggers (including active_app.py), composer, engine tick, session adapter
-    tools/                        Tool registry, built-in time and reminder tools, tool-call loop
-  adapters/tts_edge.py            Edge TTS synthesis and voice selection
-  adapters/active_app.py          Foreground-app name adapter (Windows and macOS)
-  adapters/microphone.py          Qt microphone capture emitting PCM in memory
-  adapters/wake_word_vosk.py      Optional local Vosk wake-phrase recognizer
-  app/workers.py                  Qt workers for chat, transcription, TTS, memory, and summary
-  app/wake_word_worker.py         Qt worker for local wake recognition on a dedicated thread
-  app/logging_setup.py            Console and rotating file logging
-  memory_cli.py                   Memory inspection and editing (dry run unless --write)
-  settings_cli.py                 Non-secret settings inspection and editing
-  paths.py                        Resource paths and platform user data directories
-  env.py                          Load .env while preserving shell overrides
-  ui/                             Main window, chat panel, avatar bridge
-    settings_dialog.py            Qt settings dialog bound to the settings form model
-    memory_dialog.py              Qt memory dialog bound to the memory browser model
-  qt_bootstrap.py                 Windows Qt DLL setup and import diagnostics
-evals/                            Offline memory evaluation cases
-tests/                            Core, adapter, and CLI tests (runs without Qt)
-live2d_renderer.html              Embedded avatar renderer
-.env.example                      Example provider and voice settings
-requirements.txt                  Pinned Python dependencies
-requirements-dev.txt              pytest and ruff for development and CI
-models/whale-girl/                Default model (CC BY-NC-SA 4.0, see NOTICE.md)
-models/hiyori/                    Alternative model (Live2D Free Material License)
-vendor/                           Renderer dependencies (PixiJS 6, Cubism Core, pixi-live2d-display 0.4.0)
-```
-
-### Adding a model
-
-Put a Cubism 4 model in its own folder under `models/` and, optionally, add a `companion.json`:
-
-```json
-{
-  "model": "c_0120.model3.json",
-  "window": { "width": 430, "height": 580 },
-  "motions": { "talk": ["selfie"], "ambient": ["bubble", "splash"] },
-  "expressions": { "happy": "expressions/开心兴奋.exp3.json", "angry": "expressions/生气.exp3.json" }
-}
-```
-
-`motions.talk` lists the motion groups played when speech playback starts, and `motions.ambient` lists the groups played occasionally while idle. The model's idle group loops automatically. `expressions` maps emotion tags to `.exp3.json` files; they are registered on the model settings in memory when the model loads, so the model files themselves stay unmodified. Emotions without a mapping (or models without `expressions`) keep the default face. Without `companion.json`, Python selects the first `*.model3.json` in sorted filename order and the renderer guesses roles from group names (`Talk`/`Tap`, `Flick`). Select the model with `LIVE2D_MODEL=<folder>`.
-
-### Data flow
-
-User data lives outside the project, so a packaged read-only app can still write it:
-
-| Platform | Location |
-| --- | --- |
-| macOS | `~/Library/Application Support/AICompanion/` |
-| Windows | `%APPDATA%\AICompanion\` |
-| Linux | `$XDG_DATA_HOME/ai-companion/` (default `~/.local/share/ai-companion/`) |
-
-It holds `memory.json`, `history.json` (up to 200 individual user/assistant messages plus an optional running summary), `config.json` (window position, size, and opacity under `window`, and optional app settings under `settings`), `persona.json` (the active persona), `reminders.json` (persistent reminders, loaded and saved only with `CHAT_TOOLS` enabled), and `logs/`. Reminders are saved atomically when changed; overdue reminders remain eligible for the existing proactive checks after restart. A corrupt or unreadable reminder file is logged and treated as empty without changing it until a valid change; save errors are logged without interrupting chat. At startup, a `memory.json` left in the project root by older versions is moved there; if one already exists in the data directory, neither file is touched. `.env` (secrets, ignored by Git) and the models stay in the project.
-
-Routine `INFO` logs record requests and memory counts; TTS text is logged at `DEBUG`. Error logs may include provider error details. Memories and conversation history are stored locally as plain JSON, and recalled memory text is sent to the configured LLM endpoint with chat requests. Replies are sent to Edge-TTS for speech synthesis. The renderer loads PixiJS and Cubism Core locally and tries the local `cubism4.min.js` bundle before version-pinned CDN copies if that bundle fails to load or initialize.
-
-Recorded push-to-talk and post-wake captures are sent as WAV audio to the configured transcription endpoint (`/audio/transcriptions` under the chat base URL), using the chat API key and `TRANSCRIPTION_MODEL`. Wake-phrase detection itself runs locally through Vosk; audio used only for wake listening is not sent to a service. Microphone audio and captured WAV bytes stay in memory and are not written to disk by the app. Successful transcripts follow normal chat submission and history storage.
-
-### Troubleshooting
-
-- **Qt import or DLL errors:** use a fresh virtual environment and `pip install -r requirements.txt`. On import failure, the log lists any DLL directories added on Windows. An additional ICU mismatch diagnostic is available only when the optional `lief` library and relevant DLLs are present.
-- **No character appears:** check the resource paths logged at startup (`logs/companion.log` in the data directory), or set `LIVE2D_MODEL` and `LIVE2D_VENDOR_DIR` explicitly. `LOG_LEVEL=DEBUG` also lists every renderer file it looked for.
-- **Chat fails:** verify the API key, model identifier, endpoint, and network connectivity. The stream parser checks 30 s first-content and idle deadlines on incoming lines; text or tool-call deltas count as content. This catches streams that send only keep-alives. A blocked network read instead relies on `OPENAI_TIMEOUT`.
-- **No voice on a slow network:** each sentence's speech synthesis is capped at 20 s (5 s to connect, 15 s per read). After the first failure the rest of that reply is shown as text only, so a bad connection does not stack one timeout per sentence.
-- **Window in the wrong place or size:** right-click it and choose **Reset position** or a size preset. A saved position that is off every screen is ignored at startup; to discard the rest, delete the `window` section from `config.json` in the data directory.
-- **Memory is not recalled:** check that extraction completed, that `memory.json` in the data directory contains the fact, and that it remains among the recent entries.
-
-## Development
-
-```bash
-pip install -r requirements-dev.txt
-ruff check .
-pytest
-```
-
-The tests cover the core, adapters, and CLIs without a display or GUI dependencies; `companion/core` never imports PyQt or edge-tts. For every pull request, CI runs `ruff` on Ubuntu and `pytest` on Ubuntu, Windows, and macOS with Python 3.11 and only `requirements-dev.txt` installed. These checks do not launch or validate the GUI.
-
-Run the repeatable offline evaluation of the extraction gate and lexical recall with:
-
-```bash
-python -m companion.core.memory.evaluation
-```
-
-The extraction harness uses labelled Chinese cases in `evals/extraction_cases.json` and can score injected extractors fully offline. Run `python -m companion.core.memory.extraction_eval` for usage without making requests. A maintainer can explicitly run `python -m companion.core.memory.extraction_eval --live` with a configured API key; **`--live` sends the case messages to the configured LLM endpoint**. It reports store-decision accuracy, false stores, missed stores, keyword hit rate (all expected substrings found per positive case), and per-case errors. Live runs reuse the existing extractor, including its heuristic fallback on request or parse failures.
-
-### Packaging
-
-Build on each target operating system from the repository root, using the app
-environment with `requirements.txt` installed. Install PyInstaller separately;
-it is not included in either requirements file:
-
-```bash
-pip install pyinstaller
-pyinstaller ai-companion.spec
-```
-
-Output goes in `dist/`: `AI Companion.app` on macOS, and the `AI Companion/`
-one-folder build on Windows and Linux. The bundle includes the renderer, Live2D
-models, and vendor assets. Optional `vosk` is excluded, so wake-word detection
-is unavailable in this build; push-to-talk remains supported.
-
-Check a build (or a source checkout) without network access or touching your data:
-
-```bash
-"dist/AI Companion.app/Contents/MacOS/AI Companion" --self-test report.txt   # macOS
-"dist/AI Companion/AI Companion" --self-test report.txt                      # Linux
-python main.py --self-test                                                   # source
-```
-
-The self-test checks bundled resources, imports, and the keychain backend, then
-opens the real window and waits for the Live2D model to render. It uses a
-temporary data directory (deleted afterwards), never reads the keychain or calls
-an API, prints a PASS/FAIL report (also written to the optional path), and exits
-non-zero if a required check fails.
-
-The **Package** GitHub Actions workflow builds with `ai-companion.spec` on macOS,
-Windows, and Linux for every pull request and push to `master`/`agent-dev`, runs
-the self-test on each frozen build, and uploads `AI-Companion-macOS.zip`,
-`AI-Companion-Windows.zip`, and `AI-Companion-Linux.tar.gz` as workflow artifacts
-(kept 14 days). Builds are unsigned. Each build bundles the default whale-girl
-character, which is licensed under CC BY-NC-SA 4.0: **the builds must not be used
-commercially** (see [NOTICE.md](NOTICE.md)). `LICENSE` and `NOTICE.md` are included
-inside every bundle and at the top level of every archive.
-
-User data still lives in the platform data directory described above (or the
-`COMPANION_DATA_DIR` override). `.env` is never bundled. To use it, place it next
-to the executable: `dist/AI Companion/.env` on Windows/Linux, or
-`dist/AI Companion.app/Contents/MacOS/.env` on macOS. The frozen path resolver
-passes that exact file to `companion/env.py`; it does not search beside the outer
-`.app` directory. The loader reads UTF-8 `KEY=value` lines, skips blank lines and
-comments, strips surrounding quotes, and preserves existing environment values.
-Alternatively, use the user data directory's `config.json` settings and the
-environment; API keys come from the system keychain (Settings…), the environment, or `.env`, never `config.json`.
-
-### Inspect stored memories
-
-Use the CLI without installing the GUI dependencies:
-
-```bash
-python -m companion.memory_cli list
-python -m companion.memory_cli list --limit 5
-python -m companion.memory_cli search "咖啡"
-python -m companion.memory_cli show 1
-python -m companion.memory_cli edit 1 "Corrected memory text"
-python -m companion.memory_cli edit 1 "Corrected memory text" --write
-python -m companion.memory_cli --data-dir /path/to/data list
-```
-
-The default directory follows the app's settings, including `COMPANION_DATA_DIR`
-from the environment or `.env`. Lists are newest first; indices are stable,
-1-based positions in the stored file and also work with `show` and `edit`. Search
-matches case-insensitive substrings. By default, `edit` is a dry run: it prints the
-old and new summary without changing the file. Summaries use the store's whitespace
-normalization and shortening. With `--write`, it first copies the original file to
-`memory.json.bak` in the same directory (overwriting an older backup), then saves
-the correction and updates that entry's timestamp if the normalized summary changes.
-Invalid indices, empty text, missing files, and exact duplicate summaries are rejected. Only `edit --write`
-saves data; none of these commands migrate data.
-
-### Edit settings
-
-Inspect or change the editable, non-secret settings in the user data directory's
-`config.json` without GUI dependencies:
-
-```bash
-python -m companion.settings_cli list
-python -m companion.settings_cli show LOG_LEVEL
-python -m companion.settings_cli set MEMORY_LIMIT 32
-python -m companion.settings_cli set CHAT_TOOLS true --write
-python -m companion.settings_cli --data-dir /path/to/data set LOG_LEVEL DEBUG --write
-```
-
-`list` and `show` report merged configuration values and their source: default,
-`config.json`, or environment (highest precedence). Values use the core loader's
-text representation, including `"1"`/`"0"` for stored booleans; `show` also describes
-the setting's type and allowed values. For `set`, use `true`/`false` for booleans,
-JSON numbers for numeric settings, and plain text for strings and choices.
-By default, `set` prints the old and new stored values without changing the file.
-`--write` saves atomically, creating a missing file and preserving the `window`
-section and all other keys. Changes apply on the next configuration load; an
-environment override is reported when editing. Directory selection follows the
-memory CLI, including `COMPANION_DATA_DIR` and `.env`. Unknown, invalid, secret,
-and non-editable settings (including `COMPANION_DATA_DIR`) are rejected.
+The core (`companion/core`) is pure Python and tested without Qt on Ubuntu, Windows, and macOS; every pull request is also packaged on all three systems and smoke-tested with `--self-test`. See [docs/development.md](docs/development.md) for packaging and evaluation, [docs/architecture.md](docs/architecture.md) for how memory, streaming, and the persona work, and [CLAUDE.md](CLAUDE.md) for project conventions.
 
 ## Roadmap
 
-- [x] Voice input (push-to-talk).
-- [x] Wake word (opt-in Vosk; excluded from the packaged build).
-- [x] PyInstaller packaging: macOS `.app` and Windows/Linux one-folder build.
-- [x] CI packaging on macOS, Windows, and Linux with a frozen-build self-test.
-- [ ] Try the packaged builds by hand on Windows and Linux desktops.
-- [ ] Refine the implemented voice input and wake word with real-device feedback.
-- [ ] Add a demo GIF.
-- [x] Secure API key storage in the OS keychain, with `.env` as a fallback.
-- [ ] Collect and publish live extraction evaluation numbers using the existing labelled harness.
+- [x] Live2D desktop character with streaming chat, voice replies, lip sync, and emotion expressions
+- [x] Persistent memory with consolidation, relevant recall, and conversation summaries
+- [x] Settings, persona, and memory dialogs; API key in the OS keychain
+- [x] Opt-in voice input, wake word, proactive chat, reminders, and long-session nudges
+- [x] Packaged builds for macOS, Windows, and Linux, built and smoke-tested in CI
+- [x] A mood that carries over and a daily routine; a livelier default voice
+- [ ] Personality-driven emotions, texting-style replies, a diary, pictures, and a custom voice (in review)
+- [ ] First tagged release with downloadable builds
+- [ ] Persona presets library and import/export
+- [ ] Hands-on testing of the packaged builds on Windows and Linux desktops
+- [ ] Refine voice input and the wake word with real-device feedback
+- [ ] Demo GIF
+- [ ] Publish live memory-extraction evaluation numbers
 
-## License and credits
+## License
 
-The source code is released under the [MIT License](LICENSE).
+The **source code** is released under the [MIT License](LICENSE).
 
-Model and runtime assets are not covered by the MIT License. Full terms are in [NOTICE.md](NOTICE.md).
+The characters and renderer runtime are **not** covered by the MIT License:
 
-- **Whale girl** (default), [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), **non-commercial**. Character design by 上善无形, DeepSeek-themed maid redesign by ZipZipPipe, Live2D model by 氵六青, via [Andersen216/dsh-whale-girl-live2d](https://github.com/Andersen216/dsh-whale-girl-live2d). This is fan art; the project is not affiliated with DeepSeek.
-- **Hiyori** (© Live2D Inc.), used under the Live2D Free Material License; see [`models/hiyori/LIVE2D_README.txt`](models/hiyori/LIVE2D_README.txt).
+- **Whale girl** (the default character) is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). **It may not be used commercially**, including in any paid product or service. Character design by 上善无形, DeepSeek-themed maid redesign by ZipZipPipe, Live2D model by 氵六青, via [Andersen216/dsh-whale-girl-live2d](https://github.com/Andersen216/dsh-whale-girl-live2d). This is fan art; the project is not affiliated with DeepSeek. For commercial use, switch to another model (`LIVE2D_MODEL=hiyori`) and check its license.
+- **Hiyori** (© Live2D Inc.) is used under the Live2D Free Material License; see [`models/hiyori/LIVE2D_README.txt`](models/hiyori/LIVE2D_README.txt).
+- **Live2D Cubism Core** is under the Live2D Proprietary Software License; PixiJS and pixi-live2d-display are MIT.
 
-Rendering uses [PixiJS](https://github.com/pixijs/pixijs), [pixi-live2d-display](https://github.com/guansss/pixi-live2d-display), and Live2D Cubism Core.
+Full terms and attribution are in [NOTICE.md](NOTICE.md).
