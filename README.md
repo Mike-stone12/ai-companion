@@ -17,6 +17,7 @@ Windows is the most tested platform; the maintainer also works on macOS. CI test
 - **Desktop character:** a transparent, frameless, draggable window with a Live2D avatar. Ships with two models, a whale-girl maid (default) and Hiyori, which can be swapped with one setting.
 - **Window controls:** right-click the character or the drag bar for a menu with size presets (70–150 %), opacity presets (55–100 %), reset position, and quit. Position, size, and opacity are saved to `config.json` in the user data directory and restored on the next start; a saved position that is no longer on any screen (an unplugged monitor, for example) falls back to the default spot above the taskbar.
 - **Chat history:** a scrollable bubble panel shows the conversation (user right, companion left, notices centered) and the current reply fills in as it streams. The conversation is saved to `history.json` in the user data directory and restored on the next start, both on screen and as context for the model.
+- **Settings and memories:** right-click and choose **Settings…** to edit non-secret settings (applied on the next start), or **Memories…** to view, search, and edit stored memory summaries.
 - **Emotional expressions:** the model is instructed to open each reply with an emotion tag (`[happy]`, `[sad]`, `[angry]`, `[surprised]`, `[shy]`, `[confused]`, `[awkward]`, `[neutral]`). The tag is stripped from the stream before display and speech, and the avatar switches to the matching expression when the model profile provides one, returning to default a few seconds after it stops speaking.
 - **Streaming chat:** connects to an OpenAI-compatible endpoint (Moonshot/Kimi by default, with DeepSeek configuration in `.env.example`) and streams the reply, so text appears as it is generated and speech can start after the first clause instead of the whole reply. Median time from sending a message to the first spoken word dropped from 2.97 s to 1.70 s (DeepSeek `deepseek-flash`, three prompts) and no longer grows with reply length.
 - **Voice replies with lip sync:** synthesizes replies with Edge-TTS, selects a Chinese or English voice based on the response, and moves the avatar's mouth with the speech volume (Web Audio analyser driving `ParamMouthOpenY`, or the model's LipSync parameter).
@@ -173,12 +174,16 @@ main.py                 Entry point
 companion/
   core/                 Pure Python, no Qt: config, text cleanup, model profiles, window state
     settings_file.py    JSON loading and atomic writes
+    settings_form.py    GUI-independent settings form model with validation and staged edits
     settings_schema.py  Editable settings metadata, validation, and persistence
     settings_values.py  Merge config.json settings with environment overrides
     legacy_data.py      Migrate legacy memory.json at startup
+    voice_input.py      Push-to-talk capture model and WAV encoder (no microphone access)
     chat/               Emotion tags, history, conversation summary
     llm/                API client, SSE streaming, embeddings
+      transcription.py  OpenAI-compatible speech transcription client
     memory/             Store, extraction, consolidation, lexical/semantic recall, cache, evals, edits
+      browser.py        GUI-independent memory browser model with search and staged edits
     proactive/          Events, policy, triggers (including active_app.py), composer, engine tick, session adapter
     tools/              Tool registry, built-in time and reminder tools, tool-call loop
   adapters/tts_edge.py  Edge TTS synthesis and voice selection
@@ -190,6 +195,8 @@ companion/
   paths.py              Resource paths and platform user data directories
   env.py                Load .env while preserving shell overrides
   ui/                   Main window, chat panel, avatar bridge
+    settings_dialog.py  Qt settings dialog bound to the settings form model
+    memory_dialog.py    Qt memory dialog bound to the memory browser model
   qt_bootstrap.py       Windows Qt DLL setup and import diagnostics
 evals/                  Offline memory evaluation cases
 tests/                  Core, adapter, and CLI tests (runs without Qt)
@@ -310,8 +317,7 @@ and non-editable settings (including `COMPANION_DATA_DIR`) are rejected.
 
 ## Roadmap
 
-- Add a settings panel.
-- Add push-to-talk voice input.
+- Wire push-to-talk voice input to the microphone and window; the transcription client, capture model, WAV encoder, and configuration settings already exist.
 - Add an opt-in wake word.
 - Package the application for distribution.
 - Collect and publish live extraction evaluation numbers using the existing labelled harness.
