@@ -176,3 +176,20 @@ def test_mild_feelings_change_nothing():
     calm = ProactiveSession(ReminderStore(clock=lambda: NOW), NOW, feeling=feeling_of("longing", 0.2))
 
     assert calm.tick(NOW, busy=False, input_has_text=False).event.kind == GREETING
+
+
+def test_at_most_one_unanswered_mood_outreach():
+    store = ReminderStore(clock=lambda: NOW)
+    session = ProactiveSession(store, NOW, feeling=feeling_of("longing", 0.7))
+    session.engine._policy._last_fired[GREETING] = NOW
+    session.engine._policy.config.cooldowns[IDLE] = timedelta(days=30)
+    session.record_activity(NOW - timedelta(hours=1))
+
+    results = [session.tick(NOW + timedelta(hours=2 * i), busy=False, input_has_text=False) for i in range(3)]
+    moods = [r for r in results if r and r.event.kind == "mood"]
+
+    assert len(moods) == 1
+    # Once the user writes again, she may reach out again later.
+    session.record_activity(NOW + timedelta(hours=5))
+    later = session.tick(NOW + timedelta(hours=8), busy=False, input_has_text=False)
+    assert later.event.kind == "mood"

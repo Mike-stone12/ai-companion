@@ -74,7 +74,10 @@ def _instruction(event: Event) -> str:
     if event.kind == MOOD:
         feeling = event.payload.get("feeling")
         if feeling == "longing":
-            return "You have been missing the user; reach out with one short message that lets it show."
+            return (
+                "You have been missing the user; reach out with one short, warm message that lets it show, "
+                "without guilt-tripping them or pressing them to reply."
+            )
         if feeling == "joy":
             return "You are in a really good mood; share something small and happy from your day with the user."
         raise ValueError("mood event payload field 'feeling' must be longing or joy")

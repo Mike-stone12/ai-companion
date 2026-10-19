@@ -87,9 +87,15 @@ class ProactiveSession:
         self.idle.record_interaction(now)
 
     def tick(self, now: datetime, *, busy: bool, input_has_text: bool) -> ProactiveResult | None:
-        return self.engine.tick(now, ProactiveContext(
+        result = self.engine.tick(now, ProactiveContext(
             last_user_activity=self.last_user_activity, busy=busy or input_has_text,
         ))
+        if result is not None and result.event.kind == MOOD:
+            for trigger in self.engine._triggers:
+                mark_sent = getattr(trigger, "mark_sent", None)
+                if callable(mark_sent):
+                    mark_sent(result.event.at)
+        return result
 
 
 def proactive_request(

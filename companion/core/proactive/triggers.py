@@ -125,8 +125,10 @@ class MoodGate(AwakeGate):
 class MoodTrigger:
     """Propose reaching out when the companion misses the user or is in a great mood.
 
-    It proposes on every poll while the feeling is high and the user has been quiet
-    for ``min_quiet``; the policy's MOOD cooldown keeps it to one message per window.
+    It proposes while the feeling is high and the user has been quiet for ``min_quiet``.
+    At most one such message goes unanswered: after ``mark_sent``, nothing more is
+    proposed until the user has written since then (no "I miss you" every two hours
+    while they are away).
     """
 
     def __init__(
@@ -136,13 +138,19 @@ class MoodTrigger:
         self._feeling = feeling
         self._last_activity = last_activity
         self._min_quiet = min_quiet
+        self._sent_at: datetime | None = None
+
+    def mark_sent(self, at: datetime) -> None:
+        self._sent_at = at
 
     def poll(self, now: datetime) -> list[Event]:
+        last = self._last_activity()
+        if self._sent_at is not None and (last is None or last <= self._sent_at):
+            return []
         name, value = self._feeling(now)
         threshold = MOOD_THRESHOLDS.get(name or "")
         if threshold is None or value < threshold:
             return []
-        last = self._last_activity()
         if last is not None and now - last < self._min_quiet:
             return []
         return [Event(MOOD, now, {"feeling": name})]

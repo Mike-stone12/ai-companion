@@ -167,3 +167,11 @@ def test_mood_events_need_a_known_feeling():
 
     with pytest.raises(ValueError, match="feeling"):
         compose(Event(MOOD, NOW, {"feeling": "anger"}))
+
+
+def test_missing_you_message_puts_no_pressure_on_the_user():
+    from companion.core.proactive.events import MOOD
+
+    text = compose(Event(MOOD, NOW, {"feeling": "longing"}))
+
+    assert "without guilt-tripping them or pressing them to reply" in text
