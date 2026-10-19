@@ -42,6 +42,7 @@ from companion.core.model_profile import (
     discover_vendor_dir,
 )
 from companion.core.proactive.session import ProactiveSession, proactive_request
+from companion.core.settings_form import SettingsForm
 from companion.core.text import sanitize_reply_text, sanitize_tts_text
 from companion.core.tools.builtin import build_builtin_registry
 from companion.core.tools.reminders import ReminderStore, local_now
@@ -58,6 +59,7 @@ from companion.core.window_state import (
 from companion.paths import CONFIG_PATH, HISTORY_PATH, HTML_PATH, MEMORY_PATH
 from companion.ui.avatar_bridge import AvatarBridge
 from companion.ui.chat_panel import ChatPanel
+from companion.ui.settings_dialog import SettingsDialog
 
 logger = logging.getLogger(__name__)
 
@@ -485,10 +487,17 @@ class CompanionWindow(QWidget):
         self.add_choices(menu.addMenu("Opacity"), OPACITY_STEPS, self.window_state.opacity, self.set_opacity)
         menu.addSeparator()
         menu.addAction("Reset position", self.reset_position)
+        menu.addAction("Settings…", self.show_settings)
         menu.addSeparator()
         menu.addAction("Quit", self.close)
         menu.popup(global_pos)
         return menu
+
+    def show_settings(self) -> None:
+        dialog = SettingsDialog(SettingsForm(CONFIG_PATH), self)
+        if dialog.exec() == SettingsDialog.DialogCode.Accepted:
+            self.chat_panel.add_notice("Settings saved. Changes apply on the next start.")
+        dialog.deleteLater()
 
     @staticmethod
     def add_choices(menu: QMenu, steps: tuple[float, ...], current: float, apply) -> None:
