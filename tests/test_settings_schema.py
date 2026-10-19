@@ -10,6 +10,8 @@ from companion import paths
 CONFIG_FIELDS = {
     "OPENAI_BASE_URL": "base_url",
     "OPENAI_MODEL": "model",
+    "VISION_MODEL": "vision_model",
+    "VISION_BASE_URL": "vision_base_url",
     "CHAT_THINKING": "chat_thinking",
     "CHAT_TOOLS": "chat_tools",
     "VOICE_INPUT": "voice_input",

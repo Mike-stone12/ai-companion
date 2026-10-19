@@ -55,6 +55,9 @@ class AppConfig:
     proactive_chat: bool = env_flag("PROACTIVE_CHAT", default=False, values=_values)
     active_app_monitor: bool = env_flag("ACTIVE_APP_MONITOR", default=False, values=_values)
     live2d_model: str = _values.get("LIVE2D_MODEL", "").strip()
+    # Pictures: empty model means DeepSeek's own model on a DeepSeek endpoint, otherwise off.
+    vision_model: str = _values.get("VISION_MODEL", "").strip()
+    vision_base_url: str = _values.get("VISION_BASE_URL", "").strip()
     companion_state: bool = env_flag("COMPANION_STATE", default=True, values=_values)
     daily_schedule: bool = env_flag("DAILY_SCHEDULE", default=True, values=_values)
     emotion_appraisal: bool = env_flag("EMOTION_APPRAISAL", default=True, values=_values)

@@ -52,6 +52,7 @@ companion/core/diary.py    her diary: one entry per finished day, written in the
                            diary.json; memory/self_memory.py: her own memories (self_memory.json)
 companion/core/schedule.py daily routine blocks (free/busy/drowsy/asleep), text format edited in
                            the persona dialog; feeds state activity, presence label, proactive gating
+companion/core/vision.py   pictures: format check, vision model choice, describe-then-chat turn text
 companion/core/proactive/  events, policy, triggers (including active-app trigger active_app.py),
                            composer (app-note framing; replies stay in the persona's voice and
                            address the user), engine tick; opt-in via PROACTIVE_CHAT

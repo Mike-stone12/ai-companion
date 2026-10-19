@@ -35,6 +35,8 @@ class Setting:
 EDITABLE_SETTINGS = (
     Setting("OPENAI_BASE_URL", "str", "https://api.moonshot.ai/v1", "Chat API base URL (OpenAI-compatible)"),
     Setting("OPENAI_MODEL", "str", "kimi-k2.6", "Chat model"),
+    Setting("VISION_MODEL", "str", "", "Picture model (empty: automatic on DeepSeek, otherwise off)"),
+    Setting("VISION_BASE_URL", "str", "", "Picture API base URL (empty: same as chat)"),
     Setting("CHAT_THINKING", "bool", False, "Chat reasoning"),
     Setting("CHAT_TOOLS", "bool", False, "Chat tools"),
     Setting("VOICE_INPUT", "bool", False, "Push-to-talk voice input (requires transcription model)"),
@@ -130,7 +132,11 @@ def validate(name: str, value: SettingValue) -> SettingValue:
             value = value.strip()
             if not value:
                 raise ValueError(f"{name} requires a model name")
-        elif name == "OPENAI_BASE_URL":
+        elif name == "VISION_MODEL":
+            value = value.strip()
+        elif name == "VISION_BASE_URL" and not value.strip():
+            value = ""
+        elif name in {"OPENAI_BASE_URL", "VISION_BASE_URL"}:
             value = value.strip().rstrip("/")
             try:
                 parts = urlsplit(value)
