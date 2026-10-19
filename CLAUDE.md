@@ -20,6 +20,7 @@ companion/core/            pure Python, never imports Qt: config, text, llm (cli
                            chat (emotion tags, history, conversation summary),
                            memory (store, gate, extractor, recall, consolidation),
                            model profiles, window state (settings file, placement rules)
+companion/core/proactive/  events, policy, triggers, composer, engine tick; opt-in via PROACTIVE_CHAT
 companion/core/tools/      function-calling tools, opt-in via CHAT_TOOLS
 companion/adapters/        Edge TTS
 companion/app/             QThread workers, logging setup
