@@ -21,7 +21,7 @@ class Signal:
         self.slots = []
         self.values = []
 
-    def connect(self, slot):
+    def connect(self, slot, *_):
         self.slots.append(slot)
 
     def disconnect(self, slot):

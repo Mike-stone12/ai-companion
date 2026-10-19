@@ -61,6 +61,8 @@ def window(tmp_path):
     instance.bridge = Mock()
     instance.tts_queue = []
     instance.discard_pending_clips = Mock()
+    instance.voice_session = None
+    instance.transcription_thread = None
     return instance
 
 

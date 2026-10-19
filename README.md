@@ -21,6 +21,7 @@ Windows is the most tested platform; the maintainer also works on macOS. CI test
 - **Emotional expressions:** the model is instructed to open each reply with an emotion tag (`[happy]`, `[sad]`, `[angry]`, `[surprised]`, `[shy]`, `[confused]`, `[awkward]`, `[neutral]`). The tag is stripped from the stream before display and speech, and the avatar switches to the matching expression when the model profile provides one, returning to default a few seconds after it stops speaking.
 - **Streaming chat:** connects to an OpenAI-compatible endpoint (Moonshot/Kimi by default, with DeepSeek configuration in `.env.example`) and streams the reply, so text appears as it is generated and speech can start after the first clause instead of the whole reply. Median time from sending a message to the first spoken word dropped from 2.97 s to 1.70 s (DeepSeek `deepseek-flash`, three prompts) and no longer grows with reply length.
 - **Voice replies with lip sync:** synthesizes replies with Edge-TTS, selects a Chinese or English voice based on the response, and moves the avatar's mouth with the speech volume (Web Audio analyser driving `ParamMouthOpenY`, or the model's LipSync parameter).
+- **Voice input (opt-in):** enable `VOICE_INPUT` and set `TRANSCRIPTION_MODEL` to show **Hold to talk** beside the chat input. Hold to record, then release to transcribe and send as a normal chat message. Empty speech or errors show a short notice. Disabled by default; no microphone is created or QtMultimedia imported when disabled.
 - **Persistent memory:** extracts short facts, saves them locally, and includes relevant and recent memories in later conversations.
 - **Proactive chat (opt-in):** set `PROACTIVE_CHAT=1` for idle chat, time-of-day greetings, and spoken due reminders; off by default (`PROACTIVE_CHAT=0`). Checks run every 30 seconds. Policy blocks events during an active reply or while the input contains text, applies a two-minute grace period after a user message, and enforces cooldowns of 30 minutes for idle chat and four hours for greetings (none for reminders). Enable `CHAT_TOOLS` to set persistent reminders.
 - **Active-app comments (opt-in):** set `ACTIVE_APP_MONITOR=1` together with `PROACTIVE_CHAT=1` (monitor off by default). After the same foreground app has been sampled for at least 40 minutes, the monitor proposes one brief, caring comment per streak, subject to proactive policy and a 60-minute cooldown between active-app comments. Only the foreground app name and streak duration are sent to the LLM for this event, never a process list. Supported on Windows and macOS; unsupported platforms return no sample and trigger no active-app comments.
@@ -142,7 +143,7 @@ Use **Memories…** in the right-click menu to view, search, and edit stored mem
 | `OPENAI_RETRIES` | Request retry setting | `2` |
 | `CHAT_THINKING` | Let the model reason before chat replies (Moonshot and DeepSeek only). Off is faster and keeps replies short enough to speak. | `0` |
 | `CHAT_TOOLS` | Enable time and reminder tools (up to 3 model requests per turn). Reminders persist across restarts in `reminders.json` in the user data directory. When off, this file is not read or written. | `0` |
-| `VOICE_INPUT` | Opt in to push-to-talk; requires `TRANSCRIPTION_MODEL`. Not yet wired into the window. | `0` |
+| `VOICE_INPUT` | Show the opt-in **Hold to talk** button beside chat input; release to transcribe and send. Requires a non-empty `TRANSCRIPTION_MODEL`. Off creates no button or microphone. | `0` |
 | `TRANSCRIPTION_MODEL` | Transcription model identifier; uses the chat base URL and API key. Empty or whitespace-only disables voice input even when its flag is on. | Empty |
 | `PROACTIVE_CHAT` | Opt in to idle chat, time-of-day greetings, and spoken due reminders, checked every 30 seconds. Enable `CHAT_TOOLS` to set persistent reminders. Off creates no proactive timer or requests. | `0` |
 | `ACTIVE_APP_MONITOR` | Opt in to comments after a long foreground-app streak; requires `PROACTIVE_CHAT=1`. Uses only the foreground app name locally to track duration, then sends a short app-name/duration summary to the LLM. | `0` |
@@ -317,7 +318,7 @@ and non-editable settings (including `COMPANION_DATA_DIR`) are rejected.
 
 ## Roadmap
 
-- Wire push-to-talk voice input to the microphone and window; the transcription client, capture model, WAV encoder, and configuration settings already exist.
+- Refine the opt-in hold-to-talk experience with real-device feedback.
 - Add an opt-in wake word.
 - Package the application for distribution.
 - Collect and publish live extraction evaluation numbers using the existing labelled harness.

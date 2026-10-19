@@ -12,7 +12,10 @@ than one machine; follow the same conventions on each.
 
 Desktop AI companion: a PyQt6 window hosting a Live2D avatar (Qt WebEngine page), streaming
 LLM chat over any OpenAI-compatible API, sentence-by-sentence Edge TTS with lip sync, emotion
-expressions, and persistent memory and chat history.
+expressions, and persistent memory and chat history. Opt-in voice input adds a **Hold to talk**
+button beside the chat input: press to capture, release to transcribe and send through the
+normal chat path. Enable `VOICE_INPUT` and set a non-empty `TRANSCRIPTION_MODEL`; otherwise
+no control or microphone is created and QtMultimedia is not imported at window startup.
 
 ```
 main.py                    entry point (logging, legacy data migration, Qt bootstrap)
@@ -21,11 +24,13 @@ companion/core/            pure Python, never imports Qt: config, text, llm (cli
                            memory (store, gate, extractor, recall, consolidation),
                            model profiles, window state (settings file, placement rules)
                            voice_input.py (push-to-talk capture model, WAV encoder),
-                           llm/transcription.py (transcription client); microphone/window wiring pending
+                           voice_input_controller.py (session controller),
+                           llm/transcription.py (transcription client)
 companion/core/proactive/  events, policy, triggers (including active-app trigger active_app.py),
                            composer, engine tick; opt-in via PROACTIVE_CHAT
 companion/core/tools/      function-calling tools, opt-in via CHAT_TOOLS
-companion/adapters/        Edge TTS (tts_edge.py), foreground-app adapter (active_app.py)
+companion/adapters/        Edge TTS (tts_edge.py), foreground-app adapter (active_app.py),
+                           Qt microphone capture (microphone.py)
 companion/app/             QThread workers, logging setup
 companion/memory_cli.py    memory inspection and editing (dry run unless --write)
 companion/settings_cli.py  non-secret settings inspection and editing

@@ -25,6 +25,7 @@ from companion.core.memory.store import MemoryStore
 from companion.core.text import SentenceSplitter
 from companion.core.tools.loop import run_tool_rounds
 from companion.core.tools.registry import ToolRegistry
+from companion.core.voice_input_controller import VoiceInputController
 from companion.paths import MEMORY_PATH
 
 logger = logging.getLogger(__name__)
@@ -103,14 +104,21 @@ class TranscriptionWorker(QObject):
     thread's started signal to run. Both terminal signals should quit the thread.
     The client's default 30-second timeout bounds socket waits, not total time;
     thread owners should use bounded waits during shutdown.
+
+    Pass ``wav=None`` and ``session`` to finalize a controller on this thread;
+    that mode uses its injected transcriber and emits only ``session_finished``.
     """
 
     finished = pyqtSignal(str)
     failed = pyqtSignal(str)
+    session_finished = pyqtSignal(object)
 
-    def __init__(self, wav: bytes, config: AppConfig) -> None:
+    def __init__(
+        self, wav: bytes | None, config: AppConfig, *, session: VoiceInputController | None = None,
+    ) -> None:
         super().__init__()
         self.wav = wav
+        self.session = session
         # Snapshot settings so edits cannot change an in-flight request.
         self.base_url = config.base_url
         self.api_key = config.api_key
@@ -118,6 +126,10 @@ class TranscriptionWorker(QObject):
 
     @pyqtSlot()
     def run(self) -> None:
+        if self.session is not None:
+            # stop() owns WAV finalization, empty/error handling, and cancellation.
+            self.session_finished.emit(self.session.stop())
+            return
         try:
             text = transcribe(
                 self.wav, base_url=self.base_url, api_key=self.api_key, model=self.model,
