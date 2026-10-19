@@ -29,7 +29,8 @@ a warning and disables wake detection for the session.
 main.py                    entry point (logging, legacy data migration, Qt bootstrap)
 ai-companion.spec          PyInstaller build: macOS .app, Windows/Linux one-folder
 companion/paths.py         resource resolution inside a frozen bundle or source checkout; user data paths
-companion/core/            pure Python, never imports Qt: config, text, llm (client, SSE),
+companion/core/            pure Python, never imports Qt: config, api_key (keychain first,
+                           then .env/environment; keyring imported lazily), text, llm (client, SSE),
                            chat (emotion tags, history, conversation summary),
                            memory (store, gate, extractor, recall, consolidation),
                            model profiles, window state (settings file, placement rules)
@@ -103,6 +104,8 @@ installed, so anything imported by the tests must not need PyQt or edge-tts. Kee
 ## Things to keep in mind
 
 - Never commit `.env`, user data, or the private plan. Check staged diffs for keys.
+- The API key lives in the OS keychain or `.env`, never in `config.json`, logs, or the UI.
+  Tests run with `COMPANION_KEYCHAIN=0` (tests/conftest.py) and inject fake keyring backends.
 - `models/whale-girl/` is CC BY-NC-SA 4.0 artwork redistributed unmodified; register extra
   model data at runtime (as the renderer does for expressions) instead of editing those files.
   See NOTICE.md.
