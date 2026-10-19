@@ -18,7 +18,7 @@ A Windows application combining an animated Live2D character, LLM chat, bilingua
 - **Emotional expressions:** the model opens each reply with an emotion tag (`[happy]`, `[sad]`, `[angry]`, `[surprised]`, `[shy]`, `[confused]`, `[awkward]`, `[neutral]`). The tag is stripped from the stream before display and speech, and the avatar switches to the matching expression for the reply, returning to default a few seconds after it stops speaking.
 - **Streaming chat:** connects to any OpenAI-compatible endpoint (Moonshot/Kimi by default, DeepSeek supported) and streams the reply, so text appears as it is generated and speech starts after the first clause instead of the whole reply. Median time from sending a message to the first spoken word dropped from 2.97 s to 1.70 s (DeepSeek `deepseek-flash`, three prompts) and no longer grows with reply length.
 - **Voice replies with lip sync:** synthesizes replies with Edge-TTS, selects a Chinese or English voice based on the response, and moves the avatar's mouth with the speech volume (Web Audio analyser driving `ParamMouthOpenY`, or the model's LipSync parameter).
-- **Persistent memory:** extracts short facts, saves them locally, and includes recent memories in later conversations.
+- **Persistent memory:** extracts short facts, saves them locally, and includes relevant and recent memories in later conversations.
 - **Background processing:** separate Qt workers handle chat requests, memory extraction, and speech synthesis.
 
 ## Memory design
@@ -29,7 +29,7 @@ The memory pipeline uses a lightweight extraction gate, structured LLM extractio
 2. **Extract candidates.** Messages that pass the gate are sent to an LLM in JSON mode. Where the provider supports it (Moonshot, DeepSeek), reasoning is turned off for this call, which makes extraction several times faster. If the LLM finds nothing worth remembering, nothing is stored. High-precision heuristics (name, identity, likes, location) are used only when the request itself fails.
 3. **Queue in the background.** Extraction runs off the UI thread. Jobs queue (up to five) instead of being dropped while one is running, and rate-limited requests are retried after 10 s and 25 s.
 4. **Normalize and store.** Summaries are shortened, deduplicated by exact summary text, timestamped, and stored in `memory.json` in the user data directory (see [Data flow](#data-flow)).
-5. **Recall into context.** Up to eight recent memories are added to the next chat request alongside a bounded conversation history.
+5. **Recall into context.** Up to eight memories are added to the next chat request alongside a bounded conversation history. With `MEMORY_RELEVANT_RECALL=1` (the default), up to half the slots prefer lexical matches to the current user message; remaining slots are filled by recency. Empty queries or no overlap fall back to selecting recent entries. Selections are returned in stored order. Setting the flag to `0` restores the previous recency-only selection in newest-first order.
 
 With `MEMORY_CONSOLIDATION=1` (the default), new candidates are compared with stored memories, and duplicates or updates are merged instead of appended; DELETE decisions leave memories unchanged.
 
@@ -40,7 +40,7 @@ The store retains 24 entries by default, configurable through `MEMORY_LIMIT`. Th
 ### Current tradeoffs
 
 - Extraction rules and gating are primarily designed for Chinese input.
-- Recall uses recency, so an older relevant fact can be missed.
+- Recall combines lexical overlap and recency, so older matching facts can be included, but paraphrases without shared words or CJK features can still be missed; no embeddings or semantic retrieval are used.
 - When consolidation is disabled or fails, exact-text deduplication does not resolve paraphrases or conflicting facts.
 - Memory is added asynchronously and may become available on a later turn.
 
@@ -115,6 +115,7 @@ Recall depends on extraction and the configured model; this is a manual walkthro
 | `EDGE_TTS_VOICE_EN` | English voice | `en-US-AriaNeural` |
 | `MEMORY_ENABLED` | Enable new memory extraction | `1` |
 | `MEMORY_CONSOLIDATION` | Compare and merge candidates with stored memories; `0` restores exact-text deduplication only | `1` |
+| `MEMORY_RELEVANT_RECALL` | Prefer lexical matches to the current user message, then fill by recency; `0` restores newest-first recall | `1` |
 | `CONVERSATION_SUMMARY` | Fold older turns into a running summary; `0` disables updates and summary context | `1` |
 | `MEMORY_LIMIT` | Maximum retained memory entries | `24` |
 | `COMPANION_DATA_DIR` | Where memory and logs are stored | Platform user data directory |

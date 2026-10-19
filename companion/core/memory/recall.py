@@ -93,3 +93,15 @@ def select_memories(
             break
         chosen.add(index)
     return [item for index, item in enumerate(memories) if index in chosen]
+
+
+def select_context_memories(
+    memories: list[dict[str, str]],
+    query: str,
+    limit: int = 8,
+    relevant_recall: bool = True,
+) -> list[dict[str, str]]:
+    """Use lexical recall, or preserve the legacy newest-first selection when disabled."""
+    if relevant_recall:
+        return select_memories(memories, query, limit=limit)
+    return sorted(memories, key=lambda item: item.get("updated_at", ""), reverse=True)[:limit]

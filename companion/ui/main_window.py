@@ -496,11 +496,13 @@ class CompanionWindow(QWidget):
         if self.renderer_ready and not self.busy:
             self.bridge.playRandomMotion.emit()
 
-    def conversation_window(self) -> list[dict[str, str]]:
+    def conversation_window(self, user_text: str = "") -> list[dict[str, str]]:
         summary = self.history.summary if self.config.conversation_summary else None
         return build_chat_messages(
             self.messages[0]["content"], self.messages[1:][-CONVERSATION_WINDOW:],
-            memory_context=self.memory_store.render_context(),
+            memory_context=self.memory_store.render_context(
+                query=user_text, relevant_recall=self.config.memory_relevant_recall,
+            ),
             summary=summary.text if summary else None,
         )
 
@@ -519,7 +521,7 @@ class CompanionWindow(QWidget):
         self.messages.append({"role": "user", "content": user_text})
         self.history.append("user", user_text)
         self.reset_reply_state()
-        self.start_chat_worker(self.conversation_window())
+        self.start_chat_worker(self.conversation_window(user_text))
 
     def reset_reply_state(self) -> None:
         self.reply_parts = []
