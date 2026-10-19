@@ -32,6 +32,7 @@ EDITABLE_SETTINGS = (
     Setting("CHAT_THINKING", "bool", False, "Chat reasoning"),
     Setting("CHAT_TOOLS", "bool", False, "Chat tools"),
     Setting("PROACTIVE_CHAT", "bool", False, "Proactive chat"),
+    Setting("ACTIVE_APP_MONITOR", "bool", False, "Active app monitor (requires proactive chat)"),
     Setting("LOG_LEVEL", "choice", "INFO", "Log level", choices=("DEBUG", "INFO", "WARNING", "ERROR")),
     Setting("EDGE_TTS_VOICE_ZH", "str", "zh-CN-XiaoxiaoNeural", "Chinese voice"),
     Setting("EDGE_TTS_VOICE_EN", "str", "en-US-AriaNeural", "English voice"),

@@ -26,6 +26,7 @@ from PyQt6.QtWidgets import (
 )
 
 from companion.adapters import tts_edge
+from companion.adapters.active_app import foreground_app_name
 from companion.app.workers import ChatStreamWorker, MemoryWorker, SummaryWorker, TTSWorker
 from companion.core.chat.emotion import EMOTION_INSTRUCTION
 from companion.core.chat.history import ConversationHistory, ConversationSummary, display_text
@@ -190,7 +191,10 @@ class CompanionWindow(QWidget):
         self.proactive = None
         self.proactive_timer = None
         if self.config.proactive_chat:
-            self.proactive = ProactiveSession(reminders, local_now())
+            self.proactive = ProactiveSession(
+                reminders, local_now(), proactive_chat=self.config.proactive_chat,
+                active_app_monitor=self.config.active_app_monitor,
+            )
             self.proactive_timer = QTimer(self)
             self.proactive_timer.setInterval(30_000)
             self.proactive_timer.timeout.connect(self.on_proactive_tick)
@@ -199,11 +203,22 @@ class CompanionWindow(QWidget):
     def on_proactive_tick(self) -> None:
         if self.proactive is None:
             return
+        now = local_now()
+        if self.proactive.active_app is not None:
+            try:
+                app_name = foreground_app_name()
+            except Exception:
+                logger.debug("Foreground application query failed; skipping sample", exc_info=True)
+            else:
+                if app_name is None:
+                    logger.debug("Foreground application unavailable; skipping sample")
+                else:
+                    self.proactive.active_app.record_sample(app_name, now)
         busy = bool(
             self.busy or not self.stream_done or self.tts_thread is not None
             or self.tts_queue or self.pending_clips
         )
-        result = self.proactive.tick(local_now(), busy=busy, input_has_text=bool(self.chat_input.text()))
+        result = self.proactive.tick(now, busy=busy, input_has_text=bool(self.chat_input.text()))
         if result is None or busy:
             return
         self.busy = True
