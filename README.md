@@ -180,6 +180,7 @@ companion/
     settings_values.py  Merge config.json settings with environment overrides
     legacy_data.py      Migrate legacy memory.json at startup
     voice_input.py      Push-to-talk capture model and WAV encoder (no microphone access)
+    wake_word.py        Pure-Python wake-word matcher (no recognizer yet)
     chat/               Emotion tags, history, conversation summary
     llm/                API client, SSE streaming, embeddings
       transcription.py  OpenAI-compatible speech transcription client
