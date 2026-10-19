@@ -69,6 +69,10 @@ Proactive instructions are sent as a user-role message, so the composer marks ea
 
 `companion/core/schedule.py` holds the daily routine stored in the persona: time blocks with an activity and a kind (`free`, `busy`, `drowsy`, `asleep`), which may cross midnight. The current block adds the activity and a hint to the state message (groggy when woken, sleepy late, brief while busy), drives the presence label in the top bar, and, while asleep, keeps every proactive trigger except reminders from being polled, so the morning greeting comes after it wakes up.
 
+## Reply pacing
+
+With `REPLY_PACING` on, the system message asks for one to four short chat messages, one per line. `companion/core/chat/pacing.py` splits the stream into messages as line breaks arrive; the first message also goes out at its first complete sentence or at a comma past ten characters, so a reply written as one line is spoken as early as the unpaced path. Later messages wait behind a "typing…" row for a length-based pause, and speech follows each message as it appears. History keeps one assistant message per reply. The companion's dominant feeling also shifts the Chinese voice slightly (annoyed: quicker and lower; sad: slower; happy: brighter).
+
 ## Project layout
 
 ```text
