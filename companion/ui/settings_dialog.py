@@ -56,8 +56,11 @@ class SettingsDialog(QDialog):
             elif field.kind == "choice":
                 editor = QComboBox()
                 editor.addItems(field.choices)
-                value = field.value.strip().upper()
-                if value not in field.choices:
+                value = next(
+                    (choice for choice in field.choices if choice.casefold() == field.value.strip().casefold()),
+                    None,
+                )
+                if value is None:
                     # Preserve an invalid current value until the user selects a choice.
                     editor.addItem(field.value)
                     value = field.value
@@ -112,7 +115,10 @@ class SettingsDialog(QDialog):
                 value = editor.text()
             self.form.set_value(key, value)
         if self.form.has_errors():
-            self._show_error("\n".join(self.form.errors.values()))
+            self._show_error("\n".join(
+                message if key in message else f"{key}: {message}"
+                for key, message in self.form.errors.items()
+            ))
             return
         try:
             self.form.apply()
