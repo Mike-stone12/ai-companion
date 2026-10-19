@@ -17,14 +17,18 @@ expressions, and persistent memory and chat history.
 ```
 main.py                    entry point (logging, legacy data migration, Qt bootstrap)
 companion/core/            pure Python, never imports Qt: config, text, llm (client, SSE),
-                           chat (emotion tags, history), memory (store, gate, extractor),
+                           chat (emotion tags, history, conversation summary),
+                           memory (store, gate, extractor, recall, consolidation),
                            model profiles, window state (settings file, placement rules)
+companion/core/tools/      function-calling tools, opt-in via CHAT_TOOLS
 companion/adapters/        Edge TTS
 companion/app/             QThread workers, logging setup
+companion/memory_cli.py    read-only memory inspector
 companion/ui/              main window, chat panel, QWebChannel bridge to the renderer
 live2d_renderer.html       avatar renderer (PixiJS + pixi-live2d-display, lip sync, queue)
-models/<name>/             Live2D models; companion.json holds window size, motion roles,
+models/                    Live2D models; companion.json holds window size, motion roles,
                            and the emotion -> expression map
+evals/                     offline memory evaluation cases
 tests/                     pytest suite for companion/core and adapters (no Qt needed)
 ```
 

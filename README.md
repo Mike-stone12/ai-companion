@@ -132,13 +132,17 @@ Variables already set in the shell take precedence over values in `.env`.
 ```text
 main.py                 Entry point
 companion/
-  core/                 Pure Python, no Qt: config, text cleanup, LLM client,
-                        memory (store, gate, extractor), model profiles,
-                        window state (settings file, placement rules)
+  core/                 Pure Python, no Qt: config, text cleanup, model profiles, window state
+    chat/               Emotion tags, history, conversation summary
+    llm/                API client and SSE streaming
+    memory/             Store, gate, extractor, consolidation, recall, evaluation, edit helpers
+    tools/              Tool registry, built-in time and reminder tools, tool-call loop
   adapters/tts_edge.py  Edge TTS synthesis and voice selection
   app/workers.py        QThread workers for chat, TTS, and memory extraction
-  ui/main_window.py     The desktop window
+  memory_cli.py         Read-only memory inspector
+  ui/                   Main window, chat panel, avatar bridge
   qt_bootstrap.py       Windows Qt DLL setup and import diagnostics
+evals/                  Offline memory evaluation cases
 tests/                  pytest suite for companion/core (runs without Qt)
 live2d_renderer.html     Embedded avatar renderer
 .env.example            Example provider and voice settings
@@ -196,6 +200,12 @@ pytest
 
 The tests cover `companion/core`, which never imports PyQt or edge-tts, so they run without a display or the GUI dependencies. CI runs `ruff` and `pytest` on Ubuntu, Windows, and macOS for every pull request, with only `requirements-dev.txt` installed; a Qt import added to `companion/core` fails there.
 
+Run the repeatable offline evaluation of the extraction gate and lexical recall with:
+
+```bash
+python -m companion.core.memory.evaluation
+```
+
 ### Inspect stored memories
 
 Use the read-only CLI without installing the GUI dependencies:
@@ -215,9 +225,11 @@ case-insensitive substrings. These commands never save or migrate data.
 
 ## Next steps
 
-- Evaluate extraction and recall on a repeatable conversation set.
-- Add semantic retrieval and conflict-aware memory updates.
-- Add an interface for inspecting, editing, and removing stored memories.
+Conflict-aware consolidation already supports ADD, UPDATE, and NOOP; DELETE decisions are ignored.
+
+- Evaluate the extraction LLM itself; the offline evaluation currently covers only the gate and lexical recall.
+- Add semantic or embedding-based retrieval.
+- Add a UI or CLI for editing and removing stored memories; read-only inspection is already available.
 - Validate platforms beyond Windows.
 
 ## License and credits
