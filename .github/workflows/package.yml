@@ -70,8 +70,16 @@ jobs:
           QTWEBENGINE_DISABLE_SANDBOX: "1"
           # Hosted runners have no GPU and Chromium blocklists WebGL; render it in software.
           QTWEBENGINE_CHROMIUM_FLAGS: --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader
+        # Software WebGL on the runner occasionally crashes Chromium (SIGTRAP) after the
+        # renderer connects; retry once so a real break still fails twice in a row.
         run: |
-          "dist/AI Companion/AI Companion" --self-test "$RUNNER_TEMP/self-test.txt"
+          for attempt in 1 2; do
+            status=0
+            "dist/AI Companion/AI Companion" --self-test "$RUNNER_TEMP/self-test.txt" || status=$?
+            [ "$status" -eq 0 ] && exit 0
+            echo "::warning::Self-test attempt $attempt failed with exit code $status"
+          done
+          exit 1
 
       - name: Self-test the frozen build (Windows)
         if: runner.os == 'Windows'
