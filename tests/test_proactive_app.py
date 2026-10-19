@@ -26,7 +26,7 @@ def window(tmp_path):
     methods = {
         "setup_proactive", "on_proactive_tick", "send_message", "reset_reply_state", "start_chat_worker",
         "on_reply_delta", "on_reply_sentence", "on_reply_finished", "render_reply", "history_text", "record_reply",
-        "maybe_finish_reply", "finish_interaction", "closeEvent",
+        "maybe_finish_reply", "finish_interaction", "closeEvent", "submit_message",
     }
     cls.bases = [ast.Name(id="FakeWidget", ctx=ast.Load())]
     cls.body = [node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name in methods]
@@ -57,6 +57,8 @@ def window(tmp_path):
     instance.renderer_ready = True
     instance.tts_thread = None
     instance.summary_thread = None
+    instance.voice_session = None
+    instance.transcription_thread = None
     instance.tts_queue = deque()
     instance.pending_clips = {}
     instance.pending_user_text = "stale previous user text"

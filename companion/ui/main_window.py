@@ -6,6 +6,7 @@ import sys
 from collections import deque
 from collections.abc import Callable
 from copy import copy
+from functools import partial
 from pathlib import Path
 
 from PyQt6.QtCore import PYQT_VERSION_STR, QPoint, QRect, Qt, QThread, QTimer, QUrl, QUrlQuery
@@ -27,12 +28,13 @@ from PyQt6.QtWidgets import (
 
 from companion.adapters import tts_edge
 from companion.adapters.active_app import foreground_app_name
-from companion.app.workers import ChatStreamWorker, MemoryWorker, SummaryWorker, TTSWorker
+from companion.app.workers import ChatStreamWorker, MemoryWorker, SummaryWorker, TranscriptionWorker, TTSWorker
 from companion.core.chat.emotion import EMOTION_INSTRUCTION
 from companion.core.chat.history import ConversationHistory, ConversationSummary, display_text
 from companion.core.chat.summary import build_chat_messages, plan_summary_update
 from companion.core.config import AppConfig
 from companion.core.llm.client import OpenAICompatibleClient
+from companion.core.llm.transcription import transcribe
 from companion.core.memory.browser import MemoryBrowserModel
 from companion.core.memory.gate import should_extract_memory
 from companion.core.memory.semantic_recall import create_session_embedder
@@ -47,6 +49,8 @@ from companion.core.settings_form import SettingsForm
 from companion.core.text import sanitize_reply_text, sanitize_tts_text
 from companion.core.tools.builtin import build_builtin_registry
 from companion.core.tools.reminders import ReminderStore, local_now
+from companion.core.voice_input_actions import can_start_voice_input, deliver_voice_input_result
+from companion.core.voice_input_controller import VoiceInputController, VoiceInputResult
 from companion.core.window_state import (
     OPACITY_STEPS,
     SCALE_STEPS,
@@ -172,6 +176,12 @@ class CompanionWindow(QWidget):
         self.pending_user_text = ""
         self.renderer_ready = False
         self.busy = False
+        self.closing = False
+        self.voice_session: VoiceInputController | None = None
+        self.microphone = None
+        self.talk_button = None
+        self.transcription_thread: QThread | None = None
+        self.transcription_worker: TranscriptionWorker | None = None
 
         self.bridge = AvatarBridge(self)
         self.bridge.ready.connect(self.on_renderer_ready)
@@ -319,6 +329,7 @@ class CompanionWindow(QWidget):
         send_button.clicked.connect(self.send_message)
         controls_layout.addWidget(send_button)
         self.send_button = send_button
+        self.setup_voice_input(controls_layout)
 
         root_layout.addWidget(controls)
 
@@ -417,6 +428,90 @@ class CompanionWindow(QWidget):
             }
             """
         )
+
+    def setup_voice_input(self, layout: QHBoxLayout) -> None:
+        if not self.config.voice_input_usable:
+            return
+        # Keep QtMultimedia and audio-device construction behind the opt-in gate.
+        from companion.adapters.microphone import Microphone
+
+        self.voice_session = VoiceInputController(
+            self.config,
+            partial(
+                transcribe, base_url=self.config.base_url, api_key=self.config.api_key,
+                model=self.config.transcription_model.strip(),
+            ),
+        )
+        self.microphone = Microphone(self)
+        self.microphone.pcm_ready.connect(self.voice_session.feed)
+        self.microphone.failed.connect(self.on_microphone_failed)
+        self.talk_button = QPushButton("Hold to talk")
+        self.talk_button.pressed.connect(self.start_voice_input)
+        self.talk_button.released.connect(self.stop_voice_input)
+        layout.addWidget(self.talk_button)
+
+    def start_voice_input(self) -> None:
+        if self.voice_session is None or not can_start_voice_input(
+            busy=self.busy, worker_active=self.transcription_thread is not None, closing=self.closing,
+        ):
+            return
+        self.voice_session.start()
+        if self.voice_session.state != "recording":
+            return
+        # Reserve this turn so typed input and proactive replies cannot race transcription.
+        self.busy = True
+        self.chat_input.setEnabled(False)
+        self.send_button.setEnabled(False)
+        self.set_status("Listening")
+        self.microphone.start()
+
+    def stop_voice_input(self) -> None:
+        if self.voice_session is None or self.voice_session.state != "recording":
+            return
+        # stop() delivers the last buffered PCM synchronously before finalizing the clip.
+        self.microphone.stop()
+        if self.voice_session.state != "recording":
+            return  # A final microphone read failure cancelled the recording.
+        self.talk_button.setEnabled(False)
+        self.set_status("Transcribing")
+        self.transcription_thread = QThread(self)
+        self.transcription_worker = TranscriptionWorker(None, self.config, session=self.voice_session)
+        self.transcription_worker.moveToThread(self.transcription_thread)
+        self.transcription_thread.started.connect(self.transcription_worker.run)
+        self.transcription_worker.session_finished.connect(self.on_voice_input_result)
+        self.transcription_worker.session_finished.connect(self.transcription_worker.deleteLater)
+        # quit() is thread-safe; direct delivery also lets the bounded close wait finish.
+        self.transcription_worker.session_finished.connect(
+            self.transcription_thread.quit, Qt.ConnectionType.DirectConnection,
+        )
+        self.transcription_thread.finished.connect(self.on_transcription_thread_finished)
+        self.transcription_thread.finished.connect(self.transcription_thread.deleteLater)
+        self.transcription_thread.start()
+
+    def on_microphone_failed(self, message: str) -> None:
+        if self.voice_session is None or self.voice_session.state != "recording":
+            return
+        self.voice_session.cancel()
+        if self.closing:
+            return
+        self.chat_panel.add_notice(message)
+        self.set_status("Idle")
+        self.finish_interaction()
+
+    def on_voice_input_result(self, result: VoiceInputResult) -> None:
+        if self.closing:
+            return
+        self.set_status("Idle")
+        self.finish_interaction()
+        deliver_voice_input_result(result, self.submit_message, self.chat_panel.add_notice)
+
+    def on_transcription_thread_finished(self) -> None:
+        self.transcription_thread = None
+        self.transcription_worker = None
+        if self.closing:
+            self.close()
+        else:
+            self.talk_button.setEnabled(True)
 
     def load_live2d_scene(self) -> None:
         logger.debug("Loading HTML from: %s", HTML_PATH)
@@ -591,7 +686,9 @@ class CompanionWindow(QWidget):
         return build_context if defer else build_context()
 
     def send_message(self) -> None:
-        user_text = self.chat_input.text().strip()
+        self.submit_message(self.chat_input.text().strip())
+
+    def submit_message(self, user_text: str) -> None:
         if not user_text or self.busy:
             return
 
@@ -903,6 +1000,18 @@ class CompanionWindow(QWidget):
         self.set_talking(False)
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
+        self.closing = True
+        if self.voice_session is not None:
+            self.voice_session.cancel()
+            self.microphone.stop()
+        if self.transcription_thread is not None and self.transcription_thread.isRunning():
+            self.transcription_thread.quit()
+            if not self.transcription_thread.wait(2000):
+                # Keep the thread owner alive until the bounded network operation returns.
+                # finished retries close; cancellation suppresses any late transcript.
+                event.ignore()
+                self.hide()
+                return
         if self.proactive_timer is not None:
             self.proactive_timer.stop()
         self.proactive = None
