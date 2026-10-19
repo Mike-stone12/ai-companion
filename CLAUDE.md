@@ -34,13 +34,15 @@ companion/core/            pure Python, never imports Qt: config, text, llm (cli
                            voice_input.py (push-to-talk capture model, WAV encoder),
                            voice_input_controller.py (session controller),
                            wake_word.py (pure-Python wake-word matcher),
+                           wake_word_controller.py (listening session controller),
                            llm/transcription.py (transcription client)
 companion/core/proactive/  events, policy, triggers (including active-app trigger active_app.py),
                            composer, engine tick; opt-in via PROACTIVE_CHAT
 companion/core/tools/      function-calling tools, opt-in via CHAT_TOOLS
 companion/adapters/        Edge TTS (tts_edge.py), foreground-app adapter (active_app.py),
                            Qt microphone capture (microphone.py), lazy Vosk recognizer (wake_word_vosk.py)
-companion/app/             QThread workers, logging setup
+companion/app/             workers.py (chat, transcription, TTS, memory, summary),
+                           wake_word_worker.py (local wake recognition), logging_setup.py
 companion/memory_cli.py    memory inspection and editing (dry run unless --write)
 companion/settings_cli.py  non-secret settings inspection and editing
 companion/ui/              main window, chat panel, QWebChannel bridge to the renderer
