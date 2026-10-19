@@ -34,8 +34,10 @@ class Mood:
 class CompanionState:
     mood: Mood
     last_user_message: datetime | None = None
-    # What the companion is doing right now; filled in by the daily schedule (8.2).
+    # What the companion is doing right now and how available it is (free, busy, drowsy,
+    # asleep), both taken from the daily schedule; not persisted.
     activity: str = ""
+    availability: str = ""
 
 
 def _calm(now: datetime) -> Mood:

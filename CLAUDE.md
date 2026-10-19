@@ -43,6 +43,8 @@ companion/core/            pure Python, never imports Qt: config, api_key (keych
                            llm/transcription.py (transcription client)
 companion/core/state/      the companion's own mood (decays toward calm, misses the user after a
                            day), last contact, current activity; state.json; COMPANION_STATE
+companion/core/schedule.py daily routine blocks (free/busy/drowsy/asleep), text format edited in
+                           the persona dialog; feeds state activity, presence label, proactive gating
 companion/core/proactive/  events, policy, triggers (including active-app trigger active_app.py),
                            composer (app-note framing; replies stay in the persona's voice and
                            address the user), engine tick; opt-in via PROACTIVE_CHAT

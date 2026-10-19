@@ -42,7 +42,7 @@ def window(tmp_path):
     }
     exec(compile(ast.fix_missing_locations(ast.Module(body=[cls], type_ignores=[])), str(path), "exec"), namespace)
     instance = namespace["CompanionWindow"]()
-    instance.config = SimpleNamespace(proactive_chat=True, active_app_monitor=False)
+    instance.config = SimpleNamespace(proactive_chat=True, active_app_monitor=False, daily_schedule=False)
     instance.history = ConversationHistory(tmp_path / "history.json")
     instance.messages = [{"role": "system", "content": "Companion"}]
     for name in (

@@ -1,5 +1,6 @@
 """Run the window's companion-state callbacks with Qt stand-ins (Qt is unavailable in CI)."""
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -8,6 +9,8 @@ import pytest
 from test_voice_input_qt_adapters import Signal, load_class
 
 from companion.core import state as companion_state
+from companion.core.persona import CHILDHOOD_FRIEND
+from companion.core.schedule import block_at, presence_label
 from companion.core.state import CompanionState, Mood, StateStore
 
 NOW = datetime(2026, 10, 19, 20, 0, tzinfo=UTC)
@@ -24,10 +27,13 @@ def window(tmp_path):
         idle_emotion=companion_state.idle_emotion,
         render_state_context=companion_state.render_state_context,
         state_summary_lines=companion_state.state_summary_lines,
+        block_at=block_at, presence_label=presence_label, replace=replace,
     )
     instance = cls.__new__(cls)
     instance.clock = clock
-    instance.config = SimpleNamespace(companion_state=True, mood_half_life_minutes=120)
+    instance.config = SimpleNamespace(companion_state=True, mood_half_life_minutes=120, daily_schedule=False)
+    instance.persona = CHILDHOOD_FRIEND
+    instance.presence_label = Mock()
     instance.state_store = StateStore(tmp_path / "state.json")
     instance.companion_state = CompanionState(Mood("neutral", 0.0, NOW))
     instance.idle_face = None
@@ -120,3 +126,36 @@ def test_state_viewer_text(window):
     assert window.state_viewer_text() == "Mood: very happy (80%)\nYour last message: 5 minutes ago"
     window.companion_state = None
     assert "turned off" in window.state_viewer_text()
+
+
+def test_routine_adds_the_current_activity_and_availability(window):
+    window.config.daily_schedule = True
+    window.clock.return_value = NOW.replace(hour=3)
+
+    text = window.state_context()
+
+    assert "Right now you are sleeping." in text
+    assert "woke you" in text
+    assert "Doing: sleeping" in window.state_viewer_text()
+
+
+def test_routine_off_adds_no_activity(window):
+    window.clock.return_value = NOW.replace(hour=3)
+
+    assert "Right now" not in window.state_context()
+
+
+def test_presence_label_follows_the_routine(window):
+    window.config.daily_schedule = True
+    window.clock.return_value = NOW.replace(hour=20)
+    window.refresh_presence()
+    window.presence_label.setText.assert_called_with("● Watching a drama or playing games")
+
+    window.config.daily_schedule = False
+    window.refresh_presence()
+    window.presence_label.setVisible.assert_called_with(False)
+
+
+def test_is_awake_uses_the_persona_routine(window):
+    assert not window.is_awake(NOW.replace(hour=3))
+    assert window.is_awake(NOW.replace(hour=10))

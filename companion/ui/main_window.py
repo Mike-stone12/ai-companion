@@ -6,6 +6,7 @@ import sys
 from collections import deque
 from collections.abc import Callable
 from copy import copy
+from dataclasses import replace
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
@@ -49,6 +50,7 @@ from companion.core.model_profile import (
 )
 from companion.core.persona import BuiltinPersonas, Persona, PersonaStore, effective_system_prompt
 from companion.core.proactive.session import ProactiveSession, proactive_request
+from companion.core.schedule import block_at, presence_label
 from companion.core.settings_form import SettingsForm
 from companion.core.state import (
     StateStore,
@@ -235,13 +237,15 @@ class CompanionWindow(QWidget):
         self.mood_timer = QTimer(self)
         self.mood_timer.setInterval(60_000)
         self.mood_timer.timeout.connect(self.refresh_idle_emotion)
-        if self.companion_state is not None:
+        self.mood_timer.timeout.connect(self.refresh_presence)
+        if self.companion_state is not None or config.daily_schedule:
             self.mood_timer.start()
 
         self.setup_window()
         self.build_ui()
         self.load_live2d_scene()
         self.restore_position()
+        self.refresh_presence()
         self.setup_proactive(reminders)
         self.setup_wake_word()
 
@@ -349,6 +353,8 @@ class CompanionWindow(QWidget):
             self.proactive = ProactiveSession(
                 reminders, local_now(), proactive_chat=self.config.proactive_chat,
                 active_app_monitor=self.config.active_app_monitor,
+                # Asleep per the daily routine: only reminders may wake the companion up.
+                awake=self.is_awake if self.config.daily_schedule else None,
             )
             self.proactive_timer = QTimer(self)
             self.proactive_timer.setInterval(30_000)
@@ -411,6 +417,12 @@ class CompanionWindow(QWidget):
         drag_label = QLabel("Drag me")
         drag_label.setObjectName("dragLabel")
         top_layout.addWidget(drag_label)
+
+        # What the companion is up to, from its daily routine (hidden when that is off).
+        self.presence_label = QLabel("")
+        self.presence_label.setObjectName("presenceLabel")
+        self.presence_label.setTextFormat(Qt.TextFormat.PlainText)
+        top_layout.addWidget(self.presence_label)
         top_layout.addStretch(1)
 
         self.status_label = QLabel("Idle")
@@ -511,6 +523,10 @@ class CompanionWindow(QWidget):
             QLabel#dragLabel {
                 color: rgba(255, 255, 255, 0.88);
                 font-weight: 600;
+            }
+            QLabel#presenceLabel {
+                color: rgba(255, 255, 255, 0.7);
+                font-size: 11px;
             }
             QLabel#statusLabel {
                 color: #b7f3cf;
@@ -765,6 +781,8 @@ class CompanionWindow(QWidget):
         self.messages[0] = {"role": "system", "content": self.system_message()}
         if self.config.system_prompt:
             self.chat_panel.add_notice("Persona saved, but COMPANION_SYSTEM_PROMPT is set and overrides it.")
+        if hasattr(self, "presence_label"):
+            self.refresh_presence()
 
     def show_persona_dialog(self, first_run: bool = False) -> None:
         dialog = PersonaDialog(self.personas, self.persona, self, first_run=first_run)
@@ -778,12 +796,36 @@ class CompanionWindow(QWidget):
             self.chat_panel.add_notice(f"Could not save the persona: {exc}")
         dialog.deleteLater()
 
+    def current_block(self):
+        if not self.config.daily_schedule:
+            return None
+        return block_at(self.persona.schedule, local_now())
+
+    def is_awake(self, now) -> bool:
+        block = block_at(self.persona.schedule, now)
+        return block is None or block.kind != "asleep"
+
+    def scheduled(self, state):
+        """The state with what the routine says the companion is doing right now."""
+        block = self.current_block()
+        if block is None:
+            return replace(state, activity="", availability="")
+        return replace(state, activity=block.activity, availability=block.kind)
+
+    def refresh_presence(self) -> None:
+        enabled = self.config.daily_schedule
+        self.presence_label.setVisible(enabled)
+        if enabled:
+            self.presence_label.setText(f"● {presence_label(self.current_block())}")
+
     def mood_half_life(self) -> timedelta:
         return timedelta(minutes=max(self.config.mood_half_life_minutes, 5))
 
     def state_context(self) -> str:
         state = getattr(self, "companion_state", None)
-        return render_state_context(state, local_now(), self.mood_half_life()) if state is not None else ""
+        if state is None:
+            return ""
+        return render_state_context(self.scheduled(state), local_now(), self.mood_half_life())
 
     def update_state(self, state) -> None:
         self.companion_state = state
@@ -816,7 +858,8 @@ class CompanionWindow(QWidget):
     def state_viewer_text(self) -> str:
         if self.companion_state is None:
             return "The companion's mood is turned off (COMPANION_STATE in Settings)."
-        return "\n".join(state_summary_lines(self.companion_state, local_now(), self.mood_half_life()))
+        state = self.scheduled(self.companion_state)
+        return "\n".join(state_summary_lines(state, local_now(), self.mood_half_life()))
 
     def show_state(self) -> None:
         box = QMessageBox(self)

@@ -43,6 +43,7 @@ EDITABLE_SETTINGS = (
     Setting("WAKE_WORD_MODEL_DIR", "str", "", "Wake-word Vosk model directory"),
     Setting("COMPANION_STATE", "bool", True, "Companion mood that carries over between replies"),
     Setting("MOOD_HALF_LIFE_MINUTES", "int", 120, "Mood half-life (minutes)", minimum=5),
+    Setting("DAILY_SCHEDULE", "bool", True, "Daily routine (sleeps, studies, has evenings off)"),
     Setting("PROACTIVE_CHAT", "bool", False, "Proactive chat"),
     Setting("ACTIVE_APP_MONITOR", "bool", False, "Active app monitor (requires proactive chat)"),
     Setting("LOG_LEVEL", "choice", "INFO", "Log level", choices=("DEBUG", "INFO", "WARNING", "ERROR")),

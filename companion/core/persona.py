@@ -10,11 +10,12 @@ interchange format for future import and export.
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass, fields, replace
+from dataclasses import dataclass, field, fields, replace
 from pathlib import Path
 from typing import Protocol
 
 from companion.core import settings_file
+from companion.core.schedule import DEFAULT_SCHEDULE, ScheduleBlock, schedule_from_list, schedule_to_list
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,8 @@ FIELD_LIMITS = {
 }
 # Short fields are single-line; the rest keep line breaks.
 SINGLE_LINE = frozenset({"id", "title", "name", "user_name"})
-EDITABLE_FIELDS = ("name", "user_name", "relationship", "personality", "speaking_style", "background")
+TEXT_FIELDS = ("name", "user_name", "relationship", "personality", "speaking_style", "background")
+EDITABLE_FIELDS = (*TEXT_FIELDS, "schedule")
 
 COMMON_RULES = (
     "Always speak directly to the user, the person at this computer, and stay in character. "
@@ -68,6 +70,8 @@ class Persona:
     personality: str = ""
     speaking_style: str = ""
     background: str = ""
+    # The daily routine (companion/core/schedule.py); empty means no routine.
+    schedule: tuple[ScheduleBlock, ...] = field(default=DEFAULT_SCHEDULE)
 
     def system_prompt(self) -> str:
         """Render the persona as the companion's system instruction."""
@@ -89,21 +93,26 @@ class Persona:
         lines.append(COMMON_RULES)
         return "\n".join(lines)
 
-    def to_dict(self) -> dict[str, str]:
-        return asdict(self)
+    def to_dict(self) -> dict[str, object]:
+        data: dict[str, object] = {name: getattr(self, name) for name in ("id", "title", *TEXT_FIELDS)}
+        data["schedule"] = schedule_to_list(self.schedule)
+        return data
 
     @classmethod
     def from_dict(cls, data: object) -> Persona:
         """Validate untrusted data (a saved or imported file); unknown keys are ignored."""
         if not isinstance(data, dict):
             raise ValueError("A persona must be a JSON object")
-        values = {
-            field.name: _clean(field.name, data[field.name])
-            for field in fields(cls)
-            if field.name in data
+        values: dict[str, object] = {
+            item.name: _clean(item.name, data[item.name])
+            for item in fields(cls)
+            if item.name in data and item.name != "schedule"
         }
         values["id"] = values.get("id") or CUSTOM_ID
         values["title"] = values.get("title") or "Custom"
+        # Files written before the routine existed get the default one.
+        if "schedule" in data:
+            values["schedule"] = schedule_from_list(data["schedule"])
         return cls(**values)
 
     def with_fields(self, **changes: str) -> Persona:
@@ -111,7 +120,14 @@ class Persona:
         unknown = set(changes) - set(EDITABLE_FIELDS)
         if unknown:
             raise ValueError(f"Unknown persona fields: {', '.join(sorted(unknown))}")
-        cleaned = {name: _clean(name, value) for name, value in changes.items()}
+        cleaned: dict[str, object] = {}
+        for name, value in changes.items():
+            if name == "schedule":
+                if not isinstance(value, tuple) or not all(isinstance(block, ScheduleBlock) for block in value):
+                    raise ValueError("schedule must be parsed ScheduleBlocks")
+                cleaned[name] = value
+            else:
+                cleaned[name] = _clean(name, value)
         edited = replace(self, **cleaned)
         if edited != self and self.id != CUSTOM_ID:
             edited = replace(edited, id=CUSTOM_ID, title="Custom")

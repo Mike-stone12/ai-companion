@@ -6,7 +6,7 @@ for each trigger instance's lifetime and records proposals, even if policy later
 rejects them.
 """
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Protocol
 
@@ -85,6 +85,25 @@ class ReminderTrigger:
                 self._store.mark_proposed(reminder.id)
                 events.append(Event(REMINDER, now, {"text": reminder.text, "due_at": reminder.due_at}))
         return events
+
+
+class AwakeGate:
+    """Skip polling the wrapped trigger while the companion is asleep.
+
+    Not polling (rather than rejecting in policy) keeps the trigger's deduplication
+    unspent, so a morning greeting is proposed once the companion wakes up. Other
+    attributes, such as an active-app trigger's ``record_sample``, pass through.
+    """
+
+    def __init__(self, trigger: Trigger, awake: Callable[[datetime], bool]):
+        self._trigger = trigger
+        self._awake = awake
+
+    def poll(self, now: datetime) -> list[Event]:
+        return self._trigger.poll(now) if self._awake(now) else []
+
+    def __getattr__(self, name: str):
+        return getattr(self._trigger, name)
 
 
 class TriggerAggregator:
