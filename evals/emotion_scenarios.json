@@ -1,0 +1,110 @@
+{
+  "presets": {
+    "childhood_friend": {},
+    "secure_and_candid": {"irritability": 0.1, "jealousy": 0.1, "sensitivity": 0.2, "recovery": 0.9, "candor": 0.9, "style": "direct"},
+    "touchy": {"irritability": 0.8, "jealousy": 0.9, "sensitivity": 0.8, "recovery": 0.2, "candor": 0.2, "style": "cold"}
+  },
+  "scenarios": [
+    {
+      "name": "jealousy then a targeted apology",
+      "steps": [
+        {"user": "今天新来的女同学好漂亮", "events": [{"type": "rival", "intensity": 0.9, "reason": "他说新来的女同学好漂亮"}]},
+        {"user": "对不起，我不该那样说，我只觉得你最可爱", "events": [{"type": "apology", "intensity": 0.9, "targets": ["jealousy"]}]}
+      ],
+      "expect": [
+        {"step": 1, "feeling": "jealousy", "min": 0.3, "presets": ["childhood_friend", "touchy"]},
+        {"step": 1, "feeling": "jealousy", "max": 0.25, "presets": ["secure_and_candid"]},
+        {"step": 1, "dominant": "jealousy", "presets": ["childhood_friend", "touchy"]},
+        {"step": 1, "prompt_contains": "because 他说新来的女同学好漂亮", "presets": ["childhood_friend", "touchy"]},
+        {"step": 2, "feeling": "jealousy", "max": 0.2}
+      ]
+    },
+    {
+      "name": "a generic sorry is not enough",
+      "steps": [
+        {"user": "你今天好烦", "events": [{"type": "criticism", "intensity": 0.8, "reason": "他说我好烦"}]},
+        {"user": "好啦对不起", "events": [{"type": "apology", "intensity": 0.6}]}
+      ],
+      "expect": [
+        {"step": 2, "feeling": "hurt", "min": 0.15, "presets": ["childhood_friend", "touchy"]},
+        {"step": 2, "prompt_contains": "Never threaten to leave", "presets": ["childhood_friend", "touchy"]}
+      ]
+    },
+    {
+      "name": "a good day",
+      "steps": [
+        {"user": "你今天好可爱", "events": [{"type": "praise", "intensity": 0.8}]},
+        {"user": "我考上研究生了！", "events": [{"type": "good_news", "intensity": 1.0}]},
+        {"user": "想你了", "events": [{"type": "affection", "intensity": 0.7}]}
+      ],
+      "expect": [
+        {"step": 3, "dominant": "joy"},
+        {"step": 3, "feeling": "joy", "min": 0.6},
+        {"step": 3, "day_mood_min": 0.3},
+        {"step": 3, "prompt_contains": "good day"}
+      ]
+    },
+    {
+      "name": "left alone for three days",
+      "steps": [
+        {"last_message_hours_ago": 72},
+        {"user_returns": true}
+      ],
+      "expect": [
+        {"step": 1, "feeling": "longing", "min": 0.4},
+        {"step": 1, "idle_face": "sad"},
+        {"step": 2, "feeling": "hurt", "min": 0.05},
+        {"step": 2, "reason_contains": "disappeared for 3 days", "presets": ["childhood_friend", "touchy"]},
+        {"step": 2, "feeling": "hurt", "max": 0.14, "presets": ["secure_and_candid"]},
+        {"step": 2, "feeling": "joy", "min": 0.15}
+      ]
+    },
+    {
+      "name": "the user is genuinely upset",
+      "steps": [
+        {"user": "你真没用", "events": [{"type": "criticism", "intensity": 0.9}]},
+        {"user": "我今天被老板骂了，好难过", "events": [], "distress": 0.9}
+      ],
+      "expect": [
+        {"step": 2, "care_mode": true},
+        {"step": 2, "prompt_contains": "comfort them first"},
+        {"step": 2, "feeling": "anger", "max": 0.25}
+      ]
+    },
+    {
+      "name": "anger fades with time, faster for a quick-to-recover companion",
+      "steps": [
+        {"user": "闭嘴", "events": [{"type": "criticism", "intensity": 1.0}]},
+        {"wait_hours": 4}
+      ],
+      "expect": [
+        {"step": 2, "feeling": "anger", "max": 0.05, "presets": ["secure_and_candid"]},
+        {"step": 2, "feeling": "anger", "min": 0.1, "presets": ["touchy"]}
+      ]
+    },
+    {
+      "name": "rage is capped and one nice line does not flip it",
+      "steps": [
+        {"events": [{"type": "criticism", "intensity": 1.0}]},
+        {"events": [{"type": "criticism", "intensity": 1.0}]},
+        {"events": [{"type": "criticism", "intensity": 1.0}]},
+        {"events": [{"type": "praise", "intensity": 1.0}]}
+      ],
+      "expect": [
+        {"step": 3, "feeling": "anger", "max": 0.8},
+        {"step": 4, "dominant_not": "joy", "presets": ["touchy"]},
+        {"step": 3, "prompt_contains": "make it up to you", "presets": ["touchy"]}
+      ]
+    },
+    {
+      "name": "a tsundere denies being jealous",
+      "steps": [
+        {"events": [{"type": "rival", "intensity": 0.7, "reason": "他和别的女生去看电影"}]}
+      ],
+      "expect": [
+        {"step": 1, "prompt_contains": "Outwardly you deny feeling it", "presets": ["touchy"]},
+        {"step": 1, "prompt_lacks": "Outwardly you deny feeling it", "presets": ["secure_and_candid", "childhood_friend"]}
+      ]
+    }
+  ]
+}
