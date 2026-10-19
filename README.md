@@ -22,6 +22,7 @@ Windows is the most tested platform; the maintainer also works on macOS. CI test
 - **Streaming chat:** connects to an OpenAI-compatible endpoint (Moonshot/Kimi by default, with DeepSeek configuration in `.env.example`) and streams the reply, so text appears as it is generated and speech can start after the first clause instead of the whole reply. Median time from sending a message to the first spoken word dropped from 2.97 s to 1.70 s (DeepSeek `deepseek-flash`, three prompts) and no longer grows with reply length.
 - **Voice replies with lip sync:** synthesizes replies with Edge-TTS, selects a Chinese or English voice based on the response, and moves the avatar's mouth with the speech volume (Web Audio analyser driving `ParamMouthOpenY`, or the model's LipSync parameter).
 - **Voice input (opt-in):** enable `VOICE_INPUT` and set `TRANSCRIPTION_MODEL` to show **Hold to talk** beside the chat input. Hold to record, then release to transcribe and send as a normal chat message. Empty speech or errors show a short notice. Disabled by default; no microphone is created or QtMultimedia imported when disabled.
+- **Wake word (opt-in):** enable `WAKE_WORD` with usable voice input, wake phrases, and a local Vosk model (see [setup](#set-up-the-wake-word)). “Wake word on” indicates microphone listening; a detected phrase starts roughly 5 seconds of capture, then transcribes and sends through normal chat. Listening pauses during capture and replies.
 - **Persistent memory:** extracts short facts, saves them locally, and includes relevant and recent memories in later conversations.
 - **Proactive chat (opt-in):** set `PROACTIVE_CHAT=1` for idle chat, time-of-day greetings, and spoken due reminders; off by default (`PROACTIVE_CHAT=0`). Checks run every 30 seconds. Policy blocks events during an active reply or while the input contains text, applies a two-minute grace period after a user message, and enforces cooldowns of 30 minutes for idle chat and four hours for greetings (none for reminders). Enable `CHAT_TOOLS` to set persistent reminders.
 - **Active-app comments (opt-in):** set `ACTIVE_APP_MONITOR=1` together with `PROACTIVE_CHAT=1` (monitor off by default). After the same foreground app has been sampled for at least 40 minutes, the monitor proposes one brief, caring comment per streak, subject to proactive policy and a 60-minute cooldown between active-app comments. Only the foreground app name and streak duration are sent to the LLM for this event, never a process list. Supported on Windows and macOS; unsupported platforms return no sample and trigger no active-app comments.
@@ -73,6 +74,8 @@ flowchart LR
 When proactive chat is enabled, triggers propose events, policy checks eligibility, and the engine passes at most one eligible event per tick to the composer. Its instruction is appended to conversation context for a chat request through the existing streaming and speech pipeline. Proposals that are rejected or lose priority are not queued or retried. The proactive core is pure Python; its Qt timer lives only in the UI layer (`companion/ui/main_window.py`).
 
 With `ACTIVE_APP_MONITOR=1`, the UI samples the foreground-app adapter on each proactive tick and feeds app names to the pure-Python active-app streak trigger (`companion/core/proactive/active_app.py`).
+
+Push-to-talk routes microphone PCM through `VoiceInputController`, then finalizes and transcribes the in-memory WAV on a `TranscriptionWorker`; successful, non-empty transcripts enter the same `submit_message` path as typed chat. The local Vosk `WakeWordWorker` triggers that same capture path with a roughly five-second timer in place of button release.
 
 Replies are streamed: `ChatStreamWorker` reads the SSE stream, shows the text as it arrives, and uses `SentenceSplitter` to hand speakable chunks to TTS. Chunks are synthesized strictly in order and queued in the renderer; the talk gesture starts when playback starts and continues across queued clips. The splitter can cut the first chunk at a comma so speech starts early. If the stream breaks, the text received so far is kept and marked as interrupted.
 
@@ -171,47 +174,80 @@ You can also add an optional `"settings"` object to `config.json` in the user da
 
 `MEMORY_ENABLED=0` stops new extraction. Existing memories are still loaded into chat context by the current implementation.
 
+### Set up the wake word
+
+Wake detection is off by default. The optional `vosk` package is not in `requirements.txt`; install it separately with pip into the same Python environment that runs the app:
+
+```powershell
+# Windows (PowerShell), using the Quick start environment
+.\venv\Scripts\python.exe -m pip install vosk
+```
+
+```bash
+# macOS / Linux, using the Quick start environment
+.venv/bin/python -m pip install vosk
+```
+
+Download a model for your wake phrases' language from the [official Vosk models page](https://alphacephei.com/vosk/models) and unpack it. Set `WAKE_WORD_MODEL_DIR` to the unpacked model directory, not the downloaded archive. For example, add this to `.env`, replacing both placeholders with your model directory's absolute path and a transcription model supported by your chat provider:
+
+```dotenv
+WAKE_WORD=1
+WAKE_WORD_PHRASES=hey whale,hello whale
+WAKE_WORD_MODEL_DIR=<unpacked-model-directory>
+VOICE_INPUT=1
+TRANSCRIPTION_MODEL=<provider-transcription-model>
+```
+
+Restart the app after changing settings. Wake phrases are comma-separated (full-width commas also work). Voice transcription requires the configured chat endpoint to support `/audio/transcriptions`, using the same base URL and API key as chat. When “Wake word on” is visible, say a wake phrase, then speak your message during the roughly five-second capture. Listening pauses during capture, transcription, and replies; detections are ignored while the chat input contains typed text.
+
+Empty wake phrases or an empty model directory leave wake detection disabled, as do disabled voice input or an empty transcription model. If `vosk` or a required dependency is missing, the model directory does not exist, or the model fails to load, the app logs a warning, stops wake listening, and disables wake detection for the session. Hold-to-talk and typed chat remain available; fix the installation or model path and restart to retry.
+
 ## Project layout
 
 ```text
-main.py                 Entry point
+main.py                           Entry point
 companion/
-  core/                 Pure Python, no Qt: config, text cleanup, model profiles, window state
-    settings_file.py    JSON loading and atomic writes
-    settings_form.py    GUI-independent settings form model with validation and staged edits
-    settings_schema.py  Editable settings metadata, validation, and persistence
-    settings_values.py  Merge config.json settings with environment overrides
-    legacy_data.py      Migrate legacy memory.json at startup
-    voice_input.py      Push-to-talk capture model and WAV encoder (no microphone access)
-    wake_word.py        Pure-Python wake-word matcher
-    chat/               Emotion tags, history, conversation summary
-    llm/                API client, SSE streaming, embeddings
-      transcription.py  OpenAI-compatible speech transcription client
-    memory/             Store, extraction, consolidation, lexical/semantic recall, cache, evals, edits
-      browser.py        GUI-independent memory browser model with search and staged edits
-    proactive/          Events, policy, triggers (including active_app.py), composer, engine tick, session adapter
-    tools/              Tool registry, built-in time and reminder tools, tool-call loop
-  adapters/tts_edge.py  Edge TTS synthesis and voice selection
-  adapters/active_app.py Foreground-app name adapter (Windows and macOS)
-  app/workers.py        Qt workers for chat, TTS, memory, and summary
-  app/logging_setup.py  Console and rotating file logging
-  memory_cli.py         Memory inspection and editing (dry run unless --write)
-  settings_cli.py       Non-secret settings inspection and editing
-  paths.py              Resource paths and platform user data directories
-  env.py                Load .env while preserving shell overrides
-  ui/                   Main window, chat panel, avatar bridge
-    settings_dialog.py  Qt settings dialog bound to the settings form model
-    memory_dialog.py    Qt memory dialog bound to the memory browser model
-  qt_bootstrap.py       Windows Qt DLL setup and import diagnostics
-evals/                  Offline memory evaluation cases
-tests/                  Core, adapter, and CLI tests (runs without Qt)
-live2d_renderer.html     Embedded avatar renderer
-.env.example            Example provider and voice settings
-requirements.txt        Pinned Python dependencies
-requirements-dev.txt    pytest and ruff for development and CI
-models/whale-girl/      Default model (CC BY-NC-SA 4.0, see NOTICE.md)
-models/hiyori/          Alternative model (Live2D Free Material License)
-vendor/                 Renderer dependencies (PixiJS 6, Cubism Core, pixi-live2d-display 0.4.0)
+  core/                           Pure Python, no Qt: config, text cleanup, model profiles, window state
+    settings_file.py              JSON loading and atomic writes
+    settings_form.py              GUI-independent settings form model with validation and staged edits
+    settings_schema.py            Editable settings metadata, validation, and persistence
+    settings_values.py            Merge config.json settings with environment overrides
+    legacy_data.py                Migrate legacy memory.json at startup
+    voice_input.py                Push-to-talk capture model and WAV encoder (no microphone access)
+    voice_input_controller.py     Capture and transcription session controller (no Qt)
+    wake_word.py                  Pure-Python wake-word matcher
+    wake_word_controller.py       Wake-word listening session controller (no Qt)
+    chat/                         Emotion tags, history, conversation summary
+    llm/                          API client, SSE streaming, embeddings
+      transcription.py            OpenAI-compatible speech transcription client
+    memory/                       Store, extraction, consolidation, lexical/semantic recall, cache, evals, edits
+      browser.py                  GUI-independent memory browser model with search and staged edits
+    proactive/                    Events, policy, triggers (including active_app.py), composer, engine tick, session adapter
+    tools/                        Tool registry, built-in time and reminder tools, tool-call loop
+  adapters/tts_edge.py            Edge TTS synthesis and voice selection
+  adapters/active_app.py          Foreground-app name adapter (Windows and macOS)
+  adapters/microphone.py          Qt microphone capture emitting PCM in memory
+  adapters/wake_word_vosk.py      Optional local Vosk wake-phrase recognizer
+  app/workers.py                  Qt workers for chat, transcription, TTS, memory, and summary
+  app/wake_word_worker.py         Qt worker for local wake recognition on a dedicated thread
+  app/logging_setup.py            Console and rotating file logging
+  memory_cli.py                   Memory inspection and editing (dry run unless --write)
+  settings_cli.py                 Non-secret settings inspection and editing
+  paths.py                        Resource paths and platform user data directories
+  env.py                          Load .env while preserving shell overrides
+  ui/                             Main window, chat panel, avatar bridge
+    settings_dialog.py            Qt settings dialog bound to the settings form model
+    memory_dialog.py              Qt memory dialog bound to the memory browser model
+  qt_bootstrap.py                 Windows Qt DLL setup and import diagnostics
+evals/                            Offline memory evaluation cases
+tests/                            Core, adapter, and CLI tests (runs without Qt)
+live2d_renderer.html              Embedded avatar renderer
+.env.example                      Example provider and voice settings
+requirements.txt                  Pinned Python dependencies
+requirements-dev.txt              pytest and ruff for development and CI
+models/whale-girl/                Default model (CC BY-NC-SA 4.0, see NOTICE.md)
+models/hiyori/                    Alternative model (Live2D Free Material License)
+vendor/                           Renderer dependencies (PixiJS 6, Cubism Core, pixi-live2d-display 0.4.0)
 ```
 
 ### Adding a model
@@ -242,6 +278,8 @@ User data lives outside the project, so a packaged read-only app can still write
 It holds `memory.json`, `history.json` (up to 200 individual user/assistant messages plus an optional running summary), `config.json` (window position, size, and opacity under `window`, and optional app settings under `settings`), `reminders.json` (persistent reminders, loaded and saved only with `CHAT_TOOLS` enabled), and `logs/`. Reminders are saved atomically when changed; overdue reminders remain eligible for the existing proactive checks after restart. A corrupt or unreadable reminder file is logged and treated as empty without changing it until a valid change; save errors are logged without interrupting chat. At startup, a `memory.json` left in the project root by older versions is moved there; if one already exists in the data directory, neither file is touched. `.env` (secrets, ignored by Git) and the models stay in the project.
 
 Routine `INFO` logs record requests and memory counts; TTS text is logged at `DEBUG`. Error logs may include provider error details. Memories and conversation history are stored locally as plain JSON, and recalled memory text is sent to the configured LLM endpoint with chat requests. Replies are sent to Edge-TTS for speech synthesis. The renderer loads PixiJS and Cubism Core locally and tries the local `cubism4.min.js` bundle before version-pinned CDN copies if that bundle fails to load or initialize.
+
+Recorded push-to-talk and post-wake captures are sent as WAV audio to the configured transcription endpoint (`/audio/transcriptions` under the chat base URL), using the chat API key and `TRANSCRIPTION_MODEL`. Wake-phrase detection itself runs locally through Vosk; audio used only for wake listening is not sent to a service. Microphone audio and captured WAV bytes stay in memory and are not written to disk by the app. Successful transcripts follow normal chat submission and history storage.
 
 ### Troubleshooting
 
@@ -322,7 +360,7 @@ and non-editable settings (including `COMPANION_DATA_DIR`) are rejected.
 
 ## Roadmap
 
-- Refine the opt-in hold-to-talk experience with real-device feedback.
+- Refine opt-in hold-to-talk and wake-word input with real-device feedback.
 - Package the application for distribution.
 - Collect and publish live extraction evaluation numbers using the existing labelled harness.
 
