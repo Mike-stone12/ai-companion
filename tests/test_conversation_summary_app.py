@@ -1,6 +1,7 @@
 """Exercise window summary callbacks with fake Qt objects, without importing GUI dependencies."""
 
 import ast
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -29,6 +30,7 @@ def window(tmp_path):
         "ConversationSummary": ConversationSummary,
         "CONVERSATION_WINDOW": 11,
         "build_chat_messages": build_chat_messages,
+        "Callable": Callable,
         "plan_summary_update": plan_summary_update,
         "QThread": Mock(side_effect=lambda *_: Mock()),
         "SummaryWorker": Mock(side_effect=lambda *_: Mock()),
@@ -47,6 +49,7 @@ def window(tmp_path):
     ]
     instance.messages = [{"role": "system", "content": "System"}, *instance.history.messages()]
     instance.memory_store = SimpleNamespace(render_context=lambda **kwargs: "Memory")
+    instance.memory_embedder = None
     instance.summary_thread = None
     instance.summary_worker = None
     instance.summary_snapshot = None

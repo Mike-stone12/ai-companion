@@ -3,10 +3,11 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
-from companion.core.memory.recall import select_context_memories
+from companion.core.memory.semantic_recall import select_request_memories
 
 logger = logging.getLogger(__name__)
 
@@ -66,11 +67,14 @@ class MemoryStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(json.dumps(self.items[-self.limit :], ensure_ascii=False, indent=2), encoding="utf-8")
 
-    def render_context(self, max_items: int = 8, *, query: str = "", relevant_recall: bool = True) -> str:
+    def render_context(
+        self, max_items: int = 8, *, query: str = "", relevant_recall: bool = True,
+        embed: Callable[[list[str]], list[list[float]]] | None = None,
+    ) -> str:
         if not self.items:
             return ""
 
-        selected = select_context_memories(self.items, query, max_items, relevant_recall)
+        selected = select_request_memories(self.items, query, max_items, embed=embed, relevant_recall=relevant_recall)
         lines = [f"- [{item.get('category', 'memory')}] {item['summary']}" for item in selected]
         return "长期记忆（已压缩）:\n" + "\n".join(lines)
 

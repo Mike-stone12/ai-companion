@@ -5,6 +5,8 @@ import logging
 import os
 import sys
 from collections import deque
+from collections.abc import Callable
+from copy import copy
 from pathlib import Path
 
 from PyQt6.QtCore import PYQT_VERSION_STR, QPoint, QRect, Qt, QThread, QTimer, QUrl, QUrlQuery
@@ -32,6 +34,7 @@ from companion.core.chat.summary import build_chat_messages, plan_summary_update
 from companion.core.config import AppConfig
 from companion.core.llm.client import OpenAICompatibleClient
 from companion.core.memory.gate import should_extract_memory
+from companion.core.memory.semantic_recall import create_session_embedder
 from companion.core.memory.store import MemoryStore
 from companion.core.model_profile import (
     DEFAULT_WINDOW_SIZE,
@@ -131,6 +134,7 @@ class CompanionWindow(QWidget):
         self.base_size = self.model_profile.window_size if self.model_profile else DEFAULT_WINDOW_SIZE
         self.window_state = load_window_state(CONFIG_PATH)
         self.memory_store = MemoryStore(MEMORY_PATH, config.memory_limit)
+        self.memory_embedder = create_session_embedder(config)
         self.history = ConversationHistory(HISTORY_PATH)
         system_prompt = f"{config.system_prompt}\n\n{EMOTION_INSTRUCTION}"
         self.messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}, *self.history.messages()]
@@ -496,15 +500,30 @@ class CompanionWindow(QWidget):
         if self.renderer_ready and not self.busy:
             self.bridge.playRandomMotion.emit()
 
-    def conversation_window(self, user_text: str = "") -> list[dict[str, str]]:
+    def conversation_window(
+        self, user_text: str = "", *, defer: bool = False,
+    ) -> list[dict[str, str]] | Callable[[], list[dict[str, str]]]:
         summary = self.history.summary if self.config.conversation_summary else None
-        return build_chat_messages(
-            self.messages[0]["content"], self.messages[1:][-CONVERSATION_WINDOW:],
-            memory_context=self.memory_store.render_context(
-                query=user_text, relevant_recall=self.config.memory_relevant_recall,
-            ),
-            summary=summary.text if summary else None,
-        )
+        system_prompt = self.messages[0]["content"]
+        turns = [dict(message) for message in self.messages[1:][-CONVERSATION_WINDOW:]]
+        relevant_recall = self.config.memory_relevant_recall
+        embed = self.memory_embedder
+        memory_store = self.memory_store
+        if defer:
+            # Background extraction can update the live store while chat recall is running.
+            memory_store = copy(memory_store)
+            memory_store.items = [dict(item) for item in memory_store.items]
+
+        def build_context() -> list[dict[str, str]]:
+            return build_chat_messages(
+                system_prompt, turns,
+                memory_context=memory_store.render_context(
+                    query=user_text, relevant_recall=relevant_recall, embed=embed,
+                ),
+                summary=summary.text if summary else None,
+            )
+
+        return build_context if defer else build_context()
 
     def send_message(self) -> None:
         user_text = self.chat_input.text().strip()
@@ -521,7 +540,7 @@ class CompanionWindow(QWidget):
         self.messages.append({"role": "user", "content": user_text})
         self.history.append("user", user_text)
         self.reset_reply_state()
-        self.start_chat_worker(self.conversation_window(user_text))
+        self.start_chat_worker(self.conversation_window(user_text, defer=True))
 
     def reset_reply_state(self) -> None:
         self.reply_parts = []
@@ -534,7 +553,7 @@ class CompanionWindow(QWidget):
         self.finish_status = "Idle"
         self.tts_queue.clear()
 
-    def start_chat_worker(self, payload: list[dict[str, str]]) -> None:
+    def start_chat_worker(self, payload: list[dict[str, str]] | Callable[[], list[dict[str, str]]]) -> None:
         self.chat_thread = QThread(self)
         self.chat_worker = ChatStreamWorker(self.client, payload, registry=self.tool_registry)
         self.chat_worker.moveToThread(self.chat_thread)
