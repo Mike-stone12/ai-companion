@@ -27,6 +27,8 @@ a warning and disables wake detection for the session.
 
 ```
 main.py                    entry point (logging, legacy data migration, Qt bootstrap)
+ai-companion.spec          PyInstaller build: macOS .app, Windows/Linux one-folder
+companion/paths.py         resource resolution inside a frozen bundle or source checkout; user data paths
 companion/core/            pure Python, never imports Qt: config, text, llm (client, SSE),
                            chat (emotion tags, history, conversation summary),
                            memory (store, gate, extractor, recall, consolidation),
@@ -69,6 +71,10 @@ cp .env.example .env            # then add an API key; never commit .env
 .venv/bin/pytest
 .venv/bin/python main.py
 ```
+
+Packaging: in the app environment, run `pip install pyinstaller`, then
+`pyinstaller ai-companion.spec` from the repository root on each target OS.
+PyInstaller is installed separately; it is not in the requirements files.
 
 CI runs ruff and pytest on Ubuntu, Windows, and macOS with only `requirements-dev.txt`
 installed, so anything imported by the tests must not need PyQt or edge-tts. Keep Qt out of

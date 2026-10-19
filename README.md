@@ -206,6 +206,7 @@ Empty wake phrases or an empty model directory leave wake detection disabled, as
 
 ```text
 main.py                           Entry point
+ai-companion.spec                 PyInstaller build: macOS .app, Windows/Linux one-folder
 companion/
   core/                           Pure Python, no Qt: config, text cleanup, model profiles, window state
     settings_file.py              JSON loading and atomic writes
@@ -386,9 +387,14 @@ and non-editable settings (including `COMPANION_DATA_DIR`) are rejected.
 
 ## Roadmap
 
-- Refine opt-in hold-to-talk and wake-word input with real-device feedback.
-- Package the application for distribution.
-- Collect and publish live extraction evaluation numbers using the existing labelled harness.
+- [x] Voice input (push-to-talk).
+- [x] Wake word (opt-in Vosk; excluded from the packaged build).
+- [x] PyInstaller packaging: macOS `.app` and Windows/Linux one-folder build.
+- [ ] Verify packaged builds on each target OS (macOS, Windows, and Linux).
+- [ ] Refine the implemented voice input and wake word with real-device feedback.
+- [ ] Add a demo GIF.
+- [ ] Add secure API key storage (e.g. OS keychain).
+- [ ] Collect and publish live extraction evaluation numbers using the existing labelled harness.
 
 ## License and credits
 
