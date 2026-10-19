@@ -53,6 +53,7 @@ def test_list(config, monkeypatch, capsys, run_readonly):
     assert 'LOG_LEVEL = "INFO" (source: default)' in lines
     assert 'VOICE_INPUT = "0" (source: default)' in lines
     assert 'TRANSCRIPTION_MODEL = "" (source: default)' in lines
+    assert 'WAKE_WORD_MODEL_DIR = "" (source: default)' in lines
     assert "never-display-this" not in output.out
     assert "OPENAI_API_KEY" not in output.out
     assert output.err == ""
@@ -64,6 +65,7 @@ def test_list(config, monkeypatch, capsys, run_readonly):
     ("MEMORY_LIMIT", ['MEMORY_LIMIT = "30" (source: config.json)', "Type: int", "Minimum: 1"]),
     ("VOICE_INPUT", ['VOICE_INPUT = "0" (source: default)', "Type: bool", "Allowed values: true, false"]),
     ("TRANSCRIPTION_MODEL", ['TRANSCRIPTION_MODEL = "" (source: default)', "Type: str"]),
+    ("WAKE_WORD_MODEL_DIR", ['WAKE_WORD_MODEL_DIR = "" (source: default)', "Type: str"]),
     ("CHAT_TOOLS", ['CHAT_TOOLS = "1" (source: config.json)', "Type: bool", "Allowed values: true, false"]),
 ])
 def test_show(config, key, details, capsys, run_readonly):
@@ -90,6 +92,8 @@ def test_set_dry_run(config, capsys, run_readonly):
     ("VOICE_INPUT", "true", True),
     ("VOICE_INPUT", "false", False),
     ("TRANSCRIPTION_MODEL", " transcription-model ", "transcription-model"),
+    ("WAKE_WORD_MODEL_DIR", " models/vosk model ", "models/vosk model"),
+    ("WAKE_WORD_MODEL_DIR", "  ", ""),
     ("ACTIVE_APP_MONITOR", "true", True),
     ("LOG_LEVEL", " debug ", "DEBUG"),
     ("EDGE_TTS_VOICE_ZH", "自定义语音", "自定义语音"),

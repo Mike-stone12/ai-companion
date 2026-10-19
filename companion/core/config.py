@@ -50,6 +50,7 @@ class AppConfig:
     transcription_model: str = _values.get("TRANSCRIPTION_MODEL", "").strip()
     wake_word: bool = env_flag("WAKE_WORD", default=False, values=_values)
     wake_word_phrases: tuple[str, ...] = _parse_wake_word_phrases(_values.get("WAKE_WORD_PHRASES", ""))
+    wake_word_model_dir: str = _values.get("WAKE_WORD_MODEL_DIR", "").strip()
     proactive_chat: bool = env_flag("PROACTIVE_CHAT", default=False, values=_values)
     active_app_monitor: bool = env_flag("ACTIVE_APP_MONITOR", default=False, values=_values)
     live2d_model: str = _values.get("LIVE2D_MODEL", "").strip()
@@ -61,8 +62,12 @@ class AppConfig:
 
     @property
     def wake_word_usable(self) -> bool:
-        """Whether wake word is opted into with at least one configured phrase."""
-        return self.wake_word and any(phrase.strip() for phrase in self.wake_word_phrases)
+        """Whether wake word is opted into with phrases and a model directory string."""
+        return (
+            self.wake_word
+            and any(phrase.strip() for phrase in self.wake_word_phrases)
+            and bool(self.wake_word_model_dir.strip())
+        )
 
     def __post_init__(self) -> None:
         self.embedding_model = self.embedding_model.strip()
