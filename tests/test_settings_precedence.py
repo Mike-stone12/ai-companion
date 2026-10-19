@@ -47,7 +47,7 @@ def test_defaults_only(config_path):
     assert config.wake_word_phrases == ()
     assert config.wake_word_model_dir == ""
     assert config.wake_word_usable is False
-    assert config.voice_zh == "zh-CN-XiaoxiaoNeural"
+    assert config.voice_zh == "zh-CN-XiaoyiNeural"
     assert not config_path.exists()
 
 

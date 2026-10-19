@@ -146,15 +146,19 @@ class TTSWorker(QObject):
     finished = pyqtSignal(str)
     error = pyqtSignal(str)
 
-    def __init__(self, text: str, voice: str) -> None:
+    def __init__(self, text: str, voice: str, rate: str = "+0%", pitch: str = "+0Hz") -> None:
         super().__init__()
         self.text = text
         self.voice = voice
+        self.rate = rate
+        self.pitch = pitch
 
     @pyqtSlot()
     def run(self) -> None:
         try:
-            audio_path = asyncio.run(tts_edge.synthesize_to_file(self.text, self.voice))
+            audio_path = asyncio.run(
+                tts_edge.synthesize_to_file(self.text, self.voice, rate=self.rate, pitch=self.pitch)
+            )
         except Exception as exc:  # noqa: BLE001
             self.error.emit(str(exc))
             return

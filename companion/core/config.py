@@ -27,9 +27,12 @@ class AppConfig:
     base_url: str = _values.get("OPENAI_BASE_URL") or _values.get("MOONSHOT_BASE_URL", "https://api.moonshot.ai/v1")
     api_key: str = os.getenv("OPENAI_API_KEY") or os.getenv("MOONSHOT_API_KEY", "")
     model: str = _values.get("OPENAI_MODEL") or _values.get("MOONSHOT_MODEL", "kimi-k2.6")
-    voice: str = _values.get("EDGE_TTS_VOICE", "zh-CN-XiaoxiaoNeural")
-    voice_zh: str = _values.get("EDGE_TTS_VOICE_ZH", _values.get("EDGE_TTS_VOICE", "zh-CN-XiaoxiaoNeural"))
+    voice: str = _values.get("EDGE_TTS_VOICE", "zh-CN-XiaoyiNeural")
+    voice_zh: str = _values.get("EDGE_TTS_VOICE_ZH", _values.get("EDGE_TTS_VOICE", "zh-CN-XiaoyiNeural"))
     voice_en: str = _values.get("EDGE_TTS_VOICE_EN", "en-US-AriaNeural")
+    # Applied to the Chinese voice only, as Edge TTS offsets ("+10Hz", "+6%").
+    tts_pitch: str = _values.get("TTS_PITCH", "+10Hz").strip()
+    tts_rate: str = _values.get("TTS_RATE", "+6%").strip()
     # Optional expert override; empty uses the active persona (companion/core/persona.py).
     system_prompt: str = _values.get("COMPANION_SYSTEM_PROMPT", "").strip()
     request_timeout: int = int(_values.get("OPENAI_TIMEOUT", "60"))
