@@ -33,6 +33,7 @@ from companion.core.chat.history import ConversationHistory, ConversationSummary
 from companion.core.chat.summary import build_chat_messages, plan_summary_update
 from companion.core.config import AppConfig
 from companion.core.llm.client import OpenAICompatibleClient
+from companion.core.memory.browser import MemoryBrowserModel
 from companion.core.memory.gate import should_extract_memory
 from companion.core.memory.semantic_recall import create_session_embedder
 from companion.core.memory.store import MemoryStore
@@ -59,6 +60,7 @@ from companion.core.window_state import (
 from companion.paths import CONFIG_PATH, HISTORY_PATH, HTML_PATH, MEMORY_PATH
 from companion.ui.avatar_bridge import AvatarBridge
 from companion.ui.chat_panel import ChatPanel
+from companion.ui.memory_dialog import MemoryDialog
 from companion.ui.settings_dialog import SettingsDialog
 
 logger = logging.getLogger(__name__)
@@ -488,6 +490,7 @@ class CompanionWindow(QWidget):
         menu.addSeparator()
         menu.addAction("Reset position", self.reset_position)
         menu.addAction("Settings…", self.show_settings)
+        menu.addAction("Memories…", self.show_memories)
         menu.addSeparator()
         menu.addAction("Quit", self.close)
         menu.popup(global_pos)
@@ -497,6 +500,12 @@ class CompanionWindow(QWidget):
         dialog = SettingsDialog(SettingsForm(CONFIG_PATH), self)
         if dialog.exec() == SettingsDialog.DialogCode.Accepted:
             self.chat_panel.add_notice("Settings saved. Changes apply on the next start.")
+        dialog.deleteLater()
+
+    def show_memories(self) -> None:
+        # Saving through the live store keeps subsequent recall and writes in sync.
+        dialog = MemoryDialog(MemoryBrowserModel(store=self.memory_store), self)
+        dialog.exec()
         dialog.deleteLater()
 
     @staticmethod
