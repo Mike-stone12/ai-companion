@@ -45,6 +45,7 @@ def test_defaults_only(config_path):
     assert config.voice_input_usable is False
     assert config.wake_word is False
     assert config.wake_word_phrases == ()
+    assert config.wake_word_model_dir == ""
     assert config.wake_word_usable is False
     assert config.voice_zh == "zh-CN-XiaoxiaoNeural"
     assert not config_path.exists()
@@ -142,6 +143,7 @@ def test_voice_input_usable_requires_flag_and_model(config_path, enabled, model)
 ])
 def test_wake_word_environment_flag(config_path, monkeypatch, value, expected):
     monkeypatch.setenv("WAKE_WORD", value)
+    monkeypatch.setenv("WAKE_WORD_MODEL_DIR", "models/vosk")
     monkeypatch.setenv("WAKE_WORD_PHRASES", " 小鲸,hey whale ")
     config = build_config()
     assert config.wake_word is expected
@@ -157,6 +159,7 @@ def test_wake_word_environment_flag(config_path, monkeypatch, value, expected):
 ])
 def test_wake_word_phrase_parsing(config_path, monkeypatch, phrases, expected):
     monkeypatch.setenv("WAKE_WORD", "1")
+    monkeypatch.setenv("WAKE_WORD_MODEL_DIR", "models/vosk")
     monkeypatch.setenv("WAKE_WORD_PHRASES", phrases)
     config = build_config()
     assert config.wake_word is True
@@ -166,18 +169,30 @@ def test_wake_word_phrase_parsing(config_path, monkeypatch, phrases, expected):
 
 @pytest.mark.parametrize("enabled", [False, True])
 def test_wake_word_json_and_environment_precedence(config_path, monkeypatch, enabled):
-    write_config(config_path, {"WAKE_WORD": enabled, "WAKE_WORD_PHRASES": " 小鲸，hey whale,小鲸 "})
+    write_config(config_path, {
+        "WAKE_WORD": enabled, "WAKE_WORD_PHRASES": " 小鲸，hey whale,小鲸 ",
+        "WAKE_WORD_MODEL_DIR": " file models/vosk ",
+    })
     before = config_path.read_bytes()
     config = build_config()
     assert config.wake_word is enabled
     assert config.wake_word_phrases == ("小鲸", "hey whale")
+    assert config.wake_word_model_dir == "file models/vosk"
     assert config.wake_word_usable is enabled
     monkeypatch.setenv("WAKE_WORD", "false" if enabled else "true")
     monkeypatch.setenv("WAKE_WORD_PHRASES", " env phrase ")
+    monkeypatch.setenv("WAKE_WORD_MODEL_DIR", " env models/vosk ")
     config = build_config()
     assert config.wake_word is (not enabled)
     assert config.wake_word_phrases == ("env phrase",)
+    assert config.wake_word_model_dir == "env models/vosk"
     assert config.wake_word_usable is (not enabled)
+    monkeypatch.setenv("WAKE_WORD", "true")
+    monkeypatch.setenv("WAKE_WORD_MODEL_DIR", "  ")
+    config = build_config()
+    assert config.wake_word_model_dir == ""
+    assert config.wake_word_usable is False
+    monkeypatch.setenv("WAKE_WORD_MODEL_DIR", "env models/vosk")
     monkeypatch.setenv("WAKE_WORD_PHRASES", "  ")
     config = build_config()
     assert config.wake_word_phrases == ()
@@ -185,12 +200,34 @@ def test_wake_word_json_and_environment_precedence(config_path, monkeypatch, ena
     assert config_path.read_bytes() == before
 
 
+@pytest.mark.parametrize("source", ["environment", "json"])
+@pytest.mark.parametrize("model_dir", ["", " \t\n ", " models/vosk model "])
+def test_wake_word_model_dir_stripping(config_path, monkeypatch, source, model_dir):
+    if source == "environment":
+        monkeypatch.setenv("WAKE_WORD_MODEL_DIR", model_dir)
+    else:
+        write_config(config_path, {"WAKE_WORD_MODEL_DIR": model_dir})
+    assert build_config().wake_word_model_dir == model_dir.strip()
+
+
 @pytest.mark.parametrize("enabled", [False, True])
 @pytest.mark.parametrize("phrases", [(), ("",), (" \t\n ",), ("", "hey whale")])
-def test_wake_word_usable_requires_flag_and_phrases(config_path, enabled, phrases):
-    config = type(build_config())(wake_word=enabled, wake_word_phrases=phrases)
+@pytest.mark.parametrize("model_dir", ["", " \t\n ", " missing models/vosk "])
+def test_wake_word_usable_requires_flag_phrases_and_model_dir(config_path, monkeypatch, enabled, phrases, model_dir):
+    config = type(build_config())(
+        wake_word=enabled, wake_word_phrases=phrases, wake_word_model_dir=model_dir,
+    )
     before = asdict(config)
-    assert config.wake_word_usable is (enabled and any(phrase.strip() for phrase in phrases))
+    expected = enabled and any(phrase.strip() for phrase in phrases) and bool(model_dir.strip())
+
+    def no_filesystem(*args, **kwargs):
+        pytest.fail("Wake-word usability must not access the filesystem")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(os, "stat", no_filesystem)
+        patch.setattr("builtins.open", no_filesystem)
+        patch.setattr(Path, "open", no_filesystem)
+        assert config.wake_word_usable is expected
     assert asdict(config) == before
 
 
