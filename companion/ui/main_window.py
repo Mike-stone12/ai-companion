@@ -29,6 +29,7 @@ from PyQt6.QtWidgets import (
 from companion.adapters import tts_edge
 from companion.adapters.active_app import foreground_app_name
 from companion.app.workers import ChatStreamWorker, MemoryWorker, SummaryWorker, TranscriptionWorker, TTSWorker
+from companion.core.api_key import ApiKeyStore
 from companion.core.chat.emotion import EMOTION_INSTRUCTION
 from companion.core.chat.history import ConversationHistory, ConversationSummary, display_text
 from companion.core.chat.summary import build_chat_messages, plan_summary_update
@@ -712,9 +713,14 @@ class CompanionWindow(QWidget):
         return menu
 
     def show_settings(self) -> None:
-        dialog = SettingsDialog(SettingsForm(CONFIG_PATH), self)
+        api_keys = ApiKeyStore()
+        dialog = SettingsDialog(SettingsForm(CONFIG_PATH), self, api_keys=api_keys)
         if dialog.exec() == SettingsDialog.DialogCode.Accepted:
             self.chat_panel.add_notice("Settings saved. Changes apply on the next start.")
+        if dialog.api_key_changed:
+            # The chat client reads config.api_key on every request.
+            self.config.api_key = api_keys.resolve().value
+            self.chat_panel.add_notice("API key updated." if self.config.api_key else "No API key is set now.")
         dialog.deleteLater()
 
     def show_memories(self) -> None:
@@ -1169,6 +1175,8 @@ def delete_file(path: str) -> None:
 
 def main() -> int:
     app = QApplication(sys.argv)
-    window = CompanionWindow(AppConfig())
+    resolved = ApiKeyStore().resolve()
+    logger.info("API key source: %s", resolved.source)
+    window = CompanionWindow(AppConfig(api_key=resolved.value))
     window.show()
     return app.exec()

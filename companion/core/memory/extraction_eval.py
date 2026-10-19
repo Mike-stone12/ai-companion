@@ -139,13 +139,14 @@ def main(argv: list[str] | None = None) -> None:
         print("A live run requires --live and an API key (OPENAI_API_KEY or MOONSHOT_API_KEY).")
         return
 
+    from companion.core.api_key import resolve_api_key
     from companion.core.config import AppConfig
     from companion.core.llm.client import OpenAICompatibleClient
     from companion.core.memory.extractor import extract_memories_with_llm
 
-    config = AppConfig()
+    config = AppConfig(api_key=resolve_api_key())
     if not config.api_key.strip():
-        parser.error("--live requires an API key (OPENAI_API_KEY or MOONSHOT_API_KEY)")
+        parser.error("--live requires an API key (system keychain, OPENAI_API_KEY, or MOONSHOT_API_KEY)")
     cases = load_dataset(args.path)
     client = OpenAICompatibleClient(config)
 

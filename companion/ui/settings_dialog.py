@@ -9,20 +9,29 @@ from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPushButton,
     QScrollArea,
     QVBoxLayout,
     QWidget,
 )
 
+from companion.core.api_key import ApiKeyStore, KeychainUnavailable, describe_status
 from companion.core.settings_form import SettingsForm
 
 
 class SettingsDialog(QDialog):
-    def __init__(self, form: SettingsForm, parent: QWidget | None = None) -> None:
+    def __init__(
+        self, form: SettingsForm, parent: QWidget | None = None, *, api_keys: ApiKeyStore | None = None,
+    ) -> None:
         super().__init__(parent)
         self.form = form
+        self.api_keys = api_keys
+        # Set when the keychain entry was saved or removed, even if the dialog is cancelled.
+        self.api_key_changed = False
         self.editors: dict[str, QCheckBox | QComboBox | QLineEdit] = {}
         self._edited: set[str] = set()
         self.setWindowTitle("Settings")
@@ -39,6 +48,8 @@ class SettingsDialog(QDialog):
             }
         """)
         layout = QVBoxLayout(self)
+        if api_keys is not None:
+            layout.addWidget(self._build_api_key_box())
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         content = QWidget()
@@ -95,6 +106,62 @@ class SettingsDialog(QDialog):
         buttons.accepted.connect(self.save)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+    def _build_api_key_box(self) -> QGroupBox:
+        box = QGroupBox("API key")
+        rows = QVBoxLayout(box)
+        self.api_key_status = self._label("")
+        rows.addWidget(self.api_key_status)
+        line = QHBoxLayout()
+        # Never prefilled: the stored key is not read back into the UI.
+        self.api_key_input = QLineEdit()
+        self.api_key_input.setObjectName("API_KEY_INPUT")
+        self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.api_key_input.setPlaceholderText("Paste a new key to store it in the system keychain")
+        self.api_key_input.setAccessibleName("New API key")
+        self.api_key_save = QPushButton("Save to keychain")
+        self.api_key_save.clicked.connect(self.save_api_key)
+        self.api_key_clear = QPushButton("Remove from keychain")
+        self.api_key_clear.clicked.connect(self.clear_api_key)
+        line.addWidget(self.api_key_input, 1)
+        line.addWidget(self.api_key_save)
+        line.addWidget(self.api_key_clear)
+        rows.addLayout(line)
+        self.api_key_message = self._label("")
+        self.api_key_message.setWordWrap(True)
+        rows.addWidget(self.api_key_message)
+        self._refresh_api_key_status()
+        return box
+
+    def _refresh_api_key_status(self, message: str = "") -> None:
+        resolved = self.api_keys.resolve()
+        available = self.api_keys.available
+        self.api_key_status.setText(f"Status: {describe_status(resolved, available)}")
+        self.api_key_input.setEnabled(available)
+        self.api_key_save.setEnabled(available)
+        self.api_key_clear.setEnabled(available and resolved.source == "keychain")
+        self.api_key_message.setText(message)
+        self.api_key_message.setVisible(bool(message))
+
+    def save_api_key(self) -> None:
+        try:
+            self.api_keys.save(self.api_key_input.text())
+        except (ValueError, KeychainUnavailable) as exc:
+            self._refresh_api_key_status(str(exc))
+            return
+        finally:
+            self.api_key_input.clear()
+        self.api_key_changed = True
+        self._refresh_api_key_status("Saved. Chat uses the new key right away.")
+
+    def clear_api_key(self) -> None:
+        try:
+            self.api_keys.clear()
+        except KeychainUnavailable as exc:
+            self._refresh_api_key_status(str(exc))
+            return
+        self.api_key_changed = True
+        self._refresh_api_key_status("Removed from the keychain.")
 
     @staticmethod
     def _label(text: str) -> QLabel:

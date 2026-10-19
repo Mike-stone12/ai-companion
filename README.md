@@ -139,7 +139,7 @@ Use **Memories…** in the right-click menu to view, search, and edit stored mem
 
 | Variable | Purpose | Default |
 | --- | --- | --- |
-| `OPENAI_API_KEY` | Provider API key | Required for chat |
+| `OPENAI_API_KEY` | Provider API key; used only when the system keychain holds none (see below) | Required for chat |
 | `OPENAI_BASE_URL` | Chat API base URL | `https://api.moonshot.ai/v1` |
 | `OPENAI_MODEL` | Model identifier | `kimi-k2.6` |
 | `OPENAI_TIMEOUT` | Request timeout in seconds | `60` |
@@ -169,6 +169,8 @@ Use **Memories…** in the right-click menu to view, search, and edit stored mem
 | `LIVE2D_VENDOR_DIR` | Optional renderer dependency directory | `vendor/` |
 
 Variables already set in the shell take precedence over values in `.env`.
+
+**API key in the system keychain.** Open **Settings…** from the right-click menu and paste a key under *API key* to store it in the operating system's keychain (macOS Keychain, Windows Credential Manager, or the Secret Service on Linux) through the `keyring` package. A key in the keychain takes precedence over `OPENAI_API_KEY`/`MOONSHOT_API_KEY`; **Remove from keychain** deletes it and falls back to the environment again. Chat uses a new key immediately. The dialog shows only where the key comes from, never the key itself, and the key is never written to `config.json` or the logs. Set `COMPANION_KEYCHAIN=0` to skip the keychain entirely, for example on a headless Linux machine without a secret service.
 
 You can also add an optional `"settings"` object to `config.json` in the user data directory, alongside `"window"`, for example `"settings": {"MEMORY_LIMIT": 32, "CHAT_THINKING": true, "LOG_LEVEL": "DEBUG"}`. Keys use the environment variable names above; values may be strings, numbers, or booleans (`true` becomes `"1"`, `false` becomes `"0"`). Precedence is built-in defaults < `config.json` settings < environment variables (including `.env`). API keys and any key containing `KEY`, `SECRET`, `TOKEN`, or `PASSWORD`, as well as `COMPANION_DATA_DIR`, are ignored in this object. Loading these settings never writes to `config.json`.
 
@@ -333,7 +335,7 @@ passes that exact file to `companion/env.py`; it does not search beside the oute
 `.app` directory. The loader reads UTF-8 `KEY=value` lines, skips blank lines and
 comments, strips surrounding quotes, and preserves existing environment values.
 Alternatively, use the user data directory's `config.json` settings and the
-environment; API keys must come from the environment or `.env`, not `config.json`.
+environment; API keys come from the system keychain (Settings…), the environment, or `.env`, never `config.json`.
 
 ### Inspect stored memories
 
@@ -393,7 +395,7 @@ and non-editable settings (including `COMPANION_DATA_DIR`) are rejected.
 - [ ] Verify packaged builds on each target OS (macOS, Windows, and Linux).
 - [ ] Refine the implemented voice input and wake word with real-device feedback.
 - [ ] Add a demo GIF.
-- [ ] Add secure API key storage (e.g. OS keychain).
+- [x] Secure API key storage in the OS keychain, with `.env` as a fallback.
 - [ ] Collect and publish live extraction evaluation numbers using the existing labelled harness.
 
 ## License and credits
