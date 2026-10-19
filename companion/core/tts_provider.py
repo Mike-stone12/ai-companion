@@ -8,10 +8,10 @@ once. Voices must be AI-generated or properly licensed, never a cloned real pers
 
 from __future__ import annotations
 
-import os
 import re
-from collections.abc import Mapping
 from dataclasses import dataclass
+
+from companion.core.api_key import service_api_key
 
 PROVIDERS = ("edge", "openai")
 RATE_RE = re.compile(r"[+-]\d{1,2}%")
@@ -26,21 +26,27 @@ class CustomVoice:
     api_key: str
 
 
-def custom_voice(
-    provider: str, base_url: str, model: str, voice: str, chat_base_url: str, chat_api_key: str,
-    environ: Mapping[str, str] | None = None,
-) -> CustomVoice | None:
-    """The configured custom voice, or None for Edge TTS (also when it is incomplete).
+NEEDS_OWN_KEY = "the voice service is not your chat provider and has no key of its own (Settings… > Voice key)"
 
-    A separate TTS_API_KEY (environment or .env only, never config.json) is used when
-    the voice service is not the chat provider; otherwise the chat key.
+
+def custom_voice(
+    provider: str, base_url: str, model: str, voice: str, chat_base_url: str, chat_api_key: str, own_key: str,
+) -> tuple[CustomVoice | None, str]:
+    """The configured custom voice and "", or (None, reason) to speak with Edge TTS.
+
+    Incomplete settings quietly mean Edge (empty reason). The key follows
+    service_api_key: the voice service's own key (keychain or TTS_API_KEY); else the
+    chat key only on the chat provider's host; a loopback server gets no key; any other
+    host without its own key is refused, so the chat key never reaches a third party.
     """
     provider = provider.strip().lower()
     if provider != "openai" or not model.strip() or not voice.strip():
-        return None
-    environ = os.environ if environ is None else environ
-    key = environ.get("TTS_API_KEY", "").strip() or chat_api_key
-    return CustomVoice(provider, (base_url.strip() or chat_base_url).rstrip("/"), model.strip(), voice.strip(), key)
+        return None, ""
+    url = (base_url.strip() or chat_base_url).rstrip("/")
+    key = service_api_key(url, chat_base_url, own_key, chat_api_key)
+    if key is None:
+        return None, NEEDS_OWN_KEY
+    return CustomVoice(provider, url, model.strip(), voice.strip(), key), ""
 
 
 def rate_to_speed(rate: str) -> float:

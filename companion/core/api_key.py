@@ -25,6 +25,7 @@ ENV_NAMES = ("OPENAI_API_KEY", "MOONSHOT_API_KEY")
 # Other services that may live at a different provider get their own keychain entry and
 # environment variable, so the chat key is never sent to a third party (service_api_key).
 VISION_ACCOUNT = "VISION_API_KEY"
+TTS_ACCOUNT = "TTS_API_KEY"
 # Set to 0 to skip the keychain entirely (CI, headless Linux without a secret service).
 DISABLE_FLAG = "COMPANION_KEYCHAIN"
 

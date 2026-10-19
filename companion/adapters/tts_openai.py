@@ -16,10 +16,14 @@ MAX_ERROR_CHARS = 200
 
 def speech_request(voice: CustomVoice, text: str, speed: float) -> urllib.request.Request:
     payload = {"model": voice.model, "input": text, "voice": voice.voice, "response_format": "mp3", "speed": speed}
+    headers = {"Content-Type": "application/json"}
+    # A keyless local server gets no Authorization header.
+    if voice.api_key:
+        headers["Authorization"] = f"Bearer {voice.api_key}"
     return urllib.request.Request(
         f"{voice.base_url}/audio/speech",
         data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {voice.api_key}"},
+        headers=headers,
         method="POST",
     )
 

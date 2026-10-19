@@ -15,20 +15,49 @@ from companion.core.tts_provider import CustomVoice, custom_voice, rate_to_speed
 KEY = "sk-voice-secret"
 
 
+CHAT = "https://api.deepseek.com/v1"
+DASHSCOPE = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+
 def test_edge_is_the_default_and_incomplete_settings_fall_back_to_it():
-    assert custom_voice("edge", "", "m", "v", "https://api.example.com/v1", KEY) is None
-    assert custom_voice("openai", "", "", "v", "https://api.example.com/v1", KEY) is None
-    assert custom_voice("openai", "", "m", " ", "https://api.example.com/v1", KEY) is None
+    assert custom_voice("edge", "", "m", "v", CHAT, KEY, "") == (None, "")
+    assert custom_voice("openai", "", "", "v", CHAT, KEY, "") == (None, "")
+    assert custom_voice("openai", "", "m", " ", CHAT, KEY, "") == (None, "")
 
 
-def test_openai_voice_uses_the_chat_endpoint_and_key_unless_overridden():
-    voice = custom_voice("OPENAI", "", " tts-1 ", " girl-01 ", "https://api.example.com/v1/", KEY, environ={})
+def test_same_host_as_chat_reuses_the_chat_key():
+    voice, reason = custom_voice("OPENAI", "", " tts-1 ", " girl-01 ", CHAT + "/", KEY, "")
 
-    assert voice == CustomVoice("openai", "https://api.example.com/v1", "tts-1", "girl-01", KEY)
-    other = custom_voice("openai", "https://voice.example.com/v1", "m", "v", "https://api.example.com/v1", KEY,
-                         environ={"TTS_API_KEY": "sk-other"})
-    assert other.base_url == "https://voice.example.com/v1"
-    assert other.api_key == "sk-other"
+    assert voice == CustomVoice("openai", CHAT, "tts-1", "girl-01", KEY)
+    assert reason == ""
+
+
+def test_another_provider_never_gets_the_chat_key():
+    voice, reason = custom_voice("openai", DASHSCOPE, "m", "v", CHAT, KEY, "")
+
+    assert voice is None
+    assert "no key of its own" in reason
+
+
+def test_another_provider_with_its_own_key():
+    voice, _ = custom_voice("openai", DASHSCOPE, "m", "v", CHAT, KEY, "sk-own")
+
+    assert voice.api_key == "sk-own"
+
+
+def test_a_local_server_gets_no_key_unless_one_is_set():
+    voice, _ = custom_voice("openai", "http://127.0.0.1:9880/v1", "m", "v", CHAT, KEY, "")
+    assert voice.api_key == ""
+    voice, _ = custom_voice("openai", "http://127.0.0.1:9880/v1", "m", "v", CHAT, KEY, "sk-local")
+    assert voice.api_key == "sk-local"
+
+
+def test_no_authorization_header_without_a_key():
+    request = tts_openai.speech_request(CustomVoice("openai", "http://127.0.0.1:1/v1", "m", "v", ""), "hi", 1.0)
+
+    assert request.get_header("Authorization") is None
+    with_key = tts_openai.speech_request(CustomVoice("openai", "https://x.example/v1", "m", "v", KEY), "hi", 1.0)
+    assert with_key.get_header("Authorization") == f"Bearer {KEY}"
 
 
 @pytest.mark.parametrize(("rate", "speed"), [("+6%", 1.06), ("-10%", 0.9), ("+0%", 1.0), ("fast", 1.0), ("-99%", 0.5)])
