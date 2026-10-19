@@ -11,7 +11,9 @@ from companion.adapters import tts_edge
 from companion.core.chat.emotion import EmotionTagParser
 from companion.core.chat.history import ConversationSummary
 from companion.core.chat.summary import request_summary, update_conversation_summary
+from companion.core.config import AppConfig
 from companion.core.llm.client import OpenAICompatibleClient
+from companion.core.llm.transcription import transcribe
 from companion.core.memory.consolidate_pipeline import consolidate_store
 from companion.core.memory.consolidator import ConsolidationDecision, build_consolidation_messages
 from companion.core.memory.extractor import (
@@ -92,6 +94,40 @@ class ChatStreamWorker(QObject):
             self.error.emit(str(exc))
             return
         self.finished.emit("".join(parts))
+
+
+class TranscriptionWorker(QObject):
+    """Transcribe one WAV on a QThread, using the existing client socket timeout.
+
+    As with the other workers, move this object to a QThread and connect that
+    thread's started signal to run. Both terminal signals should quit the thread.
+    The client's default 30-second timeout bounds socket waits, not total time;
+    thread owners should use bounded waits during shutdown.
+    """
+
+    finished = pyqtSignal(str)
+    failed = pyqtSignal(str)
+
+    def __init__(self, wav: bytes, config: AppConfig) -> None:
+        super().__init__()
+        self.wav = wav
+        # Snapshot settings so edits cannot change an in-flight request.
+        self.base_url = config.base_url
+        self.api_key = config.api_key
+        self.model = config.transcription_model
+
+    @pyqtSlot()
+    def run(self) -> None:
+        try:
+            text = transcribe(
+                self.wav, base_url=self.base_url, api_key=self.api_key, model=self.model,
+            )
+        except Exception as exc:
+            # Do not log audio, transcripts, credentials, or provider error bodies.
+            logger.info("Transcription worker failed")
+            self.failed.emit(str(exc) or type(exc).__name__)
+            return
+        self.finished.emit(text)
 
 
 class TTSWorker(QObject):
