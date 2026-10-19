@@ -208,3 +208,36 @@ def test_window_reads_the_key_through_the_store():
 
     assert "AppConfig(api_key=resolved.value)" in source
     assert '"API key source: %s", resolved.source' in source
+
+
+def test_separate_accounts_keep_separate_keys():
+    from companion.core.api_key import VISION_ACCOUNT
+
+    backend = FakeKeyring()
+    chat = ApiKeyStore(backend=backend, environ={})
+    vision = ApiKeyStore(backend=backend, environ={"OPENAI_API_KEY": "sk-chat"}, account=VISION_ACCOUNT)
+    vision.save("sk-vision")
+
+    assert backend.items == {(SERVICE, VISION_ACCOUNT): "sk-vision"}
+    assert chat.resolve().source == "none"
+    assert vision.resolve().value == "sk-vision"
+    from_env = ApiKeyStore(backend=FakeKeyring(), environ={"VISION_API_KEY": "sk-env"}, account=VISION_ACCOUNT)
+    assert from_env.resolve().value == "sk-env"
+    # The chat key in the environment is not a vision key.
+    chat_env = ApiKeyStore(backend=FakeKeyring(), environ={"OPENAI_API_KEY": "x"}, account=VISION_ACCOUNT)
+    assert chat_env.resolve().value == ""
+
+
+@pytest.mark.parametrize(("service", "own", "expected"), [
+    ("https://api.deepseek.com/v1", "", "sk-chat"),
+    ("https://API.deepseek.com", "", "sk-chat"),
+    ("https://dashscope.aliyuncs.com/compatible-mode/v1", "", None),
+    ("https://dashscope.aliyuncs.com/compatible-mode/v1", "sk-own", "sk-own"),
+    ("http://localhost:11434/v1", "", ""),
+    ("http://127.0.0.1:8000/v1", "sk-own", "sk-own"),
+    ("https://api.deepseek.com.evil.example/v1", "", None),
+])
+def test_service_key_never_leaks_the_chat_key_to_another_host(service, own, expected):
+    from companion.core.api_key import service_api_key
+
+    assert service_api_key(service, "https://api.deepseek.com/v1", own, "sk-chat") == expected

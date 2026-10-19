@@ -12,6 +12,9 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Literal
+from urllib.parse import urlsplit
+
+from companion.core.url_security import is_loopback_host
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +22,9 @@ SERVICE = "AICompanion"
 ACCOUNT = "OPENAI_API_KEY"
 # Fallback variables, also loaded from the local .env by companion.paths.
 ENV_NAMES = ("OPENAI_API_KEY", "MOONSHOT_API_KEY")
+# Other services that may live at a different provider get their own keychain entry and
+# environment variable, so the chat key is never sent to a third party (service_api_key).
+VISION_ACCOUNT = "VISION_API_KEY"
 # Set to 0 to skip the keychain entirely (CI, headless Linux without a secret service).
 DISABLE_FLAG = "COMPANION_KEYCHAIN"
 
@@ -54,7 +60,12 @@ def _flag_disabled(environ: Mapping[str, str]) -> bool:
 class ApiKeyStore:
     """Read, save, and clear the API key. ``backend`` follows the keyring module API."""
 
-    def __init__(self, backend: Any = _DEFAULT, environ: Mapping[str, str] | None = None) -> None:
+    def __init__(
+        self, backend: Any = _DEFAULT, environ: Mapping[str, str] | None = None, *,
+        account: str = ACCOUNT, env_names: tuple[str, ...] | None = None,
+    ) -> None:
+        self.account = account
+        self.env_names = env_names if env_names is not None else (ENV_NAMES if account == ACCOUNT else (account,))
         self._environ = os.environ if environ is None else environ
         if _flag_disabled(self._environ):
             backend = None
@@ -82,7 +93,7 @@ class ApiKeyStore:
         if self._backend is None:
             return ""
         try:
-            value = self._backend.get_password(SERVICE, ACCOUNT)
+            value = self._backend.get_password(SERVICE, self.account)
         except Exception as exc:
             logger.warning("Could not read the API key from the keychain (%s); using the environment",
                            type(exc).__name__)
@@ -93,7 +104,7 @@ class ApiKeyStore:
         value = self._keychain_value()
         if value:
             return ResolvedKey(value, "keychain")
-        for name in ENV_NAMES:
+        for name in self.env_names:
             value = self._environ.get(name, "").strip()
             if value:
                 return ResolvedKey(value, "environment")
@@ -112,7 +123,7 @@ class ApiKeyStore:
             raise ValueError("The API key contains spaces or control characters")
         backend = self._require_backend()
         try:
-            backend.set_password(SERVICE, ACCOUNT, value)
+            backend.set_password(SERVICE, self.account, value)
         except Exception as exc:
             logger.warning("Could not save the API key to the keychain (%s)", type(exc).__name__)
             raise KeychainUnavailable(f"The keychain refused the API key ({type(exc).__name__})") from None
@@ -122,9 +133,9 @@ class ApiKeyStore:
         """Delete the keychain entry; return False when there was none."""
         backend = self._require_backend()
         try:
-            if backend.get_password(SERVICE, ACCOUNT) is None:
+            if backend.get_password(SERVICE, self.account) is None:
                 return False
-            backend.delete_password(SERVICE, ACCOUNT)
+            backend.delete_password(SERVICE, self.account)
         except Exception as exc:
             logger.warning("Could not remove the API key from the keychain (%s)", type(exc).__name__)
             raise KeychainUnavailable(f"The keychain refused to remove the API key ({type(exc).__name__})") from None
@@ -134,6 +145,30 @@ class ApiKeyStore:
 
 def resolve_api_key(store: ApiKeyStore | None = None) -> str:
     return (store or ApiKeyStore()).resolve().value
+
+
+def _host(url: str) -> str:
+    try:
+        return (urlsplit(url.strip()).hostname or "").lower()
+    except ValueError:
+        return ""
+
+
+def service_api_key(service_url: str, chat_url: str, own_key: str, chat_key: str) -> str | None:
+    """The key to send to another service (pictures, voice), or None when it must not be used.
+
+    Its own key wins. Without one, the chat key is reused only when the service is on the
+    chat provider's host; a loopback service gets no key at all (""); anything else gets
+    None, so the caller disables the feature instead of leaking the chat key.
+    """
+    if own_key.strip():
+        return own_key.strip()
+    host = _host(service_url)
+    if host and host == _host(chat_url):
+        return chat_key
+    if is_loopback_host(host):
+        return ""
+    return None
 
 
 def describe_status(resolved: ResolvedKey, keychain_available: bool) -> str:

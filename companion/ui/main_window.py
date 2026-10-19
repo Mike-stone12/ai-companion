@@ -57,7 +57,7 @@ from companion.app.workers import (
     TTSWorker,
     VisionWorker,
 )
-from companion.core.api_key import ApiKeyStore
+from companion.core.api_key import VISION_ACCOUNT, ApiKeyStore, service_api_key
 from companion.core.chat.emotion import EMOTION_INSTRUCTION
 from companion.core.chat.history import ConversationHistory, ConversationSummary, display_text
 from companion.core.chat.pacing import (
@@ -709,6 +709,7 @@ class CompanionWindow(QWidget):
         self.vision_model = resolve_vision_model(
             self.config.vision_model, self.config.vision_base_url, self.config.base_url,
         )
+        self.vision_api_key: str | None = None
         if not self.vision_model:
             return
         self.picture_button = QPushButton("Picture")
@@ -718,7 +719,21 @@ class CompanionWindow(QWidget):
         self.picture_button.clicked.connect(self.on_picture_button)
         layout.insertWidget(1, self.picture_button)
         self.chat_input.installEventFilter(self)
-        self.setAcceptDrops(True)
+        self.refresh_vision_access()
+
+    def vision_url(self) -> str:
+        return self.config.vision_base_url or self.config.base_url
+
+    def refresh_vision_access(self, own_key: str | None = None) -> None:
+        """Pictures need a key that may go to the vision host: never the chat key for another provider."""
+        if own_key is None:
+            own_key = ApiKeyStore(account=VISION_ACCOUNT).resolve().value
+        self.vision_api_key = service_api_key(self.vision_url(), self.config.base_url, own_key, self.config.api_key)
+        usable = self.vision_api_key is not None
+        if not usable:
+            logger.info("Pictures are off: the vision host differs from the chat host and has no key of its own")
+        self.picture_button.setVisible(usable)
+        self.setAcceptDrops(usable)
 
     def eventFilter(self, watched, event) -> bool:  # type: ignore[override]
         if (
@@ -726,7 +741,7 @@ class CompanionWindow(QWidget):
             and event.matches(QKeySequence.StandardKey.Paste)
         ):
             image = QApplication.clipboard().image()
-            if not image.isNull():
+            if not image.isNull() and self.vision_api_key is not None:
                 self.attach_image(image_bytes(image))
                 return True
         return super().eventFilter(watched, event)
@@ -738,6 +753,8 @@ class CompanionWindow(QWidget):
 
     def dropEvent(self, event) -> None:  # type: ignore[override]
         mime = event.mimeData()
+        if self.vision_api_key is None:
+            return
         if mime.hasImage():
             self.attach_image(image_bytes(QImage(mime.imageData())))
         elif mime.hasUrls() and mime.urls()[0].isLocalFile():
@@ -793,7 +810,7 @@ class CompanionWindow(QWidget):
         self.chat_panel.add_user(image_turn_display(caption))
         self.pending_caption = caption
         vision_config = replace(
-            self.config, base_url=self.config.vision_base_url or self.config.base_url, model=self.vision_model,
+            self.config, base_url=self.vision_url(), model=self.vision_model, api_key=self.vision_api_key or "",
         )
         self.vision_thread = QThread(self)
         self.vision_worker = VisionWorker(OpenAICompatibleClient(vision_config), data_url, caption)
@@ -995,13 +1012,19 @@ class CompanionWindow(QWidget):
 
     def show_settings(self) -> None:
         api_keys = ApiKeyStore()
-        dialog = SettingsDialog(SettingsForm(CONFIG_PATH), self, api_keys=api_keys)
+        extra = []
+        vision_keys = ApiKeyStore(account=VISION_ACCOUNT)
+        if getattr(self, "picture_button", None) is not None:
+            extra.append(("Pictures", vision_keys))
+        dialog = SettingsDialog(SettingsForm(CONFIG_PATH), self, api_keys=api_keys, extra_keys=extra)
         if dialog.exec() == SettingsDialog.DialogCode.Accepted:
             self.chat_panel.add_notice("Settings saved. Changes apply on the next start.")
         if dialog.api_key_changed:
             # The chat client reads config.api_key on every request.
             self.config.api_key = api_keys.resolve().value
-            self.chat_panel.add_notice("API key updated." if self.config.api_key else "No API key is set now.")
+            self.chat_panel.add_notice("API keys updated." if self.config.api_key else "No chat API key is set now.")
+            if getattr(self, "picture_button", None) is not None:
+                self.refresh_vision_access(vision_keys.resolve().value)
         dialog.deleteLater()
 
     def system_message(self) -> str:
@@ -1336,7 +1359,7 @@ class CompanionWindow(QWidget):
         return build_context if defer else build_context()
 
     def send_message(self) -> None:
-        if getattr(self, "pending_image", None) is not None and not self.busy:
+        if getattr(self, "pending_image", None) is not None and not self.busy and self.vision_api_key is not None:
             self.send_picture(self.chat_input.text().strip())
             return
         self.submit_message(self.chat_input.text().strip())
