@@ -8,7 +8,7 @@ import urllib.request
 from collections.abc import Iterator
 
 from companion.core.config import AppConfig
-from companion.core.llm.sse import iter_content_deltas
+from companion.core.llm.sse import iter_chat_chunks, iter_content_deltas
 from companion.core.text import sanitize_reply_text
 
 logger = logging.getLogger(__name__)
@@ -81,20 +81,59 @@ class OpenAICompatibleClient:
 
         return content.strip()
 
-    def stream_chat(self, messages: list[dict[str, str]]) -> Iterator[str]:
-        """Yield reply text deltas as the model produces them (raw, not sanitized)."""
+    def stream_chat(
+        self,
+        messages: list[dict],
+        tools: list[dict] | None = None,
+        *,
+        tool_choice: str | dict | None = None,
+    ) -> Iterator[str | dict]:
+        """Yield raw text without tools, or OpenAI chunk dicts with non-empty tools.
+
+        Chunk dicts retain content, tool-call fragments, and finish reasons.
+        Use ``stream_chat_chunks`` for a consistent dict interface across tool rounds.
+        """
+        if tools:
+            yield from self.stream_chat_chunks(messages, tools, tool_choice=tool_choice)
+            return
+        with self._open_chat_stream(messages) as response:
+            yield from iter_content_deltas(
+                response,
+                first_content_timeout=STREAM_FIRST_CONTENT_TIMEOUT_S,
+                idle_timeout=STREAM_IDLE_TIMEOUT_S,
+            )
+
+    def stream_chat_chunks(
+        self,
+        messages: list[dict],
+        tools: list[dict] | None = None,
+        *,
+        tool_choice: str | dict | None = None,
+    ) -> Iterator[dict]:
+        """Yield OpenAI chunks; pass this bound method to ``run_tool_rounds``.
+
+        The output stays dict-shaped even with no tools. Tool choice is only
+        sent when tools is non-empty; text and tool arguments are not sanitized.
+        """
+        with self._open_chat_stream(messages, tools, tool_choice) as response:
+            yield from iter_chat_chunks(
+                response,
+                first_content_timeout=STREAM_FIRST_CONTENT_TIMEOUT_S,
+                idle_timeout=STREAM_IDLE_TIMEOUT_S,
+            )
+
+    def _open_chat_stream(self, messages: list[dict], tools=None, tool_choice=None):
         payload = {
             "model": self.config.model,
             "messages": messages,
             "stream": True,
             **chat_request_options(self.config),
         }
-        with self._open(payload, None) as response:
-            yield from iter_content_deltas(
-                response,
-                first_content_timeout=STREAM_FIRST_CONTENT_TIMEOUT_S,
-                idle_timeout=STREAM_IDLE_TIMEOUT_S,
-            )
+        if tools:
+            payload["tools"] = tools
+            if tool_choice is not None:
+                payload["tool_choice"] = tool_choice
+        return self._open(payload, None)
 
     def _open(self, payload: dict, retry_delays: tuple[float, ...] | None):
         if retry_delays is None:
