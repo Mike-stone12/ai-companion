@@ -95,6 +95,7 @@ def render_state_context(state: CompanionState, now: datetime, traits: Traits, b
     values = current_feelings(state, now, traits, base)
     reasons = active_reasons(state, now, traits, base)
     name, value = dominant(state, now, traits, base)
+    # Mandatory parts always fit; optional ones are added whole, in priority order, while they fit.
     parts = [HEADER]
     if name is None:
         parts.append("You feel calm.")
@@ -112,23 +113,29 @@ def render_state_context(state: CompanionState, now: datetime, traits: Traits, b
         parts.extend(_guidance(name, value, traits))
     if any(values[n] >= FADE_FLOOR for n in NEGATIVE):
         parts.append(GUARDRAIL)
+    optional = []
     activity = " ".join(state.activity.split())[:MAX_ACTIVITY_CHARS]
-    if activity:
-        parts.append(f"Right now you are {activity}.")
     hint = AVAILABILITY_HINTS.get(state.availability)
     if hint:
-        parts.append(hint)
+        optional.append(hint)
+    if activity:
+        optional.append(f"Right now you are {activity}.")
     if state.last_user_message is None:
-        parts.append("This is the first time you are talking with the user.")
+        optional.append("This is the first time you are talking with the user.")
     else:
-        parts.append(f"The user last wrote to you {_ago(now - state.last_user_message)}.")
+        optional.append(f"The user last wrote to you {_ago(now - state.last_user_message)}.")
     mood = day_mood(state, now)
     if mood >= 0.3:
-        parts.append("Overall it has been a good day for you.")
+        optional.append("Overall it has been a good day for you.")
     elif mood <= -0.3:
-        parts.append("Overall today has felt a bit rough.")
-    parts.append(_closeness(state.relationship.closeness))
-    return " ".join(parts)[:MAX_CONTEXT_CHARS]
+        optional.append("Overall today has felt a bit rough.")
+    optional.append(_closeness(state.relationship.closeness))
+    length = len(" ".join(parts))
+    for part in optional:
+        if length + 1 + len(part) <= MAX_CONTEXT_CHARS:
+            parts.append(part)
+            length += 1 + len(part)
+    return " ".join(parts)
 
 
 def state_summary_lines(state: CompanionState, now: datetime, traits: Traits, base: timedelta) -> list[str]:

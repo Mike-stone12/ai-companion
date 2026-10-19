@@ -39,6 +39,7 @@ def window(tmp_path):
         record_user_message=companion_state.record_user_message, idle_emotion=companion_state.idle_emotion,
         render_state_context=companion_state.render_state_context, active_reasons=companion_state.active_reasons,
         state_summary_lines=companion_state.state_summary_lines, should_appraise=companion_state.should_appraise,
+        enter_care_mode=companion_state.enter_care_mode, looks_distressed=companion_state.looks_distressed,
         block_at=block_at, presence_label=presence_label,
         QThread=Mock(return_value=thread), AppraisalWorker=Mock(return_value=worker),
     )
@@ -228,3 +229,25 @@ def test_presence_label_follows_the_routine(window):
 def test_is_awake_uses_the_persona_routine(window):
     assert not window.is_awake(NOW.replace(hour=3))
     assert window.is_awake(NOW.replace(hour=10))
+
+
+def test_the_reply_to_a_distress_message_is_already_caring(window):
+    from companion.core.state.render import CARE_FIRST, STRONG_LINE
+
+    window.companion_state = with_feeling("jealousy", 0.75)
+    assert STRONG_LINE in window.state_context()
+
+    window.precheck_distress("我今天被老板骂了，好难过")
+    context = window.state_context()
+
+    assert CARE_FIRST in context
+    assert STRONG_LINE not in context
+    assert feelings(window)["jealousy"] == pytest.approx(0.375)
+
+
+def test_ordinary_messages_do_not_trigger_care_first(window):
+    window.companion_state = with_feeling("anger", 0.75)
+
+    window.precheck_distress("今天天气不错")
+
+    assert "comfort them first" not in window.state_context()

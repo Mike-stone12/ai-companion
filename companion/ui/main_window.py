@@ -65,7 +65,9 @@ from companion.core.state import (
     active_reasons,
     apply_events,
     apply_reply_tag,
+    enter_care_mode,
     idle_emotion,
+    looks_distressed,
     record_user_message,
     render_state_context,
     should_appraise,
@@ -869,6 +871,12 @@ class CompanionWindow(QWidget):
             self.idle_face = face
             self.bridge.setIdleEmotion.emit(face or "")
 
+    def precheck_distress(self, user_text: str) -> None:
+        """Zero-cost keyword check before the reply: the answer to an upsetting message is caring."""
+        state = getattr(self, "companion_state", None)
+        if state is not None and looks_distressed(user_text):
+            self.update_state(enter_care_mode(state, local_now()))
+
     def start_appraisal_worker(self, user_text: str, assistant_text: str) -> None:
         """Judge an emotional turn in the background; small talk never gets this far."""
         state = getattr(self, "companion_state", None)
@@ -1034,6 +1042,7 @@ class CompanionWindow(QWidget):
         self.messages.append({"role": "user", "content": user_text})
         self.history.append("user", user_text)
         self.reset_reply_state()
+        self.precheck_distress(user_text)
         self.start_chat_worker(self.conversation_window(user_text, defer=True))
         self.record_user_activity()
 

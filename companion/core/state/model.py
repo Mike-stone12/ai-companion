@@ -303,22 +303,33 @@ def apply_events(
             logged.append(Change(now, name, round(actual, 2), causes.get(name, "")))
         valence += actual if name == "joy" else -actual if name in NEGATIVE else 0.0
 
-    care_until = state.care_until
-    if user_distress >= 0.5:
-        # Care first: set small grudges aside while the user is genuinely upset.
-        care_until = now + CARE_WINDOW
-        for name in ("anger", "jealousy"):
-            feelings[name] = Feeling(feelings[name].value * 0.5, now, feelings[name].reasons)
-
-    return replace(
+    updated = replace(
         state,
         feelings=feelings,
         relationship=Relationship(_clamp(closeness, 0.1, 1.0), _clamp(trust, 0.1, 1.0)),
         changes=_log(state.changes, logged),
-        care_until=care_until,
         day_mood=_clamp(day_mood(state, now) + 0.5 * valence, -1.0, 1.0),
         day_mood_at=now,
     )
+    return enter_care_mode(updated, now) if user_distress >= 0.5 else updated
+
+
+def enter_care_mode(state: CompanionState, now: datetime) -> CompanionState:
+    """Care first: set small grudges aside for a while because the user is genuinely upset.
+
+    Called from the appraisal and, before the reply is generated, from a zero-cost
+    keyword pre-check, so the reply to the upsetting message itself is caring. Grudges
+    are halved only once per window, however often it is called.
+    """
+    if in_care_mode(state, now):
+        return replace(state, care_until=now + CARE_WINDOW)
+    feelings = dict(state.feelings)
+    for name in ("anger", "jealousy"):
+        feeling = feelings.get(name)
+        if feeling is not None:
+            # Halving the stored value halves the decayed one too: decay is multiplicative.
+            feelings[name] = Feeling(feeling.value * 0.5, feeling.updated_at, feeling.reasons)
+    return replace(state, feelings=feelings, care_until=now + CARE_WINDOW)
 
 
 def apply_reply_tag(

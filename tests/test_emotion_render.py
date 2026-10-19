@@ -209,3 +209,62 @@ def test_chat_context_places_state_after_memory_and_before_the_summary():
         "System", "Memory", "State", "Conversation summary:\nEarlier", "hi",
     ]
     assert build_chat_messages("System", turns, state_context="  ") == [{"role": "system", "content": "System"}, *turns]
+
+
+def test_worst_case_context_keeps_whole_sentences_and_mandatory_parts():
+    state = feeling("jealousy", 0.9, reasons=["y" * 60, "z" * 60, "w" * 60], activity="x" * 300,
+                    availability="asleep", last_user_message=NOW - timedelta(days=3), day_mood=-0.9, day_mood_at=NOW)
+    feelings = dict(state.feelings)
+    feelings["hurt"] = Feeling(0.6, NOW)
+    state = replace(state, feelings=feelings)
+
+    text = render(state, Traits(candor=0.1))
+
+    assert len(text) <= MAX_CONTEXT_CHARS
+    assert text.endswith(".")
+    assert STRONG_LINE in text and TSUNDERE in text and GUARDRAIL in text
+    # Optional parts are dropped whole, from the lowest priority, never cut mid-sentence.
+    activity = "Right now you are " + "x" * 80 + "."
+    assert activity in text or "Right now you are" not in text
+    for whole in ("You were asleep and this message woke you", "The user last wrote to you 3 days ago.",
+                  "Overall today has felt a bit rough.", "You two are close."):
+        assert whole in text or whole.split()[2] not in text.split(GUARDRAIL)[-1]
+
+
+def test_care_first_on_the_distress_turn_replaces_the_strong_line():
+    from companion.core.state.model import enter_care_mode
+
+    angry = feeling("anger", 0.75)
+    cared = enter_care_mode(angry, NOW)
+    text = render(cared)
+
+    assert CARE_FIRST in text
+    assert STRONG_LINE not in text
+    # A second call extends the window without halving again.
+    again = enter_care_mode(cared, NOW + timedelta(minutes=5))
+    assert again.feelings["anger"].value == cared.feelings["anger"].value
+
+
+@pytest.mark.parametrize("text", ["我今天被老板骂了，好难过", "压力好大", "I'm so stressed"])
+def test_distress_pre_check(text):
+    from companion.core.state.appraisal import looks_distressed
+
+    assert looks_distressed(text)
+    assert should_appraise(text)
+
+
+def test_templates_never_use_manipulative_phrasing():
+    import re
+
+    from companion.core.state import render as templates
+
+    texts = [value for name, value in vars(templates).items() if name.isupper() and isinstance(value, str)]
+    for name in ("MODERATE_STYLE", "AVAILABILITY_HINTS", "LABELS"):
+        texts += list(getattr(templates, name).values())
+    bad = re.compile(
+        r"you'?ll leave|i'?ll leave|only (?:me|with me)|your fault|guilty|ignore (?:them|the user) until", re.I,
+    )
+    for text in texts:
+        if text is templates.GUARDRAIL:
+            continue  # the guardrail names these behaviours in order to forbid them
+        assert not bad.search(text), text

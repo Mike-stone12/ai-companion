@@ -4,7 +4,7 @@ See model.py for the rules, appraisal.py for the LLM's part, traits.py for the
 personality parameters, render.py for the chat context, and store.py for state.json.
 """
 
-from .appraisal import Appraisal, appraise, parse_appraisal, should_appraise
+from .appraisal import Appraisal, appraise, looks_distressed, parse_appraisal, should_appraise
 from .model import (
     EMOTION_NAMES,
     EVENT_TYPES,
@@ -21,6 +21,7 @@ from .model import (
     current_feelings,
     current_mood,
     dominant,
+    enter_care_mode,
     fresh_state,
     idle_emotion,
     record_user_message,
@@ -53,8 +54,10 @@ __all__ = [
     "current_feelings",
     "current_mood",
     "dominant",
+    "enter_care_mode",
     "fresh_state",
     "idle_emotion",
+    "looks_distressed",
     "parse_appraisal",
     "record_user_message",
     "render_state_context",

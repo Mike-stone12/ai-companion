@@ -20,6 +20,12 @@ logger = logging.getLogger(__name__)
 MAX_EVENTS = 3
 MAX_TEXT_CHARS = 600
 
+# The user's own distress: checked before the reply (no request) so care-first covers it.
+DISTRESS_PATTERNS = re.compile(
+    r"难过|伤心|压力|好累|生病|发烧|想哭|哭了|焦虑|崩溃|失眠|失恋|挂科|被骂|好烦啊|撑不住|不想活"
+    r"|\b(?:sad|stressed|exhausted|sick|crying|anxious|depressed|overwhelmed)\b",
+    re.IGNORECASE,
+)
 # Words that suggest a turn could move the companion's feelings, in Chinese and English.
 GATE_PATTERNS = re.compile(
     "|".join([
@@ -71,11 +77,19 @@ class Appraisal:
     user_distress: float = 0.0
 
 
+def looks_distressed(user_text: str) -> bool:
+    return DISTRESS_PATTERNS.search(user_text) is not None
+
+
 def should_appraise(user_text: str) -> bool:
     text = user_text.strip()
     if not text:
         return False
-    return text.lower().rstrip("。.!！~ ") in PERFUNCTORY or GATE_PATTERNS.search(text) is not None
+    return (
+        text.lower().rstrip("。.!！~ ") in PERFUNCTORY
+        or GATE_PATTERNS.search(text) is not None
+        or looks_distressed(text)
+    )
 
 
 def build_appraisal_messages(
