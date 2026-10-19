@@ -19,6 +19,7 @@ A Windows application combining an animated Live2D character, LLM chat, bilingua
 - **Streaming chat:** connects to any OpenAI-compatible endpoint (Moonshot/Kimi by default, DeepSeek supported) and streams the reply, so text appears as it is generated and speech starts after the first clause instead of the whole reply. Median time from sending a message to the first spoken word dropped from 2.97 s to 1.70 s (DeepSeek `deepseek-flash`, three prompts) and no longer grows with reply length.
 - **Voice replies with lip sync:** synthesizes replies with Edge-TTS, selects a Chinese or English voice based on the response, and moves the avatar's mouth with the speech volume (Web Audio analyser driving `ParamMouthOpenY`, or the model's LipSync parameter).
 - **Persistent memory:** extracts short facts, saves them locally, and includes relevant and recent memories in later conversations.
+- **Proactive chat (opt-in):** set `PROACTIVE_CHAT=1` for idle chat, time-of-day greetings, and spoken due reminders; off by default (`PROACTIVE_CHAT=0`). Checks run every 30 seconds. Policy blocks events during an active reply or while the input contains text, applies a two-minute grace period after a user message, and enforces cooldowns of 30 minutes for idle chat and four hours for greetings (none for reminders). Enable `CHAT_TOOLS` to set session reminders.
 - **Background processing:** separate Qt workers handle chat requests, memory extraction, and speech synthesis.
 
 ## Memory design
@@ -63,6 +64,8 @@ flowchart LR
     Store --> Context["Recent memory context"]
     Context --> Chat
 ```
+
+When proactive chat is enabled, triggers propose events, policy checks eligibility, and the engine passes at most one eligible event per tick to the composer. Its instruction is appended to conversation context for a chat request through the existing streaming and speech pipeline. Proposals that are rejected or lose priority are not queued or retried. The proactive core is pure Python; its Qt timer lives only in the UI layer (`companion/ui/main_window.py`).
 
 Replies are streamed: `ChatStreamWorker` reads the SSE stream, shows the text as it arrives, and hands each complete sentence to `SentenceSplitter`-driven TTS. Sentences are synthesized strictly in order and queued in the renderer, which plays them back to back with a single talk gesture; the first clause is cut at a comma after a few words so speech starts early. If the stream breaks, the text received so far is kept and marked as interrupted.
 
@@ -141,6 +144,7 @@ companion/
     chat/               Emotion tags, history, conversation summary
     llm/                API client and SSE streaming
     memory/             Store, gate, extractor, consolidation, recall, evaluation, edit helpers
+    proactive/          Events, policy, triggers, composer, engine tick
     tools/              Tool registry, built-in time and reminder tools, tool-call loop
   adapters/tts_edge.py  Edge TTS synthesis and voice selection
   app/workers.py        QThread workers for chat, TTS, and memory extraction
