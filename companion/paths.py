@@ -57,6 +57,7 @@ DATA_DIR = user_data_dir()
 MEMORY_PATH = DATA_DIR / "memory.json"
 HISTORY_PATH = DATA_DIR / "history.json"
 CONFIG_PATH = DATA_DIR / "config.json"
+PERSONA_PATH = DATA_DIR / "persona.json"
 LOG_DIR = DATA_DIR / "logs"
 
 LEGACY_MEMORY_PATH = APP_DIR / "memory.json"

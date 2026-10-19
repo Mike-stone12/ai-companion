@@ -2,7 +2,14 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from companion.core.proactive.composer import MAX_REMINDER_TEXT_LENGTH, compose, compose_message
+from companion.core.proactive.composer import (
+    IN_CHARACTER,
+    MAX_REMINDER_TEXT_LENGTH,
+    NOTE_PREFIX,
+    compose,
+    compose_message,
+    frame,
+)
 from companion.core.proactive.events import ACTIVE_APP, GREETING, IDLE, REMINDER, Event
 from companion.core.proactive.triggers import GreetingTrigger, IdleTrigger, ReminderTrigger
 from companion.core.tools.reminders import ReminderStore
@@ -121,9 +128,9 @@ def test_active_app_name_is_sanitized_and_capped(app_name, sanitized):
     event = Event(ACTIVE_APP, NOW, {"app_name": app_name, "minutes": 40})
     assert compose_message(event) == {
         "role": "user",
-        "content": (
+        "content": frame(
             f"The user has had {sanitized} in the foreground for about 40 minutes; "
-            "offer one brief, caring, non-nagging remark."
+            "offer them one brief, caring, non-nagging remark."
         ),
     }
     assert event.payload["app_name"] == app_name
@@ -132,3 +139,17 @@ def test_active_app_name_is_sanitized_and_capped(app_name, sanitized):
 def test_active_app_name_with_only_controls_is_rejected():
     with pytest.raises(ValueError, match="app_name"):
         compose(Event(ACTIVE_APP, NOW, {"app_name": "\x00\x1b\u202e", "minutes": 40}))
+
+
+@pytest.mark.parametrize(
+    ("kind", "payload"),
+    [(IDLE, {}), (GREETING, {"part_of_day": "morning"}), (REMINDER, {"text": "Drink water"}),
+     (ACTIVE_APP, {"app_name": "Game", "minutes": 40})],
+)
+def test_every_instruction_is_an_in_character_note_addressed_to_the_user(kind, payload):
+    prompt = compose(Event(kind, NOW, payload))
+
+    assert prompt.startswith(NOTE_PREFIX)
+    assert prompt.endswith(IN_CHARACTER)
+    assert "directly to the user" in prompt
+    assert "persona" in prompt

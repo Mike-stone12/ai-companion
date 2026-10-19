@@ -33,14 +33,17 @@ companion/core/            pure Python, never imports Qt: config, api_key (keych
                            then .env/environment; keyring imported lazily), text, llm (client, SSE),
                            chat (emotion tags, history, conversation summary),
                            memory (store, gate, extractor, recall, consolidation),
-                           model profiles, window state (settings file, placement rules)
+                           model profiles, window state (settings file, placement rules),
+                           persona.py (Persona data, PersonaProvider presets, PersonaStore;
+                           default "childhood friend"; renders the system prompt)
                            voice_input.py (push-to-talk capture model, WAV encoder),
                            voice_input_controller.py (session controller),
                            wake_word.py (pure-Python wake-word matcher),
                            wake_word_controller.py (listening session controller),
                            llm/transcription.py (transcription client)
 companion/core/proactive/  events, policy, triggers (including active-app trigger active_app.py),
-                           composer, engine tick; opt-in via PROACTIVE_CHAT
+                           composer (app-note framing; replies stay in the persona's voice and
+                           address the user), engine tick; opt-in via PROACTIVE_CHAT
 companion/core/tools/      function-calling tools, opt-in via CHAT_TOOLS
 companion/adapters/        Edge TTS (tts_edge.py), foreground-app adapter (active_app.py),
                            Qt microphone capture (microphone.py), lazy Vosk recognizer (wake_word_vosk.py)
@@ -49,7 +52,7 @@ companion/app/             workers.py (chat, transcription, TTS, memory, summary
 companion/memory_cli.py    memory inspection and editing (dry run unless --write)
 companion/settings_cli.py  non-secret settings inspection and editing
 companion/ui/              main window, chat panel, QWebChannel bridge to the renderer
-                           settings_dialog.py and memory_dialog.py (settings and memory dialogs)
+                           settings_dialog.py, memory_dialog.py, persona_dialog.py
 live2d_renderer.html       avatar renderer (PixiJS + pixi-live2d-display, lip sync, queue)
 models/                    Live2D models; companion.json holds window size, motion roles,
                            and the emotion -> expression map

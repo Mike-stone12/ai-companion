@@ -45,6 +45,7 @@ from companion.core.model_profile import (
     discover_model_profile,
     discover_vendor_dir,
 )
+from companion.core.persona import BuiltinPersonas, Persona, PersonaStore, effective_system_prompt
 from companion.core.proactive.session import ProactiveSession, proactive_request
 from companion.core.settings_form import SettingsForm
 from companion.core.text import sanitize_reply_text, sanitize_tts_text
@@ -63,10 +64,11 @@ from companion.core.window_state import (
     save_window_state,
     scaled_size,
 )
-from companion.paths import CONFIG_PATH, DATA_DIR, HISTORY_PATH, HTML_PATH, MEMORY_PATH
+from companion.paths import CONFIG_PATH, DATA_DIR, HISTORY_PATH, HTML_PATH, MEMORY_PATH, PERSONA_PATH
 from companion.ui.avatar_bridge import AvatarBridge
 from companion.ui.chat_panel import ChatPanel
 from companion.ui.memory_dialog import MemoryDialog
+from companion.ui.persona_dialog import PersonaDialog
 from companion.ui.settings_dialog import SettingsDialog
 
 logger = logging.getLogger(__name__)
@@ -154,8 +156,12 @@ class CompanionWindow(QWidget):
         self.memory_store = MemoryStore(MEMORY_PATH, config.memory_limit)
         self.memory_embedder = create_session_embedder(config)
         self.history = ConversationHistory(HISTORY_PATH)
-        system_prompt = f"{config.system_prompt}\n\n{EMOTION_INSTRUCTION}"
-        self.messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}, *self.history.messages()]
+        self.personas = BuiltinPersonas()
+        self.persona_store = PersonaStore(PERSONA_PATH)
+        self.persona = self.persona_store.active(self.personas)
+        self.messages: list[dict[str, str]] = [
+            {"role": "system", "content": self.system_message()}, *self.history.messages(),
+        ]
 
         print_resource_report(self.model_path, self.vendor_dir)
 
@@ -705,6 +711,7 @@ class CompanionWindow(QWidget):
         self.add_choices(menu.addMenu("Opacity"), OPACITY_STEPS, self.window_state.opacity, self.set_opacity)
         menu.addSeparator()
         menu.addAction("Reset position", self.reset_position)
+        menu.addAction("Persona…", self.show_persona_dialog)
         menu.addAction("Settings…", self.show_settings)
         menu.addAction("Memories…", self.show_memories)
         menu.addSeparator()
@@ -721,6 +728,32 @@ class CompanionWindow(QWidget):
             # The chat client reads config.api_key on every request.
             self.config.api_key = api_keys.resolve().value
             self.chat_panel.add_notice("API key updated." if self.config.api_key else "No API key is set now.")
+        dialog.deleteLater()
+
+    def system_message(self) -> str:
+        return f"{effective_system_prompt(self.config.system_prompt, self.persona)}\n\n{EMOTION_INSTRUCTION}"
+
+    def needs_persona_setup(self) -> bool:
+        return not self.config.system_prompt and not self.persona_store.exists()
+
+    def apply_persona(self, persona: Persona) -> None:
+        self.persona_store.save(persona)
+        self.persona = persona
+        # Proactive turns and summaries read messages[0], so they follow the new persona too.
+        self.messages[0] = {"role": "system", "content": self.system_message()}
+        if self.config.system_prompt:
+            self.chat_panel.add_notice("Persona saved, but COMPANION_SYSTEM_PROMPT is set and overrides it.")
+
+    def show_persona_dialog(self, first_run: bool = False) -> None:
+        dialog = PersonaDialog(self.personas, self.persona, self, first_run=first_run)
+        try:
+            if dialog.exec() == PersonaDialog.DialogCode.Accepted:
+                self.apply_persona(dialog.persona())
+            elif first_run:
+                # "Keep default" is an answer too; do not ask again on the next start.
+                self.apply_persona(self.persona)
+        except OSError as exc:
+            self.chat_panel.add_notice(f"Could not save the persona: {exc}")
         dialog.deleteLater()
 
     def show_memories(self) -> None:
@@ -1179,4 +1212,6 @@ def main() -> int:
     logger.info("API key source: %s", resolved.source)
     window = CompanionWindow(AppConfig(api_key=resolved.value))
     window.show()
+    if window.needs_persona_setup():
+        QTimer.singleShot(600, partial(window.show_persona_dialog, first_run=True))
     return app.exec()

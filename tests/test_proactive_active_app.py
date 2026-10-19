@@ -4,6 +4,7 @@ import pytest
 
 from companion.core.proactive import ACTIVE_APP, Event, PolicyConfig, ProactivePolicy, compose, compose_message
 from companion.core.proactive.active_app import ActiveAppTrigger
+from companion.core.proactive.composer import frame
 from companion.core.proactive.triggers import TriggerAggregator
 
 NOW = datetime(2026, 10, 18, 9, tzinfo=UTC)
@@ -146,9 +147,9 @@ def test_policy_can_override_active_app_cooldown():
 
 def test_composer_mentions_app_duration_and_caring_remark_and_ignores_extra_payload():
     event = Event(ACTIVE_APP, NOW, {"app_name": "Game", "minutes": 40})
-    expected = (
+    expected = frame(
         "The user has had Game in the foreground for about 40 minutes; "
-        "offer one brief, caring, non-nagging remark."
+        "offer them one brief, caring, non-nagging remark."
     )
     assert compose(event) == expected
     assert compose_message(event) == {"role": "user", "content": expected}
