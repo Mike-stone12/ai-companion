@@ -26,7 +26,8 @@ replies; detections with typed input are ignored. Missing Vosk or a model load f
 a warning and disables wake detection for the session.
 
 ```
-main.py                    entry point (logging, legacy data migration, Qt bootstrap)
+main.py                    entry point (self-test flag, logging, legacy data migration, Qt bootstrap)
+companion/self_test.py     offline --self-test checks (GUI half in companion/ui/self_test.py)
 ai-companion.spec          PyInstaller build: macOS .app, Windows/Linux one-folder
 companion/paths.py         resource resolution inside a frozen bundle or source checkout; user data paths
 companion/core/            pure Python, never imports Qt: config, api_key (keychain first,
@@ -79,6 +80,10 @@ cp .env.example .env            # then add an API key; never commit .env
 Packaging: in the app environment, run `pip install pyinstaller`, then
 `pyinstaller ai-companion.spec` from the repository root on each target OS.
 PyInstaller is installed separately; it is not in the requirements files.
+`python main.py --self-test [REPORT]` (or the frozen executable with the same flag) is an
+offline smoke test: resources, imports, keychain backend, then the real window until the
+Live2D model renders; temporary data dir, no keychain reads, no network. The `Package`
+workflow builds all three OSes, runs it on each frozen build, and uploads the archives.
 
 CI runs ruff and pytest on Ubuntu, Windows, and macOS with only `requirements-dev.txt`
 installed, so anything imported by the tests must not need PyQt or edge-tts. Keep Qt out of
