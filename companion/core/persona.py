@@ -166,10 +166,16 @@ class BuiltinPersonas:
 
 
 class PersonaStore:
-    """The user's active persona in a small versioned JSON file."""
+    """The user's active persona in a small versioned JSON file.
 
-    def __init__(self, path: Path) -> None:
+    An unchanged preset is stored by id only (``{"version": 1, "preset": id}``), so
+    improvements to a built-in preset's text reach users who kept it; any other
+    persona is stored in full under ``"persona"``.
+    """
+
+    def __init__(self, path: Path, provider: PersonaProvider | None = None) -> None:
         self.path = Path(path)
+        self.provider = provider or BuiltinPersonas()
 
     def exists(self) -> bool:
         return self.path.exists()
@@ -178,6 +184,11 @@ class PersonaStore:
         data = settings_file.load_settings(self.path)
         if not data:
             return None
+        if "preset" in data:
+            preset = self.provider.get(data["preset"]) if isinstance(data["preset"], str) else None
+            if preset is None:
+                logger.warning("Ignoring unknown persona preset in %s", self.path)
+            return preset
         try:
             return Persona.from_dict(data.get("persona"))
         except ValueError as exc:
@@ -185,10 +196,14 @@ class PersonaStore:
             return None
 
     def save(self, persona: Persona) -> None:
-        settings_file.save_settings(self.path, {"version": SCHEMA_VERSION, "persona": persona.to_dict()})
+        if self.provider.get(persona.id) == persona:
+            data = {"version": SCHEMA_VERSION, "preset": persona.id}
+        else:
+            data = {"version": SCHEMA_VERSION, "persona": persona.to_dict()}
+        settings_file.save_settings(self.path, data)
 
-    def active(self, provider: PersonaProvider) -> Persona:
-        return self.load() or provider.default()
+    def active(self, provider: PersonaProvider | None = None) -> Persona:
+        return self.load() or (provider or self.provider).default()
 
 
 def effective_system_prompt(override: str, persona: Persona) -> str:

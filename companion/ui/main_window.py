@@ -157,7 +157,7 @@ class CompanionWindow(QWidget):
         self.memory_embedder = create_session_embedder(config)
         self.history = ConversationHistory(HISTORY_PATH)
         self.personas = BuiltinPersonas()
-        self.persona_store = PersonaStore(PERSONA_PATH)
+        self.persona_store = PersonaStore(PERSONA_PATH, self.personas)
         self.persona = self.persona_store.active(self.personas)
         self.messages: list[dict[str, str]] = [
             {"role": "system", "content": self.system_message()}, *self.history.messages(),

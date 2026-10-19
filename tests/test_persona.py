@@ -106,8 +106,34 @@ def test_store_reports_first_run_until_saved(tmp_path):
     assert store.exists()
     assert store.load() == CHILDHOOD_FRIEND
     saved = json.loads((tmp_path / "persona.json").read_text(encoding="utf-8"))
-    assert saved["version"] == SCHEMA_VERSION
-    assert saved["persona"]["id"] == "childhood_friend"
+    assert saved == {"version": SCHEMA_VERSION, "preset": "childhood_friend"}
+
+
+def test_unchanged_preset_follows_later_improvements_to_its_text(tmp_path):
+    path = tmp_path / "persona.json"
+    PersonaStore(path).save(CHILDHOOD_FRIEND)
+    improved = Persona(id=CHILDHOOD_FRIEND.id, title="Childhood friend", personality="Even warmer.")
+
+    store = PersonaStore(path, BuiltinPersonas((improved,)))
+
+    assert store.load() == improved
+
+
+def test_custom_persona_is_stored_in_full(tmp_path):
+    path = tmp_path / "persona.json"
+    custom = CHILDHOOD_FRIEND.with_fields(name="Mio")
+    PersonaStore(path).save(custom)
+
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    assert saved["persona"]["name"] == "Mio"
+    assert PersonaStore(path).load() == custom
+
+
+def test_unknown_preset_id_falls_back_to_none(tmp_path):
+    path = tmp_path / "persona.json"
+    path.write_text('{"version": 1, "preset": "retired"}', encoding="utf-8")
+
+    assert PersonaStore(path).load() is None
 
 
 def test_store_keeps_non_ascii_text_readable(tmp_path):
