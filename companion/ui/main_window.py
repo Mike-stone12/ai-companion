@@ -43,6 +43,13 @@ from companion.app.workers import (
 from companion.core.api_key import ApiKeyStore
 from companion.core.chat.emotion import EMOTION_INSTRUCTION
 from companion.core.chat.history import ConversationHistory, ConversationSummary, display_text
+from companion.core.chat.pacing import (
+    PACING_INSTRUCTION,
+    MessageSplitter,
+    reply_delay,
+    split_for_display,
+    typing_delay,
+)
 from companion.core.chat.summary import build_chat_messages, plan_summary_update
 from companion.core.config import AppConfig
 from companion.core.llm.client import OpenAICompatibleClient
@@ -61,10 +68,12 @@ from companion.core.proactive.session import ProactiveSession, proactive_request
 from companion.core.schedule import block_at, presence_label
 from companion.core.settings_form import SettingsForm
 from companion.core.state import (
+    IDLE_THRESHOLD,
     StateStore,
     active_reasons,
     apply_events,
     apply_reply_tag,
+    current_mood,
     enter_care_mode,
     idle_emotion,
     looks_distressed,
@@ -73,7 +82,7 @@ from companion.core.state import (
     should_appraise,
     state_summary_lines,
 )
-from companion.core.text import sanitize_reply_text, sanitize_tts_text
+from companion.core.text import SentenceSplitter, sanitize_reply_text, sanitize_tts_text
 from companion.core.tools.builtin import build_builtin_registry
 from companion.core.tools.reminders import ReminderStore, local_now
 from companion.core.voice_input_actions import can_start_voice_input, deliver_voice_input_result
@@ -194,6 +203,11 @@ class CompanionWindow(QWidget):
         self.emotion_rng = random.Random()
         self.appraisal_thread: QThread | None = None
         self.appraisal_worker: AppraisalWorker | None = None
+        # Reply pacing (REPLY_PACING): complete messages wait here for their typing pause.
+        self.pacing_rng = random.Random()
+        self.message_splitter = MessageSplitter()
+        self.pending_messages: deque[str] = deque()
+        self.messages_shown = 0
 
         print_resource_report(self.model_path, self.vendor_dir)
 
@@ -240,6 +254,10 @@ class CompanionWindow(QWidget):
         self.bridge.audioStarted.connect(self.on_audio_started)
         self.bridge.audioFinished.connect(self.on_audio_finished)
         self.bridge.audioFailed.connect(self.on_audio_error)
+
+        self.message_timer = QTimer(self)
+        self.message_timer.setSingleShot(True)
+        self.message_timer.timeout.connect(self.show_next_message)
 
         self.audio_watchdog = QTimer(self)
         self.audio_watchdog.setSingleShot(True)
@@ -478,7 +496,14 @@ class CompanionWindow(QWidget):
         self.chat_panel.setFixedHeight(self.chat_panel_height())
         root_layout.addWidget(self.chat_panel)
         if self.history.entries:
-            self.chat_panel.load([(entry["role"], display_text(entry)) for entry in self.history.entries])
+            turns = [(entry["role"], display_text(entry)) for entry in self.history.entries]
+            if self.config.reply_pacing:
+                # Show restored replies as the separate messages they arrived as.
+                turns = [
+                    (role, part) for role, text in turns
+                    for part in (split_for_display(text) or [text] if role == "assistant" else [text])
+                ]
+            self.chat_panel.load(turns)
         else:
             self.chat_panel.add_notice("Type a message to wake your companion.")
 
@@ -535,6 +560,14 @@ class CompanionWindow(QWidget):
                 background-color: rgba(0, 0, 0, 0.35);
                 color: rgba(255, 255, 255, 0.7);
                 font-size: 11px;
+            }
+            QLabel#typingBubble {
+                padding: 3px 9px;
+                border-radius: 8px;
+                background-color: rgba(0, 0, 0, 0.25);
+                color: rgba(255, 255, 255, 0.6);
+                font-size: 11px;
+                font-style: italic;
             }
             QLabel#dragLabel {
                 color: rgba(255, 255, 255, 0.88);
@@ -785,7 +818,10 @@ class CompanionWindow(QWidget):
         dialog.deleteLater()
 
     def system_message(self) -> str:
-        return f"{effective_system_prompt(self.config.system_prompt, self.persona)}\n\n{EMOTION_INSTRUCTION}"
+        message = f"{effective_system_prompt(self.config.system_prompt, self.persona)}\n\n{EMOTION_INSTRUCTION}"
+        if getattr(self.config, "reply_pacing", False):
+            message += f"\n\n{PACING_INSTRUCTION}"
+        return message
 
     def needs_persona_setup(self) -> bool:
         return not self.config.system_prompt and not self.persona_store.exists()
@@ -1056,6 +1092,12 @@ class CompanionWindow(QWidget):
         self.speech_started = False
         self.finish_status = "Idle"
         self.tts_queue.clear()
+        if self.pacing_on():
+            self.message_splitter = MessageSplitter()
+            self.pending_messages.clear()
+            self.messages_shown = 0
+            self.message_timer.stop()
+            self.chat_panel.hide_typing()
 
     def start_chat_worker(self, payload: list[dict[str, str]] | Callable[[], list[dict[str, str]]]) -> None:
         self.chat_thread = QThread(self)
@@ -1147,7 +1189,68 @@ class CompanionWindow(QWidget):
         self.summary_worker = None
         self.summary_snapshot = None
 
+    def pacing_on(self) -> bool:
+        return bool(getattr(self.config, "reply_pacing", False))
+
+    def queue_messages(self, messages: list[str]) -> None:
+        for message in messages:
+            text = sanitize_reply_text(message)
+            if text:
+                self.pending_messages.append(text)
+        self.schedule_next_message()
+
+    def schedule_next_message(self) -> None:
+        if self.message_timer.isActive() or not self.pending_messages:
+            return
+        if self.messages_shown == 0:
+            # The first message goes out as soon as it is complete, unless the routine says
+            # the companion is busy or asleep; then it picks up a little later.
+            block = self.current_block()
+            delay = reply_delay(block.kind if block else "", self.pacing_rng)
+            if delay:
+                self.set_status("Waking up…" if block.kind == "asleep" else f"{presence_label(block)}…")
+        else:
+            delay = typing_delay(self.pending_messages[0], self.pacing_rng, slow=self.typing_slowness())
+        if delay:
+            self.chat_panel.show_typing()
+        self.message_timer.start(int(delay * 1000))
+
+    def typing_slowness(self) -> float:
+        """Annoyed or hurt, the companion types a little slower."""
+        state = getattr(self, "companion_state", None)
+        if state is None:
+            return 1.0
+        mood = current_mood(state, local_now(), self.persona.traits, self.mood_half_life())
+        return 1.4 if mood.emotion in {"angry", "sad"} and mood.intensity >= IDLE_THRESHOLD else 1.0
+
+    def show_next_message(self) -> None:
+        if not self.pending_messages:
+            return
+        text = self.pending_messages.popleft()
+        self.chat_panel.hide_typing()
+        self.chat_panel.add_reply_message(text)
+        self.messages_shown += 1
+        self.set_status("Replying")
+        self.speak_message(text)
+        if self.pending_messages:
+            self.schedule_next_message()
+        elif not self.stream_done:
+            self.chat_panel.show_typing()
+        self.maybe_finish_reply()
+
+    def speak_message(self, text: str) -> None:
+        if not self.speak_reply:
+            return
+        splitter = SentenceSplitter()
+        for sentence in splitter.feed(text) + splitter.flush():
+            spoken = sanitize_tts_text(sentence)
+            if spoken:
+                self.tts_queue.append(spoken)
+        self.run_next_tts()
+
     def render_reply(self) -> None:
+        if self.pacing_on():
+            return
         reply = sanitize_reply_text("".join(self.reply_parts))
         notes = "".join(f"\n\n{note}" for note in self.reply_notes)
         self.chat_panel.update_reply(f"{reply}{notes}")
@@ -1155,7 +1258,10 @@ class CompanionWindow(QWidget):
     def add_reply_note(self, note: str) -> None:
         if note not in self.reply_notes:
             self.reply_notes.append(note)
-            self.render_reply()
+            if self.pacing_on():
+                self.chat_panel.add_notice(note)
+            else:
+                self.render_reply()
 
     def on_reply_emotion(self, emotion: str) -> None:
         logger.debug("Reply emotion: %s", emotion)
@@ -1167,10 +1273,14 @@ class CompanionWindow(QWidget):
         if not self.reply_parts:
             self.set_status("Replying")
         self.reply_parts.append(text)
-        self.render_reply()
+        if self.pacing_on():
+            self.queue_messages(self.message_splitter.feed(text))
+        else:
+            self.render_reply()
 
     def on_reply_sentence(self, sentence: str) -> None:
-        if not self.speak_reply:
+        # With pacing, speech follows the messages as they appear (speak_message).
+        if not self.speak_reply or self.pacing_on():
             return
         spoken = sanitize_tts_text(sentence)
         if spoken:
@@ -1189,11 +1299,23 @@ class CompanionWindow(QWidget):
         self.render_reply()
         self.pending_user_text = ""
         self.stream_done = True
+        if self.pacing_on():
+            self.queue_messages(self.message_splitter.finish())
+            if not self.pending_messages and not self.message_timer.isActive():
+                self.chat_panel.hide_typing()
         self.maybe_finish_reply()
 
     def on_reply_error(self, error_text: str) -> None:
         logger.error("Chat request failed: %s", error_text)
         partial = sanitize_reply_text("".join(self.reply_parts))
+        if partial and self.pacing_on():
+            # Show what arrived at once rather than pacing a broken reply.
+            self.message_timer.stop()
+            self.queue_messages(self.message_splitter.finish())
+            self.message_timer.stop()
+            while self.pending_messages:
+                self.show_next_message()
+            self.chat_panel.hide_typing()
         if partial:
             self.record_reply(partial)
             self.add_reply_note(f"[Interrupted] {error_text}")
@@ -1326,6 +1448,10 @@ class CompanionWindow(QWidget):
 
     def maybe_finish_reply(self) -> None:
         if not self.busy or not self.stream_done:
+            return
+        if getattr(self, "pending_messages", None) or (
+            hasattr(self, "message_timer") and self.message_timer.isActive()
+        ):
             return
         if self.tts_queue or self.tts_thread is not None or self.pending_clips:
             return

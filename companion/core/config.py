@@ -58,6 +58,7 @@ class AppConfig:
     companion_state: bool = env_flag("COMPANION_STATE", default=True, values=_values)
     daily_schedule: bool = env_flag("DAILY_SCHEDULE", default=True, values=_values)
     emotion_appraisal: bool = env_flag("EMOTION_APPRAISAL", default=True, values=_values)
+    reply_pacing: bool = env_flag("REPLY_PACING", default=True, values=_values)
     mood_half_life_minutes: int = int(_values.get("MOOD_HALF_LIFE_MINUTES", "120"))
 
     @property

@@ -8,12 +8,14 @@ BUBBLE_WIDTH_RATIO = 0.8
 ROW_MARGIN = 4
 TEXT_SLACK = 4  # font rounding between measurement and rendering
 # (horizontal, vertical) padding + border per bubble kind; must match the window stylesheet.
-CHROME = {"userBubble": (24, 16), "assistantBubble": (24, 16), "noticeBubble": (20, 8)}
+CHROME = {"userBubble": (24, 16), "assistantBubble": (24, 16), "noticeBubble": (20, 8), "typingBubble": (20, 8)}
 ALIGNMENT = {
     "user": Qt.AlignmentFlag.AlignRight,
     "assistant": Qt.AlignmentFlag.AlignLeft,
     "notice": Qt.AlignmentFlag.AlignHCenter,
+    "typing": Qt.AlignmentFlag.AlignLeft,
 }
+TYPING_TEXT = "typing…"
 
 
 class ChatPanel(QScrollArea):
@@ -36,6 +38,7 @@ class ChatPanel(QScrollArea):
 
         self.bubbles: list[QLabel] = []
         self.current_reply: QLabel | None = None
+        self.typing: QLabel | None = None
         self.verticalScrollBar().rangeChanged.connect(self.scroll_to_bottom)
         # The viewport, not the scroll area, narrows when the scrollbar appears; refit on its resize.
         self.viewport().installEventFilter(self)
@@ -59,6 +62,28 @@ class ChatPanel(QScrollArea):
 
     def end_reply(self) -> None:
         self.current_reply = None
+
+    def show_typing(self) -> None:
+        """A transient "typing…" row under the last bubble, until the next message lands."""
+        if self.typing is None:
+            self.typing = self.add_bubble(TYPING_TEXT, "typing")
+
+    def hide_typing(self) -> None:
+        if self.typing is None:
+            return
+        label, self.typing = self.typing, None
+        if label in self.bubbles:
+            self.bubbles.remove(label)
+        self.rows.removeWidget(label)
+        label.deleteLater()
+
+    def add_reply_message(self, text: str) -> None:
+        """One paced chat message from the companion, placed above any typing row."""
+        typing = self.typing is not None
+        self.hide_typing()
+        self.add_bubble(text, "assistant")
+        if typing:
+            self.show_typing()
 
     def add_bubble(self, text: str, kind: str) -> QLabel:
         label = QLabel(text)
@@ -92,6 +117,8 @@ class ChatPanel(QScrollArea):
             oldest.deleteLater()
             if oldest is self.current_reply:
                 self.current_reply = None
+            if oldest is self.typing:
+                self.typing = None
 
     def bubble_width(self) -> int:
         return max(160, int((self.viewport().width() - 2 * ROW_MARGIN) * BUBBLE_WIDTH_RATIO))

@@ -32,7 +32,8 @@ ai-companion.spec          PyInstaller build: macOS .app, Windows/Linux one-fold
 companion/paths.py         resource resolution inside a frozen bundle or source checkout; user data paths
 companion/core/            pure Python, never imports Qt: config, api_key (keychain first,
                            then .env/environment; keyring imported lazily), text, llm (client, SSE),
-                           chat (emotion tags, history, conversation summary),
+                           chat (emotion tags, history, conversation summary,
+                           pacing.py: messages per line, typing and pick-up delays),
                            memory (store, gate, extractor, recall, consolidation),
                            model profiles, window state (settings file, placement rules),
                            persona.py (Persona data, PersonaProvider presets, PersonaStore;
