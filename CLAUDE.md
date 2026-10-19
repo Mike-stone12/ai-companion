@@ -25,6 +25,7 @@ companion/core/            pure Python, never imports Qt: config, text, llm (cli
                            model profiles, window state (settings file, placement rules)
                            voice_input.py (push-to-talk capture model, WAV encoder),
                            voice_input_controller.py (session controller),
+                           wake_word.py (pure-Python wake-word matcher, no recognizer yet),
                            llm/transcription.py (transcription client)
 companion/core/proactive/  events, policy, triggers (including active-app trigger active_app.py),
                            composer, engine tick; opt-in via PROACTIVE_CHAT
