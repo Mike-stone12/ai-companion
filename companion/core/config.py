@@ -32,7 +32,14 @@ class AppConfig:
     memory_enabled: bool = os.getenv("MEMORY_ENABLED", "1").strip() not in {"0", "false", "False"}
     memory_consolidation: bool = os.getenv("MEMORY_CONSOLIDATION", "1").strip() not in {"0", "false", "False"}
     memory_relevant_recall: bool = os.getenv("MEMORY_RELEVANT_RECALL", "1").strip() not in {"0", "false", "False"}
+    memory_semantic_recall: bool = env_flag("MEMORY_SEMANTIC_RECALL", default=False)
+    embedding_model: str = os.getenv("EMBEDDING_MODEL", "").strip()
     conversation_summary: bool = os.getenv("CONVERSATION_SUMMARY", "1").strip() not in {"0", "false", "False"}
     memory_limit: int = int(os.getenv("MEMORY_LIMIT", "24"))
     chat_thinking: bool = env_flag("CHAT_THINKING", default=False)
     chat_tools: bool = env_flag("CHAT_TOOLS", default=False)
+
+    def __post_init__(self) -> None:
+        self.embedding_model = self.embedding_model.strip()
+        if not self.embedding_model:
+            self.memory_semantic_recall = False

@@ -82,3 +82,26 @@ def test_chat_tools_setting(monkeypatch, value, expected):
         monkeypatch.setenv("CHAT_TOOLS", value)
     config_class = runpy.run_path(config.__file__)["AppConfig"]
     assert config_class().chat_tools is expected
+
+
+@pytest.mark.parametrize("value, expected", [(None, False), ("0", False), ("1", True), (" YES ", True)])
+def test_memory_semantic_recall_setting(monkeypatch, value, expected):
+    monkeypatch.setenv("EMBEDDING_MODEL", "embed-model")
+    if value is None:
+        monkeypatch.delenv("MEMORY_SEMANTIC_RECALL", raising=False)
+    else:
+        monkeypatch.setenv("MEMORY_SEMANTIC_RECALL", value)
+    config_class = runpy.run_path(config.__file__)["AppConfig"]
+    assert config_class().memory_semantic_recall is expected
+
+
+@pytest.mark.parametrize("model", [None, "", "  "])
+def test_semantic_recall_without_model_is_disabled(monkeypatch, model):
+    monkeypatch.setenv("MEMORY_SEMANTIC_RECALL", "1")
+    if model is None:
+        monkeypatch.delenv("EMBEDDING_MODEL", raising=False)
+    else:
+        monkeypatch.setenv("EMBEDDING_MODEL", model)
+    config_class = runpy.run_path(config.__file__)["AppConfig"]
+    assert config_class().embedding_model == ""
+    assert config_class().memory_semantic_recall is False

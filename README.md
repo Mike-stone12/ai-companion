@@ -31,6 +31,8 @@ The memory pipeline uses a lightweight extraction gate, structured LLM extractio
 4. **Normalize and store.** Summaries are shortened, deduplicated by exact summary text, timestamped, and stored in `memory.json` in the user data directory (see [Data flow](#data-flow)).
 5. **Recall into context.** Up to eight memories are added to the next chat request alongside a bounded conversation history. With `MEMORY_RELEVANT_RECALL=1` (the default), up to half the slots prefer lexical matches to the current user message; remaining slots are filled by recency. Empty queries or no overlap fall back to selecting recent entries. Selections are returned in stored order. Setting the flag to `0` restores the previous recency-only selection in newest-first order.
 
+Optional semantic recall is enabled with `MEMORY_SEMANTIC_RECALL=1` and an explicit `EMBEDDING_MODEL`. It uses embedding similarity for up to half the slots, then fills by recency in stored order. Embedding requests run in the chat worker with a 30-second socket timeout, and a window-session cache reuses stored memory embeddings. On failure, recall falls back to the configured `MEMORY_RELEVANT_RECALL` behavior. Enabling semantic recall sends stored memory text and the current user message to the configured API's `/embeddings` endpoint, using the same base URL and API key as chat.
+
 With `MEMORY_CONSOLIDATION=1` (the default), new candidates are compared with stored memories, and duplicates or updates are merged instead of appended; DELETE decisions leave memories unchanged.
 
 Older turns beyond the context window are folded in the background into a running summary, saved with chat history and included in later requests.
@@ -40,7 +42,7 @@ The store retains 24 entries by default, configurable through `MEMORY_LIMIT`. Th
 ### Current tradeoffs
 
 - Extraction rules and gating are primarily designed for Chinese input.
-- Recall combines lexical overlap and recency, so older matching facts can be included, but paraphrases without shared words or CJK features can still be missed; no embeddings or semantic retrieval are used.
+- Default recall combines lexical overlap and recency, so paraphrases without shared words or CJK features can still be missed. Optional semantic recall requires a compatible embedding model and adds embedding request latency for uncached text.
 - When consolidation is disabled or fails, exact-text deduplication does not resolve paraphrases or conflicting facts.
 - Memory is added asynchronously and may become available on a later turn.
 
@@ -116,6 +118,8 @@ Recall depends on extraction and the configured model; this is a manual walkthro
 | `MEMORY_ENABLED` | Enable new memory extraction | `1` |
 | `MEMORY_CONSOLIDATION` | Compare and merge candidates with stored memories; `0` restores exact-text deduplication only | `1` |
 | `MEMORY_RELEVANT_RECALL` | Prefer lexical matches to the current user message, then fill by recency; `0` restores newest-first recall | `1` |
+| `MEMORY_SEMANTIC_RECALL` | Enable semantic recall when an embedding model is configured; sends stored memory text and the user message to the embeddings endpoint | `0` |
+| `EMBEDDING_MODEL` | Embedding model identifier; uses the chat base URL and API key. Empty disables semantic recall even when its flag is on | Empty |
 | `CONVERSATION_SUMMARY` | Fold older turns into a running summary; `0` disables updates and summary context | `1` |
 | `MEMORY_LIMIT` | Maximum retained memory entries | `24` |
 | `COMPANION_DATA_DIR` | Where memory and logs are stored | Platform user data directory |
@@ -230,7 +234,6 @@ case-insensitive substrings. These commands never save or migrate data.
 Conflict-aware consolidation already supports ADD, UPDATE, and NOOP; DELETE decisions are ignored.
 
 - Collect live extraction evaluation numbers; a labelled extraction harness exists, and live numbers are pending.
-- Add semantic or embedding-based retrieval.
 - Add a UI or CLI for editing and removing stored memories; read-only inspection is already available.
 - Validate platforms beyond Windows.
 

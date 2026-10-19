@@ -6,9 +6,41 @@ import logging
 from collections.abc import Callable, Sequence
 from math import hypot
 
-from companion.core.memory.recall import select_memories
+from companion.core.config import AppConfig
+from companion.core.llm.embeddings import OpenAICompatibleEmbeddings
+from companion.core.memory.embedding_cache import CachingEmbedder
+from companion.core.memory.recall import select_context_memories, select_memories
 
 logger = logging.getLogger(__name__)
+
+
+def create_session_embedder(config: AppConfig) -> CachingEmbedder | None:
+    """Create once per window; construction performs no network requests."""
+    if not config.memory_semantic_recall or not config.embedding_model.strip():
+        return None
+    # Keep the client's finite 30-second socket timeout and single-attempt policy.
+    client = OpenAICompatibleEmbeddings(config.base_url, config.api_key, config.embedding_model)
+    return CachingEmbedder(client, max_size=max(256, config.memory_limit + 1))
+
+
+def select_request_memories(
+    memories: list[dict[str, str]],
+    query: str,
+    limit: int = 8,
+    *,
+    embed: Callable[[list[str]], list[list[float]]] | None = None,
+    relevant_recall: bool = True,
+) -> list[dict[str, str]]:
+    """Use semantic ranking when available, preserving the configured fallback."""
+    if embed is not None:
+        try:
+            return select_semantic_memories(
+                memories, query, embed, limit=limit, fallback_relevant_recall=relevant_recall,
+            )
+        except Exception:
+            # Ranking failures may also contain private text; never log details.
+            logger.warning("Semantic recall failed; falling back to configured recall")
+    return select_context_memories(memories, query, limit, relevant_recall)
 
 
 def cosine_similarity(a: Sequence[float], b: Sequence[float]) -> float:
@@ -30,6 +62,8 @@ def select_semantic_memories(
     embed: Callable[[list[str]], list[list[float]]],
     limit: int = 8,
     min_similarity: float = 0.3,
+    *,
+    fallback_relevant_recall: bool = True,
 ) -> list[dict[str, str]]:
     """Select semantic matches and recent entries, preserving stored order.
 
@@ -39,7 +73,7 @@ def select_semantic_memories(
     use descending updated_at strings, just like lexical recall. Similarity
     ties prefer recency, then the earlier input position for equal timestamps.
 
-    Empty queries use recency alone. Embedding errors use lexical recall and
+    Empty queries use recency alone. Embedding errors use configured recall and
     log a warning without text or exception details. Results reference the
     original dictionaries without editing them; each input position occurs once.
     """
@@ -55,8 +89,11 @@ def select_semantic_memories(
         scores = [cosine_similarity(vectors[0], vector) for vector in vectors[1:]]
     except Exception:
         # Embedder exceptions may contain private input text: omit their details.
-        logger.warning("Semantic recall failed; falling back to lexical recall")
-        return select_memories(memories, query, limit=limit)
+        logger.warning(
+            "Semantic recall failed; falling back to %s recall",
+            "lexical" if fallback_relevant_recall else "recency",
+        )
+        return select_context_memories(memories, query, limit, fallback_relevant_recall)
 
     recent = sorted(range(len(memories)), key=lambda index: memories[index].get("updated_at", ""), reverse=True)
     # Stable sorting retains timestamp order, then input order for exact ties.

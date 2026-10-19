@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from dataclasses import replace
 
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
@@ -41,7 +42,8 @@ class ChatStreamWorker(QObject):
     error = pyqtSignal(str)
 
     def __init__(
-        self, client: OpenAICompatibleClient, messages: list[dict[str, str]],
+        self, client: OpenAICompatibleClient,
+        messages: list[dict[str, str]] | Callable[[], list[dict[str, str]]],
         *, registry: ToolRegistry | None = None,
     ) -> None:
         super().__init__()
@@ -69,6 +71,9 @@ class ChatStreamWorker(QObject):
                 self.sentence.emit(sentence)
 
         try:
+            # Deferred memory context (including embedding I/O) runs on this worker's QThread.
+            if callable(self.messages):
+                self.messages = self.messages()
             if self.client.config.chat_tools and self.client.config.api_key:
                 if self.registry is None:
                     raise ValueError("Chat tools require a session registry")

@@ -3,6 +3,7 @@
 import ast
 import io
 import json
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import Mock, call
@@ -75,6 +76,7 @@ def worker_class():
         "OpenAICompatibleClient": OpenAICompatibleClient, "ToolRegistry": ToolRegistry,
         "EmotionTagParser": EmotionTagParser, "SentenceSplitter": SentenceSplitter,
         "run_tool_rounds": run_tool_rounds, "DEMO_REPLY": "Demo reply.",
+        "Callable": Callable,
     }
     exec(compile(ast.Module(body=[cls], type_ignores=[]), str(path), "exec"), namespace)
     return namespace["ChatStreamWorker"]
