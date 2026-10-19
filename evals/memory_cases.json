@@ -1,0 +1,166 @@
+{
+  "description": "All messages and memories are fictional. Gate labels mark useful personal information, not keyword presence. Recall expectations include recency fillers and a few desired selections that expose lexical or slot-budget limitations.",
+  "gate": [
+    {"message": "我叫云团，这是我的昵称。", "expected": true},
+    {"message": "你可以叫我纸船。", "expected": true},
+    {"message": "我是一名陶艺学徒。", "expected": true},
+    {"message": "我住在虚构的星灯镇。", "expected": true},
+    {"message": "我在社区图书馆做志愿者。", "expected": true},
+    {"message": "我喜欢不加糖的豆浆。", "expected": true},
+    {"message": "我不喜欢太吵的餐厅。", "expected": true},
+    {"message": "我讨厌香菜的味道。", "expected": true},
+    {"message": "我打算今年学会游泳。", "expected": true},
+    {"message": "我准备报名木工课程。", "expected": true},
+    {"message": "明天我要去参加合唱排练。", "expected": true},
+    {"message": "下周三有我的资格考试。", "expected": true},
+    {"message": "周末我要带猫去做检查。", "expected": true},
+    {"message": "我的生日是六月十二日。", "expected": true},
+    {"message": "最近我开始每天练习口琴。", "expected": true},
+    {"message": "我的工作需要经常值夜班。", "expected": true},
+    {"message": "我和室友约好月底搬家。", "expected": true},
+    {"message": "每次喝牛奶都会肚子疼。", "expected": true},
+    {"message": "每逢星期二都去练书法。", "expected": true},
+    {"message": "我的猫名叫棉花糖。", "expected": true},
+    {"message": "你好呀，来聊两句吧。", "expected": false},
+    {"message": "早安，见到你真开心。", "expected": false},
+    {"message": "哈哈，这也太有趣了吧。", "expected": false},
+    {"message": "嗯嗯，知道啦。", "expected": false},
+    {"message": "晚安，我要睡觉了。", "expected": false},
+    {"message": "今天的云像一团棉花。", "expected": false},
+    {"message": "给我讲一个冷笑话吧。", "expected": false},
+    {"message": "为什么海水看起来是蓝色的？", "expected": false},
+    {"message": "这句话用英文怎么说？", "expected": false},
+    {"message": "你能推荐一首轻快的歌吗？", "expected": false},
+    {"message": "我想随便聊聊，没什么特别的。", "expected": false},
+    {"message": "今天好困，先发一会儿呆。", "expected": false},
+    {"message": "明天会不会下雨呀？", "expected": false},
+    {"message": "面试一般要提前多久到？", "expected": false},
+    {"message": "最近有什么好笑的段子？", "expected": false},
+    {"message": "我在想要不要再聊一会儿。", "expected": false}
+  ],
+  "recall": [
+    {
+      "name": "older_drink_preference",
+      "memories": [
+        {"summary": "偏爱无糖豆浆", "category": "preference", "source": "chat", "updated_at": "2026-01-01T12:00:00+00:00"},
+        {"summary": "报名陶艺课程", "category": "plan", "source": "chat", "updated_at": "2026-02-02T12:00:00+00:00"},
+        {"summary": "养了一只橘猫", "category": "profile", "source": "chat", "updated_at": "2026-03-03T12:00:00+00:00"},
+        {"summary": "周六参加合唱排练", "category": "plan", "source": "chat", "updated_at": "2026-04-04T12:00:00+00:00"}
+      ],
+      "query": "早餐选无糖豆浆可以吗？", "limit": 2,
+      "expected": ["偏爱无糖豆浆", "周六参加合唱排练"]
+    },
+    {
+      "name": "older_exam_plan",
+      "memories": [
+        {"summary": "月底参加木工资格考试", "category": "plan", "source": "chat", "updated_at": "2026-01-01T12:00:00+00:00"},
+        {"summary": "偏爱酸味水果", "category": "preference", "source": "chat", "updated_at": "2026-02-02T12:00:00+00:00"},
+        {"summary": "新买了蓝色雨伞", "category": "profile", "source": "chat", "updated_at": "2026-03-03T12:00:00+00:00"}
+      ],
+      "query": "木工资格考试该怎样复习？", "limit": 2,
+      "expected": ["月底参加木工资格考试", "新买了蓝色雨伞"]
+    },
+    {
+      "name": "older_pet_fact_unsorted",
+      "memories": [
+        {"summary": "常听口琴演奏", "category": "preference", "source": "chat", "updated_at": "2026-03-03T12:00:00+00:00"},
+        {"summary": "橘猫名叫棉花糖", "category": "profile", "source": "chat", "updated_at": "2026-01-01T12:00:00+00:00"},
+        {"summary": "周五去练书法", "category": "plan", "source": "chat", "updated_at": "2026-04-04T12:00:00+00:00"},
+        {"summary": "午饭偏爱面条", "category": "preference", "source": "chat", "updated_at": "2026-02-02T12:00:00+00:00"}
+      ],
+      "query": "棉花糖这只橘猫多大了？", "limit": 2,
+      "expected": ["橘猫名叫棉花糖", "周五去练书法"]
+    },
+    {
+      "name": "two_old_relevant_facts",
+      "memories": [
+        {"summary": "正在学习游泳", "category": "profile", "source": "chat", "updated_at": "2026-01-01T12:00:00+00:00"},
+        {"summary": "游泳课安排在周三", "category": "plan", "source": "chat", "updated_at": "2026-02-02T12:00:00+00:00"},
+        {"summary": "喜欢剪纸", "category": "preference", "source": "chat", "updated_at": "2026-03-03T12:00:00+00:00"},
+        {"summary": "养了一盆薄荷", "category": "profile", "source": "chat", "updated_at": "2026-04-04T12:00:00+00:00"},
+        {"summary": "周六修理自行车", "category": "plan", "source": "chat", "updated_at": "2026-05-05T12:00:00+00:00"},
+        {"summary": "准备买新书架", "category": "plan", "source": "chat", "updated_at": "2026-06-06T12:00:00+00:00"}
+      ],
+      "query": "游泳课安排在哪天？", "limit": 4,
+      "expected": ["正在学习游泳", "游泳课安排在周三", "周六修理自行车", "准备买新书架"]
+    },
+    {
+      "name": "no_overlap_recency",
+      "memories": [
+        {"summary": "喜欢折纸", "category": "preference", "source": "chat", "updated_at": "2026-03-03T12:00:00+00:00"},
+        {"summary": "习惯早起", "category": "profile", "source": "chat", "updated_at": "2026-01-01T12:00:00+00:00"},
+        {"summary": "准备修理台灯", "category": "plan", "source": "chat", "updated_at": "2026-02-02T12:00:00+00:00"}
+      ],
+      "query": "海底火山如何形成？", "limit": 2,
+      "expected": ["喜欢折纸", "准备修理台灯"]
+    },
+    {
+      "name": "empty_query_recency",
+      "memories": [
+        {"summary": "收藏彩色纽扣", "category": "preference", "source": "chat", "updated_at": "2026-01-01T12:00:00+00:00"},
+        {"summary": "明早整理阳台", "category": "plan", "source": "chat", "updated_at": "2026-03-03T12:00:00+00:00"},
+        {"summary": "偏爱清淡汤面", "category": "preference", "source": "chat", "updated_at": "2026-02-02T12:00:00+00:00"}
+      ],
+      "query": "", "limit": 2,
+      "expected": ["明早整理阳台", "偏爱清淡汤面"]
+    },
+    {
+      "name": "mixed_script_case_insensitive",
+      "memories": [
+        {"summary": "正在学习 Python", "category": "profile", "source": "chat", "updated_at": "2026-01-01T12:00:00+00:00"},
+        {"summary": "周日清洗窗帘", "category": "plan", "source": "chat", "updated_at": "2026-02-02T12:00:00+00:00"},
+        {"summary": "偏爱紫色围巾", "category": "preference", "source": "chat", "updated_at": "2026-03-03T12:00:00+00:00"}
+      ],
+      "query": "今天练习 PYTHON 吧", "limit": 2,
+      "expected": ["正在学习 Python", "偏爱紫色围巾"]
+    },
+    {
+      "name": "normalized_overlap_prefers_focused_summary",
+      "memories": [
+        {"summary": "喜欢园艺", "category": "preference", "source": "chat", "updated_at": "2026-01-01T12:00:00+00:00"},
+        {"summary": "园艺课程之后还要去参加陶艺活动", "category": "plan", "source": "chat", "updated_at": "2026-02-02T12:00:00+00:00"},
+        {"summary": "新买了帆布鞋", "category": "profile", "source": "chat", "updated_at": "2026-03-03T12:00:00+00:00"}
+      ],
+      "query": "园艺", "limit": 2,
+      "expected": ["喜欢园艺", "新买了帆布鞋"]
+    },
+    {
+      "name": "equal_relevance_prefers_recent",
+      "memories": [
+        {"summary": "周二练习书法", "category": "plan", "source": "chat", "updated_at": "2026-01-01T12:00:00+00:00"},
+        {"summary": "周四练习书法", "category": "plan", "source": "chat", "updated_at": "2026-02-02T12:00:00+00:00"},
+        {"summary": "买了一盏台灯", "category": "profile", "source": "chat", "updated_at": "2026-03-03T12:00:00+00:00"}
+      ],
+      "query": "书法", "limit": 2,
+      "expected": ["周四练习书法", "买了一盏台灯"]
+    },
+    {
+      "name": "limit_exceeds_store",
+      "memories": [
+        {"summary": "周日去看木偶戏", "category": "plan", "source": "chat", "updated_at": "2026-01-01T12:00:00+00:00"},
+        {"summary": "偏爱热可可", "category": "preference", "source": "chat", "updated_at": "2026-02-02T12:00:00+00:00"}
+      ],
+      "query": "木偶戏几点开始？", "limit": 8,
+      "expected": ["周日去看木偶戏", "偏爱热可可"]
+    },
+    {
+      "name": "paraphrase_without_lexical_overlap",
+      "memories": [
+        {"summary": "偏爱骑单车", "category": "preference", "source": "chat", "updated_at": "2026-01-01T12:00:00+00:00"},
+        {"summary": "准备烤饼干", "category": "plan", "source": "chat", "updated_at": "2026-02-02T12:00:00+00:00"},
+        {"summary": "正在整理邮票", "category": "profile", "source": "chat", "updated_at": "2026-03-03T12:00:00+00:00"}
+      ],
+      "query": "自行车运动适合我吗？", "limit": 2,
+      "expected": ["偏爱骑单车", "正在整理邮票"]
+    },
+    {
+      "name": "one_slot_relevant_fact",
+      "memories": [
+        {"summary": "明早有牙科预约", "category": "plan", "source": "chat", "updated_at": "2026-01-01T12:00:00+00:00"},
+        {"summary": "喜欢编织围巾", "category": "preference", "source": "chat", "updated_at": "2026-02-02T12:00:00+00:00"}
+      ],
+      "query": "牙科预约是几点？", "limit": 1,
+      "expected": ["明早有牙科预约"]
+    }
+  ]
+}
