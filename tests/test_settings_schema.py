@@ -10,6 +10,8 @@ from companion import paths
 CONFIG_FIELDS = {
     "CHAT_THINKING": "chat_thinking",
     "CHAT_TOOLS": "chat_tools",
+    "VOICE_INPUT": "voice_input",
+    "TRANSCRIPTION_MODEL": "transcription_model",
     "PROACTIVE_CHAT": "proactive_chat",
     "ACTIVE_APP_MONITOR": "active_app_monitor",
     "EDGE_TTS_VOICE_ZH": "voice_zh",
@@ -64,6 +66,10 @@ def test_schema_covers_safe_settings_and_builtin_defaults():
 
 @pytest.mark.parametrize("name, value, expected", [
     ("CHAT_THINKING", True, True),
+    ("VOICE_INPUT", True, True),
+    ("VOICE_INPUT", False, False),
+    ("TRANSCRIPTION_MODEL", " transcription-model ", "transcription-model"),
+    ("TRANSCRIPTION_MODEL", " \t ", ""),
     ("ACTIVE_APP_MONITOR", True, True),
     ("ACTIVE_APP_MONITOR", False, False),
     ("MEMORY_ENABLED", False, False),
@@ -98,6 +104,7 @@ def test_validate_rejects_uneditable_names(name):
 @pytest.mark.parametrize("name, value", [
     ("CHAT_THINKING", "true"), ("CHAT_TOOLS", 1), ("PROACTIVE_CHAT", 0.0),
     ("ACTIVE_APP_MONITOR", "true"),
+    ("VOICE_INPUT", "true"), ("VOICE_INPUT", 1), ("TRANSCRIPTION_MODEL", False),
     ("MEMORY_ENABLED", None), ("MEMORY_LIMIT", True), ("MEMORY_LIMIT", "24"),
     ("MEMORY_LIMIT", 2.5), ("MEMORY_LIMIT", 0), ("MEMORY_LIMIT", -1),
     ("MEMORY_LIMIT", float("nan")), ("MEMORY_LIMIT", float("inf")),
@@ -185,6 +192,7 @@ def test_saved_settings_round_trip_through_existing_loader(tmp_path):
 
     updates = {
         "CHAT_THINKING": True, "CHAT_TOOLS": True, "PROACTIVE_CHAT": True,
+        "VOICE_INPUT": True, "TRANSCRIPTION_MODEL": " transcription-model ",
         "ACTIVE_APP_MONITOR": True,
         "LOG_LEVEL": " warning ", "EDGE_TTS_VOICE_ZH": "custom-zh", "EDGE_TTS_VOICE_EN": "custom-en",
         "MEMORY_ENABLED": False, "MEMORY_CONSOLIDATION": False, "MEMORY_RELEVANT_RECALL": False,

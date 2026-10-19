@@ -40,9 +40,17 @@ class AppConfig:
     memory_limit: int = int(_values.get("MEMORY_LIMIT", "24"))
     chat_thinking: bool = env_flag("CHAT_THINKING", default=False, values=_values)
     chat_tools: bool = env_flag("CHAT_TOOLS", default=False, values=_values)
+    voice_input: bool = env_flag("VOICE_INPUT", default=False, values=_values)
+    # Require an explicit model before voice input can be used.
+    transcription_model: str = _values.get("TRANSCRIPTION_MODEL", "").strip()
     proactive_chat: bool = env_flag("PROACTIVE_CHAT", default=False, values=_values)
     active_app_monitor: bool = env_flag("ACTIVE_APP_MONITOR", default=False, values=_values)
     live2d_model: str = _values.get("LIVE2D_MODEL", "").strip()
+
+    @property
+    def voice_input_usable(self) -> bool:
+        """Whether push-to-talk is opted into with a configured model."""
+        return self.voice_input and bool(self.transcription_model.strip())
 
     def __post_init__(self) -> None:
         self.embedding_model = self.embedding_model.strip()

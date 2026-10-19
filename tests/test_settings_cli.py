@@ -51,6 +51,8 @@ def test_list(config, monkeypatch, capsys, run_readonly):
     assert 'MEMORY_LIMIT = "30" (source: config.json)' in lines
     assert 'CHAT_TOOLS = "false" (source: environment)' in lines
     assert 'LOG_LEVEL = "INFO" (source: default)' in lines
+    assert 'VOICE_INPUT = "0" (source: default)' in lines
+    assert 'TRANSCRIPTION_MODEL = "" (source: default)' in lines
     assert "never-display-this" not in output.out
     assert "OPENAI_API_KEY" not in output.out
     assert output.err == ""
@@ -60,6 +62,8 @@ def test_list(config, monkeypatch, capsys, run_readonly):
     ("LOG_LEVEL", ['LOG_LEVEL = "INFO" (source: default)', "Description: Log level", "Type: choice",
                    "Allowed values: DEBUG, INFO, WARNING, ERROR"]),
     ("MEMORY_LIMIT", ['MEMORY_LIMIT = "30" (source: config.json)', "Type: int", "Minimum: 1"]),
+    ("VOICE_INPUT", ['VOICE_INPUT = "0" (source: default)', "Type: bool", "Allowed values: true, false"]),
+    ("TRANSCRIPTION_MODEL", ['TRANSCRIPTION_MODEL = "" (source: default)', "Type: str"]),
     ("CHAT_TOOLS", ['CHAT_TOOLS = "1" (source: config.json)', "Type: bool", "Allowed values: true, false"]),
 ])
 def test_show(config, key, details, capsys, run_readonly):
@@ -83,6 +87,9 @@ def test_set_dry_run(config, capsys, run_readonly):
 @pytest.mark.parametrize(("key", "value", "expected"), [
     ("MEMORY_LIMIT", "42", 42),
     ("CHAT_TOOLS", "false", False),
+    ("VOICE_INPUT", "true", True),
+    ("VOICE_INPUT", "false", False),
+    ("TRANSCRIPTION_MODEL", " transcription-model ", "transcription-model"),
     ("ACTIVE_APP_MONITOR", "true", True),
     ("LOG_LEVEL", " debug ", "DEBUG"),
     ("EDGE_TTS_VOICE_ZH", "自定义语音", "自定义语音"),
