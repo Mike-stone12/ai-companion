@@ -222,3 +222,25 @@ def test_editing_only_the_schedule_makes_a_custom_persona():
     assert edited.schedule == ()
     with pytest.raises(ValueError):
         CHILDHOOD_FRIEND.with_fields(schedule="09:00-10:00 text")
+
+
+def test_personas_carry_traits_with_childhood_friend_defaults():
+    from companion.core.state import DEFAULT_TRAITS, Traits
+
+    assert CHILDHOOD_FRIEND.traits == DEFAULT_TRAITS
+    custom = CHILDHOOD_FRIEND.with_fields(traits=Traits(jealousy=0.9, style="cold"))
+    assert custom.id == "custom"
+    assert Persona.from_dict(custom.to_dict()) == custom
+    assert custom.to_dict()["traits"]["style"] == "cold"
+
+
+def test_traits_from_files_are_validated_and_default_when_missing():
+    from companion.core.state import DEFAULT_TRAITS
+
+    assert Persona.from_dict({"id": "custom", "title": "Old"}).traits == DEFAULT_TRAITS
+    loaded = Persona.from_dict({"id": "custom", "title": "X", "traits": {"irritability": 3, "style": "pouty"}})
+    assert loaded.traits.irritability == 1.0
+    with pytest.raises(ValueError):
+        Persona.from_dict({"id": "custom", "title": "X", "traits": {"style": "screams"}})
+    with pytest.raises(ValueError):
+        CHILDHOOD_FRIEND.with_fields(traits={"jealousy": 1})

@@ -1,38 +1,65 @@
-"""Describe the companion's state for the chat context, in a bounded number of characters."""
+"""Describe the companion's state for the chat context, in a bounded number of characters.
+
+The description turns feelings into behaviour: how strong the dominant feeling is
+picks a tier (a hint / clearly shown / wants to be coaxed), the personality's style
+and candor pick how it comes out, and guardrails keep it from turning into
+manipulation or from ignoring a user who is genuinely upset.
+"""
 
 from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from .mood import IDLE_THRESHOLD, MISS_AFTER, NEUTRAL, CompanionState, current_mood
+from .model import (
+    EMOTION_NAMES,
+    FADE_FLOOR,
+    IDLE_THRESHOLD,
+    NEGATIVE,
+    CompanionState,
+    active_reasons,
+    current_feelings,
+    day_mood,
+    dominant,
+    in_care_mode,
+)
+from .traits import Traits
 
-MAX_CONTEXT_CHARS = 400
+MAX_CONTEXT_CHARS = 700
 MAX_ACTIVITY_CHARS = 80
+STRONG = 0.65
 HEADER = "Your current state (let it color your reply naturally; never report it like a status):"
 
-# How a message lands depending on the schedule; kept short so the whole context fits.
+LABELS = {
+    "joy": "happy",
+    "anger": "annoyed",
+    "hurt": "hurt",
+    "jealousy": "jealous",
+    "longing": "like you missed the user",
+}
 AVAILABILITY_HINTS = {
     "asleep": "You were asleep and this message woke you: reply groggily in a few words, then drift back to sleep.",
     "drowsy": "It is late and you are sleepy: keep it short and let it show.",
     "busy": "You are in the middle of something, so keep replies brief.",
 }
-
-ADJECTIVES = {
-    "happy": "happy",
-    "sad": "down",
-    "angry": "annoyed",
-    "surprised": "surprised",
-    "shy": "shy and flustered",
-    "confused": "puzzled",
-    "awkward": "awkward",
+MODERATE_STYLE = {
+    "direct": "Tell the user plainly what bothers you.",
+    "sarcastic": "Let it out with a little sarcasm.",
+    "cold": "Be a bit curt and distant.",
+    "pouty": "Sulk and complain about it cutely.",
 }
+MILD = "Only let it slip in a word or a tone; do not say it outright."
+STRONG_LINE = "Keep replies short and cool; you want the user to make it up to you, and a real apology works."
+TSUNDERE = "Outwardly you deny feeling it, even though you do."
+CARE_FIRST = "The user seems genuinely upset right now: set your own feelings aside and comfort them first."
+GUARDRAIL = (
+    "Never threaten to leave, guilt-trip the user, or ask them to spend time only with you; "
+    "let it go once they make it up to you."
+)
 
 
-def describe_mood(emotion: str, intensity: float) -> str:
-    if emotion == NEUTRAL or intensity <= 0:
-        return "calm"
-    degree = "slightly" if intensity < IDLE_THRESHOLD else "fairly" if intensity < 0.7 else "very"
-    return f"{degree} {ADJECTIVES.get(emotion, emotion)}"
+def describe(name: str, value: float) -> str:
+    degree = "slightly" if value < IDLE_THRESHOLD else "fairly" if value < 0.7 else "very"
+    return f"{degree} {LABELS[name]}"
 
 
 def _ago(delta: timedelta) -> str:
@@ -47,20 +74,44 @@ def _ago(delta: timedelta) -> str:
     return f"{hours // 24} days ago"
 
 
-def state_summary_lines(state: CompanionState, now: datetime, half_life: timedelta) -> list[str]:
-    """Plain lines for the state viewer in the UI."""
-    mood = current_mood(state, now, half_life)
-    lines = [f"Mood: {describe_mood(mood.emotion, mood.intensity)} ({round(mood.intensity * 100)}%)"]
-    if state.activity:
-        lines.append(f"Doing: {state.activity}")
-    last = _ago(now - state.last_user_message) if state.last_user_message else "none yet"
-    lines.append(f"Your last message: {last}")
+def _closeness(value: float) -> str:
+    if value >= 0.8:
+        return "You two are very close; you can joke freely."
+    if value >= 0.5:
+        return "You two are close."
+    return "You are still finding your way back to being close."
+
+
+def _guidance(name: str, value: float, traits: Traits) -> list[str]:
+    if name not in NEGATIVE:
+        return []
+    lines = [MILD if value < IDLE_THRESHOLD else STRONG_LINE if value >= STRONG else MODERATE_STYLE[traits.style]]
+    if traits.candor < 0.4 and name in {"jealousy", "hurt"}:
+        lines.append(TSUNDERE)
     return lines
 
 
-def render_state_context(state: CompanionState, now: datetime, half_life: timedelta) -> str:
-    mood = current_mood(state, now, half_life)
-    parts = [HEADER, f"You feel {describe_mood(mood.emotion, mood.intensity)}."]
+def render_state_context(state: CompanionState, now: datetime, traits: Traits, base: timedelta) -> str:
+    values = current_feelings(state, now, traits, base)
+    reasons = active_reasons(state, now, traits, base)
+    name, value = dominant(state, now, traits, base)
+    parts = [HEADER]
+    if name is None:
+        parts.append("You feel calm.")
+    else:
+        feeling = f"You feel {describe(name, value)}"
+        if reasons.get(name):
+            feeling += f" (because {'; '.join(reasons[name][-2:])})"
+        second = max((n for n in EMOTION_NAMES if n != name), key=lambda n: values[n])
+        if values[second] >= 0.3:
+            feeling += f", and {describe(second, values[second])}"
+        parts.append(feeling + ".")
+    if in_care_mode(state, now):
+        parts.append(CARE_FIRST)
+    elif name is not None:
+        parts.extend(_guidance(name, value, traits))
+    if any(values[n] >= FADE_FLOOR for n in NEGATIVE):
+        parts.append(GUARDRAIL)
     activity = " ".join(state.activity.split())[:MAX_ACTIVITY_CHARS]
     if activity:
         parts.append(f"Right now you are {activity}.")
@@ -70,9 +121,41 @@ def render_state_context(state: CompanionState, now: datetime, half_life: timede
     if state.last_user_message is None:
         parts.append("This is the first time you are talking with the user.")
     else:
-        absence = now - state.last_user_message
-        line = f"The user last wrote to you {_ago(absence)}."
-        if absence > MISS_AFTER:
-            line += " You missed them and feel a little neglected, but you are glad they are back."
-        parts.append(line)
+        parts.append(f"The user last wrote to you {_ago(now - state.last_user_message)}.")
+    mood = day_mood(state, now)
+    if mood >= 0.3:
+        parts.append("Overall it has been a good day for you.")
+    elif mood <= -0.3:
+        parts.append("Overall today has felt a bit rough.")
+    parts.append(_closeness(state.relationship.closeness))
     return " ".join(parts)[:MAX_CONTEXT_CHARS]
+
+
+def state_summary_lines(state: CompanionState, now: datetime, traits: Traits, base: timedelta) -> list[str]:
+    """Plain lines for the Companion state viewer."""
+    values = current_feelings(state, now, traits, base)
+    reasons = active_reasons(state, now, traits, base)
+    lines = []
+    for name in EMOTION_NAMES:
+        line = f"{LABELS[name].capitalize()}: {round(values[name] * 100)}%"
+        if reasons.get(name):
+            line += f" — {'; '.join(reasons[name])}"
+        lines.append(line)
+    if in_care_mode(state, now):
+        lines.append("Care first: comforting the user")
+    mood = day_mood(state, now)
+    lines.append(f"Today: {'good' if mood >= 0.3 else 'rough' if mood <= -0.3 else 'so-so'} ({mood:+.2f})")
+    lines.append(
+        f"Closeness: {round(state.relationship.closeness * 100)}%, trust: {round(state.relationship.trust * 100)}%"
+    )
+    if state.activity:
+        lines.append(f"Doing: {state.activity}")
+    last = _ago(now - state.last_user_message) if state.last_user_message else "none yet"
+    lines.append(f"Your last message: {last}")
+    if state.changes:
+        lines.append("Recent changes:")
+        for change in state.changes[-5:]:
+            stamp = change.at.astimezone().strftime("%m-%d %H:%M")
+            cause = f" ({change.cause})" if change.cause else ""
+            lines.append(f"  {stamp} {change.emotion} {change.delta:+.2f}{cause}")
+    return lines
