@@ -27,6 +27,8 @@ CONFIG_FIELDS = {
     "EMBEDDING_MODEL": "embedding_model",
     "CONVERSATION_SUMMARY": "conversation_summary",
     "MEMORY_LIMIT": "memory_limit",
+    "COMPANION_STATE": "companion_state",
+    "MOOD_HALF_LIFE_MINUTES": "mood_half_life_minutes",
 }
 
 
