@@ -145,6 +145,8 @@ Use **Memories…** in the right-click menu to view, search, and edit stored mem
 | `CHAT_TOOLS` | Enable time and reminder tools (up to 3 model requests per turn). Reminders persist across restarts in `reminders.json` in the user data directory. When off, this file is not read or written. | `0` |
 | `VOICE_INPUT` | Show the opt-in **Hold to talk** button beside chat input; release to transcribe and send. Requires a non-empty `TRANSCRIPTION_MODEL`. Off creates no button or microphone. | `0` |
 | `TRANSCRIPTION_MODEL` | Transcription model identifier; uses the chat base URL and API key. Empty or whitespace-only disables voice input even when its flag is on. | Empty |
+| `WAKE_WORD` | Opt in to wake word; requires a non-empty `WAKE_WORD_PHRASES`. No recognizer is shipped yet, so this flag currently has no effect. | `0` |
+| `WAKE_WORD_PHRASES` | Comma-separated wake phrases, e.g. `小鲸,hey whale`; full-width commas are also accepted. Empty disables the wake word. | Empty |
 | `PROACTIVE_CHAT` | Opt in to idle chat, time-of-day greetings, and spoken due reminders, checked every 30 seconds. Enable `CHAT_TOOLS` to set persistent reminders. Off creates no proactive timer or requests. | `0` |
 | `ACTIVE_APP_MONITOR` | Opt in to comments after a long foreground-app streak; requires `PROACTIVE_CHAT=1`. Uses only the foreground app name locally to track duration, then sends a short app-name/duration summary to the LLM. | `0` |
 | `LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, or `ERROR`. Logs go to the terminal and `logs/companion.log` in the user data directory (rotated at 1 MB, 3 backups). | `INFO` |

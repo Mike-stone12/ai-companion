@@ -34,6 +34,8 @@ EDITABLE_SETTINGS = (
     Setting("CHAT_TOOLS", "bool", False, "Chat tools"),
     Setting("VOICE_INPUT", "bool", False, "Push-to-talk voice input (requires transcription model)"),
     Setting("TRANSCRIPTION_MODEL", "str", "", "Transcription model"),
+    Setting("WAKE_WORD", "bool", False, "Wake word (requires wake phrases)"),
+    Setting("WAKE_WORD_PHRASES", "str", "", "Wake phrases (comma-separated)"),
     Setting("PROACTIVE_CHAT", "bool", False, "Proactive chat"),
     Setting("ACTIVE_APP_MONITOR", "bool", False, "Active app monitor (requires proactive chat)"),
     Setting("LOG_LEVEL", "choice", "INFO", "Log level", choices=("DEBUG", "INFO", "WARNING", "ERROR")),
@@ -56,7 +58,7 @@ def validate(name: str, value: SettingValue) -> SettingValue:
 
     Booleans and integers require their exact Python types (no text coercion,
     and bool is not an integer here). Float settings accept finite ints/floats.
-    Log levels are stripped and uppercased. Model names are stripped like the
+    Log levels are stripped and uppercased. Model names and wake phrases are stripped like the
     existing loader; voice strings are preserved as supplied.
     """
     if not isinstance(name, str) or any(marker in name.upper() for marker in SECRET_MARKERS):
@@ -90,7 +92,7 @@ def validate(name: str, value: SettingValue) -> SettingValue:
             value = value.strip().upper()
             if value not in setting.choices:
                 raise ValueError(f"{name} requires an allowed choice")
-        elif name in {"EMBEDDING_MODEL", "LIVE2D_MODEL", "TRANSCRIPTION_MODEL"}:
+        elif name in {"EMBEDDING_MODEL", "LIVE2D_MODEL", "TRANSCRIPTION_MODEL", "WAKE_WORD_PHRASES"}:
             value = value.strip()
     return value
 
