@@ -60,6 +60,10 @@ jobs:
 
       - name: Self-test the frozen build (macOS)
         if: runner.os == 'macOS'
+        env:
+          # The runner's virtual GPU occasionally left the window stuck right after the page
+          # connected (about 1 in 4 runs); render in software like the other runners.
+          QTWEBENGINE_CHROMIUM_FLAGS: --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader --disable-gpu-compositing
         run: |
           "dist/AI Companion.app/Contents/MacOS/AI Companion" --self-test "$RUNNER_TEMP/self-test.txt"
 

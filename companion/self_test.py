@@ -12,6 +12,7 @@ directory before companion.paths is first imported.
 
 from __future__ import annotations
 
+import faulthandler
 import importlib
 import logging
 import os
@@ -181,6 +182,9 @@ def start_watchdog(
     """Write a failing report and end the process if the self-test has not finished in time."""
     def expire() -> None:
         stuck = [*checks, Check("main window", False, f"self-test did not finish within {timeout_s:.0f}s")]
+        if sys.stderr is not None:
+            # Show where every thread is stuck, for the CI log.
+            faulthandler.dump_traceback(file=sys.stderr, all_threads=True)
         try:
             _emit(format_report(stuck), request)
         finally:
