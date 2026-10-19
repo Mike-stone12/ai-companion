@@ -109,6 +109,7 @@ def build_chat_messages(
     memory_context: str | None = None,
     summary: str | None = None,
     state_context: str | None = None,
+    own_context: str | None = None,
 ) -> list[dict[str, str]]:
     """Assemble chat context from already-windowed turns without changing inputs.
 
@@ -119,6 +120,9 @@ def build_chat_messages(
     messages = [{"role": "system", "content": system_prompt}]
     if memory_context:
         messages.append({"role": "system", "content": memory_context})
+    if own_context and own_context.strip():
+        # The companion's own diary and self memories, between the user's memories and its state.
+        messages.append({"role": "system", "content": own_context.strip()})
     if state_context and state_context.strip():
         messages.append({"role": "system", "content": state_context.strip()})
     if summary and summary.strip():

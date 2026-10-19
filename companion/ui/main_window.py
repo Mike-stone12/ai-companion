@@ -35,7 +35,9 @@ from companion.adapters.active_app import foreground_app_name
 from companion.app.workers import (
     AppraisalWorker,
     ChatStreamWorker,
+    DiaryWorker,
     MemoryWorker,
+    SelfMemoryWorker,
     SummaryWorker,
     TranscriptionWorker,
     TTSWorker,
@@ -52,10 +54,19 @@ from companion.core.chat.pacing import (
 )
 from companion.core.chat.summary import build_chat_messages, plan_summary_update
 from companion.core.config import AppConfig
+from companion.core.diary import (
+    DiaryEntry,
+    DiaryStore,
+    build_diary_messages,
+    day_to_write,
+    render_diary_context,
+    turns_on,
+)
 from companion.core.llm.client import OpenAICompatibleClient
 from companion.core.llm.transcription import transcribe
 from companion.core.memory.browser import MemoryBrowserModel
 from companion.core.memory.gate import should_extract_memory
+from companion.core.memory.self_memory import SELF_MEMORY_LIMIT, render_self_context, should_extract_self
 from companion.core.memory.semantic_recall import create_session_embedder
 from companion.core.memory.store import MemoryStore
 from companion.core.model_profile import (
@@ -65,7 +76,7 @@ from companion.core.model_profile import (
 )
 from companion.core.persona import BuiltinPersonas, Persona, PersonaStore, effective_system_prompt
 from companion.core.proactive.session import ProactiveSession, proactive_request
-from companion.core.schedule import block_at, presence_label
+from companion.core.schedule import block_at, format_schedule, presence_label
 from companion.core.settings_form import SettingsForm
 from companion.core.state import (
     IDLE_THRESHOLD,
@@ -98,7 +109,17 @@ from companion.core.window_state import (
     save_window_state,
     scaled_size,
 )
-from companion.paths import CONFIG_PATH, DATA_DIR, HISTORY_PATH, HTML_PATH, MEMORY_PATH, PERSONA_PATH, STATE_PATH
+from companion.paths import (
+    CONFIG_PATH,
+    DATA_DIR,
+    DIARY_PATH,
+    HISTORY_PATH,
+    HTML_PATH,
+    MEMORY_PATH,
+    PERSONA_PATH,
+    SELF_MEMORY_PATH,
+    STATE_PATH,
+)
 from companion.ui.avatar_bridge import AvatarBridge
 from companion.ui.chat_panel import ChatPanel
 from companion.ui.memory_dialog import MemoryDialog
@@ -124,6 +145,8 @@ MIN_CHAT_PANEL_HEIGHT = 110
 # Safety net if playback stops making progress (e.g. the renderer crashed).
 AUDIO_WATCHDOG_MS = 120_000
 WAKE_CAPTURE_MS = 5_000
+# Her diary plus self memories in one system message.
+OWN_CONTEXT_CHARS = 600
 
 
 def to_file_url(path: Path | None, *, directory: bool = False) -> str:
@@ -208,6 +231,15 @@ class CompanionWindow(QWidget):
         self.message_splitter = MessageSplitter()
         self.pending_messages: deque[str] = deque()
         self.messages_shown = 0
+        # Her diary and her memories about herself (COMPANION_DIARY).
+        self.diary_store = DiaryStore(DIARY_PATH) if config.companion_diary else None
+        self.diary_entries: list[DiaryEntry] = self.diary_store.load() if self.diary_store else []
+        self.self_memory_store = MemoryStore(SELF_MEMORY_PATH, SELF_MEMORY_LIMIT) if config.companion_diary else None
+        self.diary_thread: QThread | None = None
+        self.diary_worker: DiaryWorker | None = None
+        self.diary_day = None
+        self.self_memory_thread: QThread | None = None
+        self.self_memory_worker: SelfMemoryWorker | None = None
 
         print_resource_report(self.model_path, self.vendor_dir)
 
@@ -282,6 +314,13 @@ class CompanionWindow(QWidget):
         self.refresh_presence()
         self.setup_proactive(reminders)
         self.setup_wake_word()
+        if self.diary_store is not None:
+            # A finished day gets its entry shortly after start, then on a slow timer (past midnight).
+            self.diary_timer = QTimer(self)
+            self.diary_timer.setInterval(10 * 60_000)
+            self.diary_timer.timeout.connect(self.maybe_write_diary)
+            self.diary_timer.start()
+            QTimer.singleShot(5_000, self.maybe_write_diary)
 
     def setup_wake_word(self) -> None:
         if not wake_word_enabled(self.config):
@@ -953,6 +992,86 @@ class CompanionWindow(QWidget):
         self.appraisal_thread = None
         self.appraisal_worker = None
 
+    def own_context(self, user_text: str = "") -> str:
+        """Her recent diary and what she has said about herself, for the chat context."""
+        if getattr(self, "diary_store", None) is None:
+            return ""
+        parts = [render_diary_context(self.diary_entries), render_self_context(self.self_memory_store.items, user_text)]
+        return "\n\n".join(part for part in parts if part)[:OWN_CONTEXT_CHARS]
+
+    def start_self_memory_worker(self, user_text: str, assistant_text: str) -> None:
+        if getattr(self, "self_memory_store", None) is None or not self.config.api_key:
+            return
+        if not should_extract_self(assistant_text) or self.self_memory_thread is not None:
+            return
+        self.self_memory_thread = QThread(self)
+        self.self_memory_worker = SelfMemoryWorker(self.client, user_text, assistant_text)
+        self.self_memory_worker.moveToThread(self.self_memory_thread)
+        self.self_memory_thread.started.connect(self.self_memory_worker.run)
+        self.self_memory_worker.finished.connect(self.on_self_memory_ready)
+        self.self_memory_worker.finished.connect(self.self_memory_worker.deleteLater)
+        self.self_memory_worker.finished.connect(self.self_memory_thread.quit)
+        self.self_memory_thread.finished.connect(self.on_self_memory_thread_finished)
+        self.self_memory_thread.finished.connect(self.self_memory_thread.deleteLater)
+        self.self_memory_thread.start()
+
+    def on_self_memory_ready(self, memories: list) -> None:
+        if memories and self.self_memory_store is not None:
+            self.self_memory_store.load()
+            logger.info("Self memories updated (%d candidates)", len(memories))
+
+    def on_self_memory_thread_finished(self) -> None:
+        self.self_memory_thread = None
+        self.self_memory_worker = None
+
+    def diary_request(self):
+        """(day, messages) for the next diary entry to write, or None."""
+        now = local_now()
+        day = day_to_write(self.history.entries, self.diary_entries, now.date(), now.tzinfo)
+        if day is None:
+            return None
+        routine = format_schedule(self.persona.schedule).splitlines() if self.config.daily_schedule else []
+        state = getattr(self, "companion_state", None)
+        feelings = [
+            f"{change.emotion} {change.delta:+.2f}" + (f" ({change.cause})" if change.cause else "")
+            for change in (state.changes if state is not None else ())
+            if change.at.astimezone(now.tzinfo).date() == day
+        ]
+        turns = turns_on(self.history.entries, day, now.tzinfo)
+        return day, build_diary_messages(self.persona.system_prompt(), day, turns, routine, feelings)
+
+    def maybe_write_diary(self) -> None:
+        if getattr(self, "diary_store", None) is None or not self.config.api_key or self.diary_thread is not None:
+            return
+        request = self.diary_request()
+        if request is None:
+            return
+        self.diary_day, messages = request
+        self.diary_thread = QThread(self)
+        self.diary_worker = DiaryWorker(self.client, messages)
+        self.diary_worker.moveToThread(self.diary_thread)
+        self.diary_thread.started.connect(self.diary_worker.run)
+        self.diary_worker.finished.connect(self.on_diary_ready)
+        self.diary_worker.finished.connect(self.diary_worker.deleteLater)
+        self.diary_worker.finished.connect(self.diary_thread.quit)
+        self.diary_thread.finished.connect(self.on_diary_thread_finished)
+        self.diary_thread.finished.connect(self.diary_thread.deleteLater)
+        self.diary_thread.start()
+
+    def on_diary_ready(self, text: str) -> None:
+        if not text or self.diary_day is None or self.diary_store is None:
+            return
+        try:
+            self.diary_entries = self.diary_store.add(DiaryEntry(self.diary_day, text, local_now()))
+        except OSError as exc:
+            logger.warning("Could not save the diary: %s", type(exc).__name__)
+            return
+        logger.info("Diary entry written for %s", self.diary_day)
+
+    def on_diary_thread_finished(self) -> None:
+        self.diary_thread = None
+        self.diary_worker = None
+
     def state_viewer_text(self) -> str:
         if self.companion_state is None:
             return "The companion's mood is turned off (COMPANION_STATE in Settings)."
@@ -969,7 +1088,12 @@ class CompanionWindow(QWidget):
 
     def show_memories(self) -> None:
         # Saving through the live store keeps subsequent recall and writes in sync.
-        dialog = MemoryDialog(MemoryBrowserModel(store=self.memory_store), self)
+        diary_on = self.diary_store is not None
+        dialog = MemoryDialog(
+            MemoryBrowserModel(store=self.memory_store), self,
+            diary=self.diary_entries if diary_on else None,
+            self_memories=self.self_memory_store.items if diary_on else None,
+        )
         dialog.exec()
         dialog.deleteLater()
 
@@ -1038,6 +1162,7 @@ class CompanionWindow(QWidget):
         turns = [dict(message) for message in self.messages[1:][-CONVERSATION_WINDOW:]]
         # Read before this message updates the last-contact time, so a long silence shows.
         state_context = self.state_context()
+        own_context = self.own_context(user_text)
         relevant_recall = self.config.memory_relevant_recall
         embed = self.memory_embedder
         memory_store = self.memory_store
@@ -1054,6 +1179,7 @@ class CompanionWindow(QWidget):
                 ),
                 summary=summary.text if summary else None,
                 state_context=state_context,
+                own_context=own_context,
             )
 
         return build_context if defer else build_context()
@@ -1303,6 +1429,8 @@ class CompanionWindow(QWidget):
                 self.start_memory_worker(self.pending_user_text, reply)
                 if getattr(self, "companion_state", None) is not None:
                     self.start_appraisal_worker(self.pending_user_text, reply)
+            if getattr(self, "self_memory_store", None) is not None:
+                self.start_self_memory_worker(self.pending_user_text, reply)
         self.render_reply()
         self.pending_user_text = ""
         self.stream_done = True
@@ -1506,11 +1634,12 @@ class CompanionWindow(QWidget):
         if self.proactive_timer is not None:
             self.proactive_timer.stop()
         self.proactive = None
-        appraisal_thread = getattr(self, "appraisal_thread", None)
-        if appraisal_thread is not None and appraisal_thread.isRunning():
-            # Results after closing are ignored; give the request a bounded moment to finish.
-            appraisal_thread.quit()
-            appraisal_thread.wait(2000)
+        for name in ("appraisal_thread", "self_memory_thread", "diary_thread"):
+            thread = getattr(self, name, None)
+            if thread is not None and thread.isRunning():
+                # Late results are ignored; give the request a bounded moment to finish.
+                thread.quit()
+                thread.wait(2000)
         # Ignore queued summary results once teardown begins.
         self.summary_snapshot = None
         if self.summary_thread is not None and self.summary_thread.isRunning():

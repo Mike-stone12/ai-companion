@@ -11,15 +11,20 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QPlainTextEdit,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
+from companion.core.diary import DiaryEntry
 from companion.core.memory.browser import MemoryBrowserModel
 
 
 class MemoryDialog(QDialog):
-    def __init__(self, model: MemoryBrowserModel, parent: QWidget | None = None) -> None:
+    def __init__(
+        self, model: MemoryBrowserModel, parent: QWidget | None = None, *,
+        diary: list[DiaryEntry] | None = None, self_memories: list[dict[str, str]] | None = None,
+    ) -> None:
         super().__init__(parent)
         self.model = model
         self.setWindowTitle("Memories")
@@ -35,7 +40,12 @@ class MemoryDialog(QDialog):
                 padding: 4px;
             }
         """)
-        layout = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        self.tabs = QTabWidget()
+        outer.addWidget(self.tabs, 1)
+        memories_page = QWidget()
+        layout = QVBoxLayout(memories_page)
+        self.tabs.addTab(memories_page, "Your memories")
         self.search = QLineEdit()
         self.search.setPlaceholderText("Search memories")
         self.search.setAccessibleName("Search memories")
@@ -57,9 +67,59 @@ class MemoryDialog(QDialog):
         buttons.accepted.connect(self.save)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+        if diary is not None:
+            self.tabs.addTab(self._diary_page(diary), "Her diary")
+        if self_memories is not None:
+            self.tabs.addTab(self._self_page(self_memories), "Her own memories")
         self.memories.currentItemChanged.connect(self._select_memory)
         self.search.textChanged.connect(self._refresh)
         self._refresh()
+
+    def _diary_page(self, entries: list[DiaryEntry]) -> QWidget:
+        """Read-only: newest entry first, full text below."""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        self.diary_list = QListWidget()
+        self.diary_list.setAccessibleName("Diary entries, newest first")
+        self.diary_text = QPlainTextEdit()
+        self.diary_text.setReadOnly(True)
+        self.diary_text.setAccessibleName("Selected diary entry")
+        for entry in sorted(entries, key=lambda item: item.day, reverse=True):
+            item = QListWidgetItem()
+            preview = entry.text if len(entry.text) <= 24 else entry.text[:23] + "…"
+            item.setData(Qt.ItemDataRole.DisplayRole, f"{entry.day:%Y-%m-%d}  {preview}")
+            item.setData(Qt.ItemDataRole.UserRole, entry.text)
+            self.diary_list.addItem(item)
+        self.diary_list.currentItemChanged.connect(
+            lambda current, _previous: self.diary_text.setPlainText(
+                current.data(Qt.ItemDataRole.UserRole) if current is not None else ""
+            )
+        )
+        layout.addWidget(self.diary_list, 1)
+        layout.addWidget(self.diary_text, 1)
+        if self.diary_list.count():
+            self.diary_list.setCurrentRow(0)
+        else:
+            layout.addWidget(self._label("No diary entries yet. She writes one for each day you talk, the day after."))
+        layout.addWidget(self._close_buttons())
+        return page
+
+    def _self_page(self, items: list[dict[str, str]]) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.addWidget(self._label("What she has said about herself and promised you, newest first."))
+        self.self_list = QListWidget()
+        self.self_list.setAccessibleName("The companion's own memories")
+        for memory in sorted(items, key=lambda item: item.get("updated_at", ""), reverse=True):
+            self.self_list.addItem(f"{memory['summary']}  [{memory.get('category', 'memory')}]")
+        layout.addWidget(self.self_list, 1)
+        layout.addWidget(self._close_buttons())
+        return page
+
+    def _close_buttons(self) -> QDialogButtonBox:
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(self.reject)
+        return buttons
 
     @staticmethod
     def _label(text: str) -> QLabel:
