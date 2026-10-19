@@ -15,6 +15,9 @@ character, and **Memories…** views, searches, and edits stored memory summarie
 | `OPENAI_API_KEY` | Provider API key; used only when the system keychain holds none (see below) | Required for chat |
 | `OPENAI_BASE_URL` | Chat API base URL (any OpenAI-compatible endpoint, e.g. `https://api.deepseek.com/v1`); must use https unless the host is loopback (local model servers) | `https://api.moonshot.ai/v1` |
 | `OPENAI_MODEL` | Model identifier | `kimi-k2.6` |
+| `VISION_MODEL` | Model that describes pictures you send. Empty means `deepseek-flash` on a DeepSeek endpoint (it reads images) and pictures off elsewhere. | Empty |
+| `VISION_BASE_URL` | Picture API base URL; empty uses the chat URL. Same https rule as the chat URL. | Empty |
+| `VISION_API_KEY` | Key for a picture provider other than the chat provider (environment or `.env`; or store it in Settings… > Pictures key). The chat key is reused only on the chat provider's host, a loopback server gets no key, and otherwise the Picture button stays hidden. Never read from `config.json`. | Empty |
 | `OPENAI_TIMEOUT` | Request timeout in seconds | `60` |
 | `OPENAI_RETRIES` | Request retry setting | `2` |
 | `CHAT_THINKING` | Let the model reason before chat replies (Moonshot and DeepSeek only). Off is faster and keeps replies short enough to speak. | `0` |
