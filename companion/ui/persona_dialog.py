@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
 )
 
 from companion.core.persona import CUSTOM_ID, FIELD_LIMITS, Persona, PersonaProvider
+from companion.core.schedule import format_schedule, parse_schedule
 
 FIELD_LABELS = {
     "name": "Companion's name",
@@ -35,6 +36,11 @@ FIRST_RUN_INTRO = (
     "with Persona… in the right-click menu."
 )
 EDIT_INTRO = "Describe who your companion is. Changes apply from the next reply."
+SCHEDULE_HELP = (
+    "One time block per line: HH:MM-HH:MM [kind] activity. Kinds: busy, drowsy, asleep "
+    "(leave it out for free time). Blocks may cross midnight. Asleep, the companion starts "
+    "nothing but reminders and still answers, sleepily."
+)
 
 
 class PersonaDialog(QDialog):
@@ -47,7 +53,7 @@ class PersonaDialog(QDialog):
         self.current = current
         self.base = current
         self.setWindowTitle("Persona")
-        self.resize(620, 560)
+        self.resize(640, 760)
         # The avatar window styles descendant editors for a dark background.
         self.setStyleSheet("""
             QLineEdit, QPlainTextEdit {
@@ -93,7 +99,23 @@ class PersonaDialog(QDialog):
             editor.setAccessibleName(label)
             self.editors[name] = editor
             form.addRow(self._label(label), editor)
+        self.schedule = QPlainTextEdit()
+        self.schedule.setObjectName("PERSONA_SCHEDULE")
+        self.schedule.setAccessibleName("Daily routine")
+        self.schedule.setTabChangesFocus(True)
+        self.schedule.setFixedHeight(130)
+        self.schedule.setToolTip(SCHEDULE_HELP)
+        form.addRow(self._label("Daily routine"), self.schedule)
+        help_label = self._label(SCHEDULE_HELP)
+        help_label.setWordWrap(True)
+        help_label.setStyleSheet("color: palette(mid); font-size: 11px;")
+        form.addRow("", help_label)
         layout.addLayout(form)
+        self.error = self._label("")
+        self.error.setWordWrap(True)
+        self.error.setStyleSheet("color: #c62828;")
+        self.error.hide()
+        layout.addWidget(self.error)
         self.fill(current)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
@@ -116,6 +138,7 @@ class PersonaDialog(QDialog):
                 editor.setText(value)
             else:
                 editor.setPlainText(value)
+        self.schedule.setPlainText(format_schedule(persona.schedule))
 
     def load_preset(self, _index: int = 0) -> None:
         persona_id = self.preset.currentData()
@@ -130,4 +153,13 @@ class PersonaDialog(QDialog):
             name: editor.text() if isinstance(editor, QLineEdit) else editor.toPlainText()
             for name, editor in self.editors.items()
         }
-        return self.base.with_fields(**values)
+        return self.base.with_fields(**values, schedule=parse_schedule(self.schedule.toPlainText()))
+
+    def accept(self) -> None:
+        try:
+            self.persona()
+        except ValueError as exc:
+            self.error.setText(str(exc))
+            self.error.show()
+            return
+        super().accept()

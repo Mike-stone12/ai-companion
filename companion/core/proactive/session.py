@@ -11,19 +11,26 @@ from .composer import compose_message
 from .engine import ProactiveContext, ProactiveEngine, ProactiveResult
 from .events import ACTIVE_APP
 from .policy import PolicyConfig, ProactivePolicy
-from .triggers import GreetingTrigger, IdleTrigger, ReminderTrigger, Trigger
+from .triggers import AwakeGate, GreetingTrigger, IdleTrigger, ReminderTrigger, Trigger
 
 
 def build_proactive_triggers(
     reminders: ReminderStore, idle: IdleTrigger, *, proactive_chat: bool, active_app_monitor: bool,
+    awake: Callable[[datetime], bool] | None = None,
 ) -> tuple[list[Trigger], ActiveAppTrigger | None]:
-    """Assemble session triggers without querying the OS or creating disabled monitors."""
+    """Assemble session triggers without querying the OS or creating disabled monitors.
+
+    With ``awake`` (from the daily schedule), everything except reminders waits
+    while the companion is asleep.
+    """
     if not proactive_chat:
         return [], None
-    triggers: list[Trigger] = [ReminderTrigger(reminders), GreetingTrigger(), idle]
+    def gate(trigger: Trigger) -> Trigger:
+        return AwakeGate(trigger, awake) if awake is not None else trigger
+    triggers: list[Trigger] = [ReminderTrigger(reminders), gate(GreetingTrigger()), gate(idle)]
     active_app = ActiveAppTrigger() if active_app_monitor else None
     if active_app is not None:
-        triggers.append(active_app)
+        triggers.append(gate(active_app))
     return triggers, active_app
 
 
@@ -31,11 +38,13 @@ class ProactiveSession:
     def __init__(
         self, reminders: ReminderStore, now: datetime, *,
         proactive_chat: bool = True, active_app_monitor: bool = False,
+        awake: Callable[[datetime], bool] | None = None,
     ):
         self.last_user_activity: datetime | None = None
         self.idle = IdleTrigger(timedelta(minutes=30), now)
         triggers, self.active_app = build_proactive_triggers(
             reminders, self.idle, proactive_chat=proactive_chat, active_app_monitor=active_app_monitor,
+            awake=awake,
         )
         policy = PolicyConfig()
         if self.active_app is not None:

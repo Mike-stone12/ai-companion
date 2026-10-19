@@ -104,3 +104,32 @@ def test_enabled_session_composes_active_app_streak():
     assert result.event.payload == {"app_name": "Editor", "minutes": 40}
     assert "Editor" in result.messages[0]["content"]
     assert "40 minutes" in result.messages[0]["content"]
+
+
+def test_asleep_companion_starts_nothing_but_reminders_and_greets_after_waking():
+    wake = NOW.replace(hour=7, minute=30)
+    early = NOW.replace(hour=6, minute=30)
+    store = ReminderStore(clock=lambda: early - timedelta(minutes=1))
+    session = ProactiveSession(store, early - timedelta(hours=2), awake=lambda now: now >= wake)
+    store.add("Take medicine", early)
+
+    assert session.tick(early, busy=False, input_has_text=False).event.kind == REMINDER
+    # Idle and greeting triggers are not even polled while asleep, so nothing is used up.
+    assert session.tick(early + timedelta(minutes=5), busy=False, input_has_text=False) is None
+    result = session.tick(wake, busy=False, input_has_text=False)
+    assert result.event.kind == GREETING
+    assert "morning" in result.messages[0]["content"]
+
+
+def test_asleep_gate_also_silences_active_app_comments():
+    from companion.core.proactive.triggers import AwakeGate
+
+    inner = Mock()
+    inner.poll.return_value = [Event(ACTIVE_APP, NOW, {"app_name": "Game", "minutes": 40})]
+    gate = AwakeGate(inner, lambda now: False)
+
+    assert gate.poll(NOW) == []
+    inner.poll.assert_not_called()
+    inner.record_sample = Mock()
+    gate.record_sample("Game", NOW)
+    inner.record_sample.assert_called_once_with("Game", NOW)

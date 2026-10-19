@@ -221,3 +221,24 @@ def test_summary_lines_for_the_state_viewer():
 
     assert lines == ["Mood: very happy (80%)", "Doing: reading", "Your last message: 5 minutes ago"]
     assert state_summary_lines(state(), NOW, HALF_LIFE)[-1] == "Your last message: none yet"
+
+
+@pytest.mark.parametrize(("availability", "phrase"), [
+    ("asleep", "woke you"),
+    ("drowsy", "sleepy"),
+    ("busy", "keep replies brief"),
+])
+def test_context_adds_a_hint_for_how_available_she_is(availability, phrase):
+    awake_state = CompanionState(Mood("happy", 0.9, NOW), NOW - timedelta(days=3), "x" * 80, availability)
+
+    text = render_state_context(awake_state, NOW, HALF_LIFE)
+
+    assert phrase in text
+    assert len(text) <= MAX_CONTEXT_CHARS
+
+
+def test_free_availability_adds_no_hint():
+    text = render_state_context(CompanionState(Mood("neutral", 0.0, NOW), None, "reading", "free"), NOW, HALF_LIFE)
+
+    assert "Right now you are reading." in text
+    assert "brief" not in text

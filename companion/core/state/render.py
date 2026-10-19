@@ -6,9 +6,16 @@ from datetime import datetime, timedelta
 
 from .mood import IDLE_THRESHOLD, MISS_AFTER, NEUTRAL, CompanionState, current_mood
 
-MAX_CONTEXT_CHARS = 300
+MAX_CONTEXT_CHARS = 400
 MAX_ACTIVITY_CHARS = 80
 HEADER = "Your current state (let it color your reply naturally; never report it like a status):"
+
+# How a message lands depending on the schedule; kept short so the whole context fits.
+AVAILABILITY_HINTS = {
+    "asleep": "You were asleep and this message woke you: reply groggily in a few words, then drift back to sleep.",
+    "drowsy": "It is late and you are sleepy: keep it short and let it show.",
+    "busy": "You are in the middle of something, so keep replies brief.",
+}
 
 ADJECTIVES = {
     "happy": "happy",
@@ -57,6 +64,9 @@ def render_state_context(state: CompanionState, now: datetime, half_life: timede
     activity = " ".join(state.activity.split())[:MAX_ACTIVITY_CHARS]
     if activity:
         parts.append(f"Right now you are {activity}.")
+    hint = AVAILABILITY_HINTS.get(state.availability)
+    if hint:
+        parts.append(hint)
     if state.last_user_message is None:
         parts.append("This is the first time you are talking with the user.")
     else:

@@ -183,3 +183,42 @@ def test_with_fields_returns_a_validated_copy():
 
 def test_with_fields_keeps_preset_id_when_nothing_changes():
     assert CHILDHOOD_FRIEND.with_fields(name=CHILDHOOD_FRIEND.name) == CHILDHOOD_FRIEND
+
+
+def test_default_persona_has_the_default_daily_routine():
+    from companion.core.schedule import DEFAULT_SCHEDULE
+
+    assert CHILDHOOD_FRIEND.schedule == DEFAULT_SCHEDULE
+
+
+def test_schedule_round_trips_through_dict_and_store(tmp_path):
+    from companion.core.schedule import parse_schedule
+
+    custom = CHILDHOOD_FRIEND.with_fields(schedule=parse_schedule("09:00-17:00 [busy] at work"))
+    data = custom.to_dict()
+
+    assert data["schedule"] == [{"start": "09:00", "end": "17:00", "activity": "at work", "kind": "busy"}]
+    assert Persona.from_dict(data) == custom
+    PersonaStore(tmp_path / "p.json").save(custom)
+    assert PersonaStore(tmp_path / "p.json").load() == custom
+
+
+def test_older_persona_files_without_a_schedule_get_the_default():
+    from companion.core.schedule import DEFAULT_SCHEDULE
+
+    assert Persona.from_dict({"id": "custom", "title": "Old"}).schedule == DEFAULT_SCHEDULE
+    assert Persona.from_dict({"id": "custom", "title": "None", "schedule": []}).schedule == ()
+
+
+def test_invalid_schedule_in_a_file_is_rejected():
+    with pytest.raises(ValueError):
+        Persona.from_dict({"id": "custom", "title": "Bad", "schedule": [{"start": "x"}]})
+
+
+def test_editing_only_the_schedule_makes_a_custom_persona():
+    edited = CHILDHOOD_FRIEND.with_fields(schedule=())
+
+    assert edited.id == "custom"
+    assert edited.schedule == ()
+    with pytest.raises(ValueError):
+        CHILDHOOD_FRIEND.with_fields(schedule="09:00-10:00 text")
