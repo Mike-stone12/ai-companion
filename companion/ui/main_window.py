@@ -112,6 +112,7 @@ from companion.core.state import (
 from companion.core.text import SentenceSplitter, sanitize_reply_text, sanitize_tts_text
 from companion.core.tools.builtin import build_builtin_registry
 from companion.core.tools.reminders import ReminderStore, local_now
+from companion.core.tts_provider import custom_voice
 from companion.core.vision import (
     ImageError,
     image_data_url,
@@ -1679,7 +1680,12 @@ class CompanionWindow(QWidget):
         logger.debug("TTS voice=%s rate=%s pitch=%s text=%s", voice, rate, pitch, text)
 
         self.tts_thread = QThread(self)
-        self.tts_worker = TTSWorker(text, voice, rate, pitch)
+        custom = custom_voice(
+            self.config.tts_provider, self.config.tts_base_url, self.config.tts_model, self.config.tts_voice,
+            self.config.base_url, self.config.api_key,
+        )
+        self.tts_worker = TTSWorker(text, voice, rate, pitch, custom)
+        self.tts_worker.fellBack.connect(self.on_voice_fallback)
         self.tts_worker.moveToThread(self.tts_thread)
 
         self.tts_thread.started.connect(self.tts_worker.run)
@@ -1707,6 +1713,12 @@ class CompanionWindow(QWidget):
         self.pending_clips[url] = audio_path
         self.audio_watchdog.start(AUDIO_WATCHDOG_MS)
         self.bridge.playAudio.emit(url)
+
+    def on_voice_fallback(self, reason: str) -> None:
+        # Say it once per session; every sentence after this falls back the same way.
+        if not getattr(self, "voice_fallback_noted", False):
+            self.voice_fallback_noted = True
+            self.chat_panel.add_notice(f"Custom voice unavailable, using the default voice. ({reason[:120]})")
 
     def on_tts_error(self, error_text: str) -> None:
         logger.warning("TTS failed, not speaking the rest of this reply: %s", error_text)

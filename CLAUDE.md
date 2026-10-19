@@ -57,7 +57,9 @@ companion/core/proactive/  events, policy, triggers (including active-app trigge
                            composer (app-note framing; replies stay in the persona's voice and
                            address the user), engine tick; opt-in via PROACTIVE_CHAT
 companion/core/tools/      function-calling tools, opt-in via CHAT_TOOLS
-companion/adapters/        Edge TTS (tts_edge.py; Chinese voice Xiaoyi with TTS_PITCH/TTS_RATE offsets), foreground-app adapter (active_app.py),
+companion/adapters/        Edge TTS (tts_edge.py; Chinese voice Xiaoyi with TTS_PITCH/TTS_RATE offsets),
+                           custom voice via OpenAI-compatible /audio/speech (tts_openai.py,
+                           chosen in core/tts_provider.py; falls back to Edge), foreground-app adapter (active_app.py),
                            Qt microphone capture (microphone.py), lazy Vosk recognizer (wake_word_vosk.py)
 companion/app/             workers.py (chat, transcription, TTS, memory, summary),
                            wake_word_worker.py (local wake recognition), logging_setup.py

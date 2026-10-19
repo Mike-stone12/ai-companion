@@ -58,6 +58,11 @@ EDITABLE_SETTINGS = (
     Setting("EDGE_TTS_VOICE_ZH", "str", "zh-CN-XiaoyiNeural", "Chinese voice"),
     Setting("TTS_PITCH", "str", "+10Hz", "Chinese voice pitch offset (e.g. +10Hz)"),
     Setting("TTS_RATE", "str", "+6%", "Chinese voice speed offset (e.g. +6%)"),
+    Setting("TTS_PROVIDER", "choice", "EDGE", "Voice provider (OPENAI = custom /audio/speech voice)",
+            choices=("EDGE", "OPENAI")),
+    Setting("TTS_BASE_URL", "str", "", "Custom voice API base URL (empty: same as chat)"),
+    Setting("TTS_MODEL", "str", "", "Custom voice model"),
+    Setting("TTS_VOICE", "str", "", "Custom voice name or ID (AI-generated or licensed voices only)"),
     Setting("EDGE_TTS_VOICE_EN", "str", "en-US-AriaNeural", "English voice"),
     Setting("MEMORY_ENABLED", "bool", True, "Memory extraction"),
     Setting("MEMORY_CONSOLIDATION", "bool", True, "Memory consolidation"),
@@ -128,6 +133,10 @@ def validate(name: str, value: SettingValue) -> SettingValue:
             if not valid_prosody(name, value):
                 example = "+10Hz" if name == "TTS_PITCH" else "+6%"
                 raise ValueError(f"{name} requires a signed offset such as {example}")
+        elif name in {"TTS_MODEL", "TTS_VOICE"}:
+            value = value.strip()
+        elif name == "TTS_BASE_URL" and not value.strip():
+            value = ""
         elif name == "OPENAI_MODEL":
             value = value.strip()
             if not value:
@@ -136,7 +145,7 @@ def validate(name: str, value: SettingValue) -> SettingValue:
             value = value.strip()
         elif name == "VISION_BASE_URL" and not value.strip():
             value = ""
-        elif name in {"OPENAI_BASE_URL", "VISION_BASE_URL"}:
+        elif name in {"OPENAI_BASE_URL", "VISION_BASE_URL", "TTS_BASE_URL"}:
             value = value.strip().rstrip("/")
             try:
                 parts = urlsplit(value)

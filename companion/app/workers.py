@@ -7,7 +7,7 @@ from dataclasses import replace
 
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
-from companion.adapters import tts_edge
+from companion.adapters import tts_edge, tts_openai
 from companion.core.chat.emotion import EmotionTagParser
 from companion.core.chat.history import ConversationSummary
 from companion.core.chat.summary import request_summary, update_conversation_summary
@@ -28,6 +28,7 @@ from companion.core.state import appraise
 from companion.core.text import SentenceSplitter
 from companion.core.tools.loop import run_tool_rounds
 from companion.core.tools.registry import ToolRegistry
+from companion.core.tts_provider import CustomVoice, rate_to_speed
 from companion.core.vision import describe_image
 from companion.core.voice_input_controller import VoiceInputController
 from companion.paths import MEMORY_PATH, SELF_MEMORY_PATH
@@ -168,16 +169,28 @@ class VisionWorker(QObject):
 class TTSWorker(QObject):
     finished = pyqtSignal(str)
     error = pyqtSignal(str)
+    # The custom voice failed and Edge TTS spoke instead; carries the (key-free) reason.
+    fellBack = pyqtSignal(str)
 
-    def __init__(self, text: str, voice: str, rate: str = "+0%", pitch: str = "+0Hz") -> None:
+    def __init__(
+        self, text: str, voice: str, rate: str = "+0%", pitch: str = "+0Hz", custom: CustomVoice | None = None,
+    ) -> None:
         super().__init__()
         self.text = text
         self.voice = voice
         self.rate = rate
         self.pitch = pitch
+        self.custom = custom
 
     @pyqtSlot()
     def run(self) -> None:
+        if self.custom is not None:
+            try:
+                self.finished.emit(tts_openai.synthesize_to_file(self.custom, self.text, rate_to_speed(self.rate)))
+                return
+            except Exception as exc:  # noqa: BLE001 - fall back to the default voice
+                logger.warning("Custom voice failed, using Edge TTS: %s", exc)
+                self.fellBack.emit(str(exc))
         try:
             audio_path = asyncio.run(
                 tts_edge.synthesize_to_file(self.text, self.voice, rate=self.rate, pitch=self.pitch)
