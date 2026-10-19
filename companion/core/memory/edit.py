@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import json
+import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 
-from companion.core.memory.store import clip_memory_text, utc_now_iso
+from companion.core.memory.store import MemoryStore, clip_memory_text, utc_now_iso
 
 
 @dataclass(frozen=True)
@@ -20,6 +23,45 @@ class MemoryRow:
 
 class DuplicateMemoryError(ValueError):
     """The edited summary exactly matches another entry's summary."""
+
+
+def load_memory_entries(path: Path) -> list[dict[str, str]]:
+    """Read complete stored entries without cleanup, clipping, or a store limit."""
+    entries = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(entries, list) or any(
+        not isinstance(entry, dict) or not isinstance(entry.get("summary"), str) for entry in entries
+    ):
+        raise ValueError("expected a JSON list of memory objects with string summaries")
+    return entries
+
+
+def save_memory_edits(
+    path: Path, entries: list[dict[str, str]], *, store: MemoryStore | None = None,
+) -> Path:
+    """Back up the original file, then atomically save all validated entries.
+
+    Bypass load's cleanup and the usual store limit to preserve raw metadata and
+    stored indices. Restore an injected store's state if persistence fails.
+    """
+    if store is None:
+        store = MemoryStore(path, limit=len(entries))
+    backup = path.with_name("memory.json.bak")
+    old_items, old_limit = store.items, store.limit
+    try:
+        shutil.copyfile(path, backup)
+        store.items = entries
+        store.limit = len(entries)
+        store.save()
+    except Exception:
+        store.items, store.limit = old_items, old_limit
+        raise
+    store.limit = old_limit
+    return backup
+
+
+def filter_memory_rows(rows: list[MemoryRow], query: str) -> list[MemoryRow]:
+    """Match summaries by case-insensitive substring, retaining display order."""
+    return [row for row in rows if query.casefold() in row.summary.casefold()]
 
 
 def memory_rows(entries: list[dict[str, str]]) -> list[MemoryRow]:
