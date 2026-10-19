@@ -30,10 +30,8 @@ class AppConfig:
     voice: str = _values.get("EDGE_TTS_VOICE", "zh-CN-XiaoxiaoNeural")
     voice_zh: str = _values.get("EDGE_TTS_VOICE_ZH", _values.get("EDGE_TTS_VOICE", "zh-CN-XiaoxiaoNeural"))
     voice_en: str = _values.get("EDGE_TTS_VOICE_EN", "en-US-AriaNeural")
-    system_prompt: str = _values.get(
-        "COMPANION_SYSTEM_PROMPT",
-        "You are a friendly Live2D desktop companion. Reply briefly, warmly, and in spoken language.",
-    )
+    # Optional expert override; empty uses the active persona (companion/core/persona.py).
+    system_prompt: str = _values.get("COMPANION_SYSTEM_PROMPT", "").strip()
     request_timeout: int = int(_values.get("OPENAI_TIMEOUT", "60"))
     request_retries: int = int(_values.get("OPENAI_RETRIES", "2"))
     memory_enabled: bool = _values.get("MEMORY_ENABLED", "1").strip() not in {"0", "false", "False"}
