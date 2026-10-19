@@ -144,11 +144,11 @@ def test_policy_can_override_active_app_cooldown():
     assert policy.allow(event, last_user_activity=None, busy=False) == (True, "ok")
 
 
-def test_composer_mentions_app_duration_and_break_and_ignores_extra_payload():
+def test_composer_mentions_app_duration_and_caring_remark_and_ignores_extra_payload():
     event = Event(ACTIVE_APP, NOW, {"app_name": "Game", "minutes": 40})
     expected = (
-        "The user has kept Game active for 40 minutes; "
-        "give a short, friendly check-in and gently suggest a break."
+        "The user has had Game in the foreground for about 40 minutes; "
+        "offer one brief, caring, non-nagging remark."
     )
     assert compose(event) == expected
     assert compose_message(event) == {"role": "user", "content": expected}

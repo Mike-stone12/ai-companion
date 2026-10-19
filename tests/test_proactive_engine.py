@@ -5,9 +5,11 @@ import pytest
 
 from companion.core.proactive.composer import compose_message
 from companion.core.proactive.engine import ProactiveContext, ProactiveEngine
-from companion.core.proactive.events import GREETING, IDLE, REMINDER, Event
+from companion.core.proactive.events import ACTIVE_APP, GREETING, IDLE, REMINDER, Event
 from companion.core.proactive.policy import PolicyConfig, ProactivePolicy
+from companion.core.proactive.session import ProactiveSession
 from companion.core.proactive.triggers import IdleTrigger, Trigger
+from companion.core.tools.reminders import ReminderStore
 
 NOW = datetime(2026, 10, 18, 9, tzinfo=UTC)
 CONTEXT = ProactiveContext(last_user_activity=None, busy=False)
@@ -143,3 +145,19 @@ def test_composition_failure_is_not_recorded_as_fired():
         engine.tick(NOW, CONTEXT)
 
     policy.record_fired.assert_not_called()
+
+
+@pytest.mark.parametrize("busy, input_has_text", [(True, False), (False, True), (True, True)])
+def test_active_app_is_blocked_during_reply_or_typing(busy, input_has_text):
+    event = Event(ACTIVE_APP, NOW, {"app_name": "Game", "minutes": 40})
+    policy = Mock(wraps=ProactivePolicy(PolicyConfig(enabled_kinds=frozenset({ACTIVE_APP}))))
+    composer = Mock(wraps=compose_message)
+    session = ProactiveSession(ReminderStore(clock=lambda: NOW), NOW)
+    session.engine = ProactiveEngine([source(event)], policy, composer)
+
+    assert session.tick(NOW, busy=busy, input_has_text=input_has_text) is None
+    composer.assert_not_called()
+    policy.record_fired.assert_not_called()
+    result = session.tick(NOW, busy=False, input_has_text=False)
+    assert result.event == event
+    assert result.messages == [compose_message(event)]

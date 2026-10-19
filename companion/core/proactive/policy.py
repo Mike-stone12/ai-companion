@@ -6,6 +6,8 @@ from datetime import datetime, time, timedelta
 
 from .events import ACTIVE_APP, GREETING, IDLE, REMINDER, Event
 
+DEFAULT_ACTIVE_APP_COOLDOWN = timedelta(minutes=60)
+
 
 @dataclass(frozen=True)
 class PolicyConfig:
@@ -50,7 +52,7 @@ class ProactivePolicy:
 
         last_fired = self._last_fired.get(event.kind)
         # Active-app monitoring remains opt-in, with a default when enabled.
-        default_cooldown = timedelta(minutes=60) if event.kind == ACTIVE_APP else timedelta(0)
+        default_cooldown = DEFAULT_ACTIVE_APP_COOLDOWN if event.kind == ACTIVE_APP else timedelta(0)
         cooldown = self.config.cooldowns.get(event.kind, default_cooldown)
         if last_fired is not None and event.at - last_fired < cooldown:
             return False, "cooldown"

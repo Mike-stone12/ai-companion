@@ -3,7 +3,7 @@ from datetime import datetime, time, timedelta
 
 import pytest
 
-from companion.core.proactive import GREETING, IDLE, REMINDER, Event, PolicyConfig, ProactivePolicy
+from companion.core.proactive import ACTIVE_APP, GREETING, IDLE, REMINDER, Event, PolicyConfig, ProactivePolicy
 
 AT = datetime(2026, 10, 18, 12)
 
@@ -164,3 +164,41 @@ def test_allow_does_not_mutate_state():
     assert policy.allow(boundary, last_user_activity=None, busy=False) == (True, "ok")
     other_policy = ProactivePolicy(PolicyConfig())
     assert other_policy.allow(event, last_user_activity=None, busy=False) == (True, "ok")
+
+
+@pytest.mark.parametrize("first, second", [(IDLE, ACTIVE_APP), (ACTIVE_APP, IDLE)])
+def test_active_app_and_idle_cooldowns_are_independent(first, second):
+    policy = ProactivePolicy(PolicyConfig(enabled_kinds=frozenset({IDLE, ACTIVE_APP})))
+    policy.record_fired(Event(first, AT))
+    later = AT + timedelta(minutes=1)
+    assert policy.allow(Event(second, later), last_user_activity=None, busy=False) == (True, "ok")
+    policy.record_fired(Event(second, later))
+    for kind in (first, second):
+        assert policy.allow(Event(kind, later), last_user_activity=None, busy=False) == (False, "cooldown")
+
+
+@pytest.mark.parametrize(
+    "busy, elapsed, expected",
+    [
+        (True, None, (False, "busy")),
+        (False, timedelta(seconds=119), (False, "user_active")),
+        (False, timedelta(minutes=2), (True, "ok")),
+        (False, None, (True, "ok")),
+    ],
+)
+def test_active_app_busy_and_grace_rules_match_idle(busy, elapsed, expected):
+    policy = ProactivePolicy(PolicyConfig(enabled_kinds=frozenset({IDLE, ACTIVE_APP})))
+    activity = AT - elapsed if elapsed is not None else None
+    for kind in (IDLE, ACTIVE_APP):
+        assert policy.allow(Event(kind, AT), last_user_activity=activity, busy=busy) == expected
+
+
+@pytest.mark.parametrize(
+    "hour, expected", [(23, (False, "quiet_hours")), (6, (False, "quiet_hours")), (7, (True, "ok"))],
+)
+def test_active_app_quiet_hours_match_idle(hour, expected):
+    policy = ProactivePolicy(PolicyConfig(
+        enabled_kinds=frozenset({IDLE, ACTIVE_APP}), quiet_start=time(23), quiet_end=time(7),
+    ))
+    for kind in (IDLE, ACTIVE_APP):
+        assert policy.allow(Event(kind, AT.replace(hour=hour)), last_user_activity=None, busy=False) == expected

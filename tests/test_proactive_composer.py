@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from companion.core.proactive.composer import MAX_REMINDER_TEXT_LENGTH, compose, compose_message
-from companion.core.proactive.events import GREETING, IDLE, REMINDER, Event
+from companion.core.proactive.events import ACTIVE_APP, GREETING, IDLE, REMINDER, Event
 from companion.core.proactive.triggers import GreetingTrigger, IdleTrigger, ReminderTrigger
 from companion.core.tools.reminders import ReminderStore
 
@@ -36,7 +36,8 @@ def test_greeting_uses_payload_part_of_day(part):
 
 @pytest.mark.parametrize(
     ("kind", "payload"),
-    [(IDLE, {}), (GREETING, {"part_of_day": "morning"}), (REMINDER, {"text": "Drink water"})],
+    [(IDLE, {}), (GREETING, {"part_of_day": "morning"}), (REMINDER, {"text": "Drink water"}),
+     (ACTIVE_APP, {"app_name": "Game", "minutes": 40})],
 )
 def test_extra_payload_fields_are_ignored_without_mutating_event(kind, payload):
     extra = {
@@ -44,6 +45,7 @@ def test_extra_payload_fields_are_ignored_without_mutating_event(kind, payload):
         "processes": ["SECRET_PROCESS"],
         "arbitrary": {"private": "SECRET_VALUE"},
         "due_at": "SECRET_TIMESTAMP",
+        "window_title": "SECRET_WINDOW_TITLE",
     }
     event = Event(kind, NOW, extra.copy())
     assert compose(event) == compose(Event(kind, NOW, payload))
@@ -103,3 +105,30 @@ def test_message_helper(kind, payload):
 def test_message_helper_propagates_validation_error():
     with pytest.raises(ValueError, match="text"):
         compose_message(Event(REMINDER, NOW))
+
+
+@pytest.mark.parametrize(
+    "app_name, sanitized",
+    [
+        ("Game\r\n\t\x00\x1b\x7f\x85\u2028\u2029\u202eApp", "GameApp"),
+        ("x" * 60, "x" * 60),
+        ("x" * 61, "x" * 60),
+        ("x" * 1000 + "INJECTED_SUFFIX", "x" * 60),
+        ("  Éditeur 游戏  ", "Éditeur 游戏"),
+    ],
+)
+def test_active_app_name_is_sanitized_and_capped(app_name, sanitized):
+    event = Event(ACTIVE_APP, NOW, {"app_name": app_name, "minutes": 40})
+    assert compose_message(event) == {
+        "role": "user",
+        "content": (
+            f"The user has had {sanitized} in the foreground for about 40 minutes; "
+            "offer one brief, caring, non-nagging remark."
+        ),
+    }
+    assert event.payload["app_name"] == app_name
+
+
+def test_active_app_name_with_only_controls_is_rejected():
+    with pytest.raises(ValueError, match="app_name"):
+        compose(Event(ACTIVE_APP, NOW, {"app_name": "\x00\x1b\u202e", "minutes": 40}))
