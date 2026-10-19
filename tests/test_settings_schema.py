@@ -12,6 +12,7 @@ CONFIG_FIELDS = {
     "CHAT_TOOLS": "chat_tools",
     "VOICE_INPUT": "voice_input",
     "TRANSCRIPTION_MODEL": "transcription_model",
+    "WAKE_WORD": "wake_word",
     "PROACTIVE_CHAT": "proactive_chat",
     "ACTIVE_APP_MONITOR": "active_app_monitor",
     "EDGE_TTS_VOICE_ZH": "voice_zh",
@@ -44,7 +45,7 @@ def test_schema_covers_safe_settings_and_builtin_defaults():
 
     schema = {entry.name: entry for entry in EDITABLE_SETTINGS}
     assert len(schema) == len(EDITABLE_SETTINGS)
-    assert schema.keys() >= CONFIG_FIELDS.keys() | {"LOG_LEVEL", "LIVE2D_MODEL"}
+    assert schema.keys() >= CONFIG_FIELDS.keys() | {"LOG_LEVEL", "LIVE2D_MODEL", "WAKE_WORD_PHRASES"}
     assert schema.keys() <= SETTING_NAMES
     assert "COMPANION_DATA_DIR" not in schema
     assert "OPENAI_BASE_URL" not in schema
@@ -62,6 +63,10 @@ def test_schema_covers_safe_settings_and_builtin_defaults():
     assert schema["MEMORY_LIMIT"].kind == "int"
     assert schema["MEMORY_LIMIT"].minimum == 1
     assert schema["LIVE2D_MODEL"].default == DEFAULT_MODEL
+    assert schema["WAKE_WORD"].kind == "bool"
+    assert schema["WAKE_WORD_PHRASES"].kind == "str"
+    assert schema["WAKE_WORD_PHRASES"].default == ""
+    assert config.wake_word_phrases == ()
 
 
 @pytest.mark.parametrize("name, value, expected", [
@@ -70,6 +75,11 @@ def test_schema_covers_safe_settings_and_builtin_defaults():
     ("VOICE_INPUT", False, False),
     ("TRANSCRIPTION_MODEL", " transcription-model ", "transcription-model"),
     ("TRANSCRIPTION_MODEL", " \t ", ""),
+    ("WAKE_WORD", True, True),
+    ("WAKE_WORD", False, False),
+    ("WAKE_WORD_PHRASES", " 小鲸,hey whale ", "小鲸,hey whale"),
+    ("WAKE_WORD_PHRASES", "", ""),
+    ("WAKE_WORD_PHRASES", " \t ", ""),
     ("ACTIVE_APP_MONITOR", True, True),
     ("ACTIVE_APP_MONITOR", False, False),
     ("MEMORY_ENABLED", False, False),
@@ -105,6 +115,7 @@ def test_validate_rejects_uneditable_names(name):
     ("CHAT_THINKING", "true"), ("CHAT_TOOLS", 1), ("PROACTIVE_CHAT", 0.0),
     ("ACTIVE_APP_MONITOR", "true"),
     ("VOICE_INPUT", "true"), ("VOICE_INPUT", 1), ("TRANSCRIPTION_MODEL", False),
+    ("WAKE_WORD", "true"), ("WAKE_WORD", 1), ("WAKE_WORD_PHRASES", False),
     ("MEMORY_ENABLED", None), ("MEMORY_LIMIT", True), ("MEMORY_LIMIT", "24"),
     ("MEMORY_LIMIT", 2.5), ("MEMORY_LIMIT", 0), ("MEMORY_LIMIT", -1),
     ("MEMORY_LIMIT", float("nan")), ("MEMORY_LIMIT", float("inf")),
@@ -193,6 +204,7 @@ def test_saved_settings_round_trip_through_existing_loader(tmp_path):
     updates = {
         "CHAT_THINKING": True, "CHAT_TOOLS": True, "PROACTIVE_CHAT": True,
         "VOICE_INPUT": True, "TRANSCRIPTION_MODEL": " transcription-model ",
+        "WAKE_WORD": True, "WAKE_WORD_PHRASES": " 小鲸，hey whale,小鲸 ",
         "ACTIVE_APP_MONITOR": True,
         "LOG_LEVEL": " warning ", "EDGE_TTS_VOICE_ZH": "custom-zh", "EDGE_TTS_VOICE_EN": "custom-en",
         "MEMORY_ENABLED": False, "MEMORY_CONSOLIDATION": False, "MEMORY_RELEVANT_RECALL": False,
@@ -208,4 +220,6 @@ def test_saved_settings_round_trip_through_existing_loader(tmp_path):
         if name in CONFIG_FIELDS:
             assert getattr(config, CONFIG_FIELDS[name]) == normalized
     assert config.live2d_model == "hiyori"
+    assert config.wake_word_phrases == ("小鲸", "hey whale")
+    assert config.wake_word_usable is True
     assert values["LOG_LEVEL"] == "WARNING"

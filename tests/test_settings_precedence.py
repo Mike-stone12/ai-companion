@@ -43,6 +43,9 @@ def test_defaults_only(config_path):
     assert config.voice_input is False
     assert config.transcription_model == ""
     assert config.voice_input_usable is False
+    assert config.wake_word is False
+    assert config.wake_word_phrases == ()
+    assert config.wake_word_usable is False
     assert config.voice_zh == "zh-CN-XiaoxiaoNeural"
     assert not config_path.exists()
 
@@ -129,6 +132,65 @@ def test_voice_input_usable_requires_flag_and_model(config_path, enabled, model)
     config = type(build_config())(voice_input=enabled, transcription_model=model)
     before = asdict(config)
     assert config.voice_input_usable is (enabled and bool(model.strip()))
+    assert asdict(config) == before
+
+
+@pytest.mark.parametrize("value, expected", [
+    ("1", True), ("true", True), (" YES ", True), ("On", True),
+    ("0", False), ("false", False), (" NO ", False), ("Off", False),
+    ("", False), ("  ", False), ("unknown", False),
+])
+def test_wake_word_environment_flag(config_path, monkeypatch, value, expected):
+    monkeypatch.setenv("WAKE_WORD", value)
+    monkeypatch.setenv("WAKE_WORD_PHRASES", " 小鲸,hey whale ")
+    config = build_config()
+    assert config.wake_word is expected
+    assert config.wake_word_phrases == ("小鲸", "hey whale")
+    assert config.wake_word_usable is expected
+
+
+@pytest.mark.parametrize("phrases, expected", [
+    ("", ()),
+    (" \t\n ", ()),
+    (" , ，, \t ", ()),
+    (" 小鲸 ， hey whale,,小鲸， ，hey whale, hello ", ("小鲸", "hey whale", "hello")),
+])
+def test_wake_word_phrase_parsing(config_path, monkeypatch, phrases, expected):
+    monkeypatch.setenv("WAKE_WORD", "1")
+    monkeypatch.setenv("WAKE_WORD_PHRASES", phrases)
+    config = build_config()
+    assert config.wake_word is True
+    assert config.wake_word_phrases == expected
+    assert config.wake_word_usable is bool(expected)
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+def test_wake_word_json_and_environment_precedence(config_path, monkeypatch, enabled):
+    write_config(config_path, {"WAKE_WORD": enabled, "WAKE_WORD_PHRASES": " 小鲸，hey whale,小鲸 "})
+    before = config_path.read_bytes()
+    config = build_config()
+    assert config.wake_word is enabled
+    assert config.wake_word_phrases == ("小鲸", "hey whale")
+    assert config.wake_word_usable is enabled
+    monkeypatch.setenv("WAKE_WORD", "false" if enabled else "true")
+    monkeypatch.setenv("WAKE_WORD_PHRASES", " env phrase ")
+    config = build_config()
+    assert config.wake_word is (not enabled)
+    assert config.wake_word_phrases == ("env phrase",)
+    assert config.wake_word_usable is (not enabled)
+    monkeypatch.setenv("WAKE_WORD_PHRASES", "  ")
+    config = build_config()
+    assert config.wake_word_phrases == ()
+    assert config.wake_word_usable is False
+    assert config_path.read_bytes() == before
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+@pytest.mark.parametrize("phrases", [(), ("",), (" \t\n ",), ("", "hey whale")])
+def test_wake_word_usable_requires_flag_and_phrases(config_path, enabled, phrases):
+    config = type(build_config())(wake_word=enabled, wake_word_phrases=phrases)
+    before = asdict(config)
+    assert config.wake_word_usable is (enabled and any(phrase.strip() for phrase in phrases))
     assert asdict(config) == before
 
 

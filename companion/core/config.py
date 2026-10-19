@@ -17,6 +17,11 @@ def env_flag(name: str, default: bool, values: Mapping[str, str] | None = None) 
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _parse_wake_word_phrases(raw: str) -> tuple[str, ...]:
+    phrases = (phrase.strip() for phrase in raw.replace("，", ",").split(","))
+    return tuple(dict.fromkeys(phrase for phrase in phrases if phrase))
+
+
 @dataclass(slots=True)
 class AppConfig:
     base_url: str = _values.get("OPENAI_BASE_URL") or _values.get("MOONSHOT_BASE_URL", "https://api.moonshot.ai/v1")
@@ -43,6 +48,8 @@ class AppConfig:
     voice_input: bool = env_flag("VOICE_INPUT", default=False, values=_values)
     # Require an explicit model before voice input can be used.
     transcription_model: str = _values.get("TRANSCRIPTION_MODEL", "").strip()
+    wake_word: bool = env_flag("WAKE_WORD", default=False, values=_values)
+    wake_word_phrases: tuple[str, ...] = _parse_wake_word_phrases(_values.get("WAKE_WORD_PHRASES", ""))
     proactive_chat: bool = env_flag("PROACTIVE_CHAT", default=False, values=_values)
     active_app_monitor: bool = env_flag("ACTIVE_APP_MONITOR", default=False, values=_values)
     live2d_model: str = _values.get("LIVE2D_MODEL", "").strip()
@@ -51,6 +58,11 @@ class AppConfig:
     def voice_input_usable(self) -> bool:
         """Whether push-to-talk is opted into with a configured model."""
         return self.voice_input and bool(self.transcription_model.strip())
+
+    @property
+    def wake_word_usable(self) -> bool:
+        """Whether wake word is opted into with at least one configured phrase."""
+        return self.wake_word and any(phrase.strip() for phrase in self.wake_word_phrases)
 
     def __post_init__(self) -> None:
         self.embedding_model = self.embedding_model.strip()
