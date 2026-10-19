@@ -32,6 +32,8 @@ class MemoryBrowserModel:
     edits raise ValueError, remove earlier pending edits for that index, and
     block saving until corrected or discarded. I/O errors propagate and retain
     pending edits. Supply either a data directory or an already loaded store.
+    With an injected store, rows and indices reflect its loaded (normalized and
+    limited) items. Saving refuses to overwrite subsequent store changes.
     """
 
     def __init__(
@@ -45,6 +47,7 @@ class MemoryBrowserModel:
         if store is not None:
             self.path = store.path
             self._entries = [dict(entry) for entry in store.items]
+            self._baseline = [dict(entry) for entry in store.items]
         else:
             self.path = Path(data_dir) / "memory.json"
             try:
@@ -114,6 +117,8 @@ class MemoryBrowserModel:
             raise ValueError("Cannot save memories while validation errors exist")
         if not self._pending:
             return "No changes to save."
+        if self._store is not None and [dict(entry) for entry in self._store.items] != self._baseline:
+            raise ValueError("Memories changed since they were loaded; reload before saving")
         entries = self._pending_entries()
         for index, summary in self._pending.items():
             # Restore only the target's original value for change detection;
@@ -123,6 +128,7 @@ class MemoryBrowserModel:
         backup = save_memory_edits(self.path, entries, store=self._store)
         count = len(self._pending)
         self._entries = [dict(entry) for entry in entries]
+        self._baseline = [dict(entry) for entry in entries]
         self.discard()
         noun = "memory" if count == 1 else "memories"
         return f"Saved {count} {noun}. Backup: {backup}"

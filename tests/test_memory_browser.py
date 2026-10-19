@@ -219,6 +219,38 @@ def test_injected_store_is_not_mutated_until_save(path):
     assert store.items[0]["updated_at"] == NOW
 
 
+def test_injected_store_changed_since_load_refuses_save(path):
+    store = MemoryStore(path)
+    model = MemoryBrowserModel(store=store, now=lambda: NOW)
+    model.stage_edit(1, "Changed")
+    store.items.append({"summary": "Added elsewhere", "updated_at": NOW})
+    before = snapshot(path.parent)
+    original = path.read_bytes()
+
+    with pytest.raises(ValueError, match="Memories changed since they were loaded; reload before saving"):
+        model.save()
+
+    assert path.read_bytes() == original
+    assert snapshot(path.parent) == before
+    assert model.has_pending_changes
+    assert store.items[-1]["summary"] == "Added elsewhere"
+
+
+def test_injected_store_baseline_is_refreshed_after_save(path):
+    store = MemoryStore(path)
+    model = MemoryBrowserModel(store=store, now=lambda: NOW)
+    model.stage_edit(1, "First correction")
+    model.save()
+    first_save = path.read_bytes()
+
+    model.stage_edit(1, "Second correction")
+    model.save()
+
+    assert store.items[0]["summary"] == "Second correction"
+    assert path.with_name("memory.json.bak").read_bytes() == first_save
+    assert not model.has_pending_changes
+
+
 def test_missing_file_is_empty_and_readonly(tmp_path):
     data_dir = tmp_path / "absent"
     model = MemoryBrowserModel(data_dir)
