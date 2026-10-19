@@ -129,6 +129,8 @@ Recall depends on extraction and the configured model; this is a manual walkthro
 
 ## Configuration
 
+The right-click menu has a **Settings…** entry that edits the same `config.json` settings.
+
 | Variable | Purpose | Default |
 | --- | --- | --- |
 | `OPENAI_API_KEY` | Provider API key | Required for chat |
