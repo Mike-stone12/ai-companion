@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 from companion.core import settings_file
 from companion.core.model_profile import DEFAULT_MODEL
 from companion.core.settings_values import SECRET_MARKERS
+from companion.core.url_security import is_plaintext_remote_url
 
 SettingValue = bool | int | float | str
 
@@ -106,9 +107,17 @@ def validate(name: str, value: SettingValue) -> SettingValue:
                 raise ValueError(f"{name} requires a model name")
         elif name == "OPENAI_BASE_URL":
             value = value.strip().rstrip("/")
-            parts = urlsplit(value)
+            try:
+                parts = urlsplit(value)
+                plaintext_remote = is_plaintext_remote_url(value)
+            except ValueError as exc:
+                raise ValueError(f"{name} requires an http(s) URL") from exc
             if parts.scheme not in {"http", "https"} or not parts.netloc or any(char.isspace() for char in value):
                 raise ValueError(f"{name} requires an http(s) URL")
+            if plaintext_remote:
+                raise ValueError(
+                    f"{name} must use https unless the host is loopback (localhost, 127.0.0.0/8, ::1)"
+                )
     return value
 
 

@@ -6,10 +6,12 @@ import time
 import urllib.error
 import urllib.request
 from collections.abc import Iterator
+from urllib.parse import urlsplit
 
 from companion.core.config import AppConfig
 from companion.core.llm.sse import iter_chat_chunks, iter_content_deltas
 from companion.core.text import sanitize_reply_text
+from companion.core.url_security import is_plaintext_remote_url
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,8 @@ STREAM_FIRST_CONTENT_TIMEOUT_S = 30
 STREAM_IDLE_TIMEOUT_S = 30
 THINKING_TOGGLE_PROVIDERS = ("moonshot", "deepseek")
 THINKING_DISABLED = {"thinking": {"type": "disabled"}}
+# Base URLs already warned about, so per-task clients do not repeat the warning.
+_warned_plaintext_urls: set[str] = set()
 
 
 def supports_thinking_toggle(base_url: str) -> bool:
@@ -36,9 +40,26 @@ def chat_request_options(config: AppConfig) -> dict:
     return {}
 
 
+def warn_if_plaintext_remote(base_url: str) -> None:
+    # The settings schema rejects these, but environment variables and hand-edited config.json
+    # bypass it. The chat, embeddings and transcription requests all send the API key here.
+    try:
+        insecure = is_plaintext_remote_url(base_url)
+    except ValueError:
+        return
+    if insecure and base_url not in _warned_plaintext_urls:
+        _warned_plaintext_urls.add(base_url)
+        logger.warning(
+            "Chat API base URL uses plain http to non-loopback host %s; the API key is sent "
+            "unencrypted. Use https.",
+            urlsplit(base_url).hostname,
+        )
+
+
 class OpenAICompatibleClient:
     def __init__(self, config: AppConfig) -> None:
         self.config = config
+        warn_if_plaintext_remote(config.base_url)
 
     def chat(self, messages: list[dict[str, str]]) -> str:
         if not self.config.api_key:

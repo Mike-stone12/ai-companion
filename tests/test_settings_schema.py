@@ -253,6 +253,72 @@ def test_chat_base_url_must_be_an_http_url(value):
         validate("OPENAI_BASE_URL", value)
 
 
+@pytest.mark.parametrize("value", [
+    "http://localhost:11434/v1",
+    "http://LOCALHOST:1234/v1",
+    "http://127.0.0.1:1234/v1",
+    "http://127.8.9.10/v1",
+    "http://[::1]:8080/v1",
+    "https://api.deepseek.com/v1",
+    "https://192.168.1.5:8443/v1",
+])
+def test_chat_base_url_allows_https_and_loopback_http(value):
+    from companion.core.settings_schema import validate
+
+    assert validate("OPENAI_BASE_URL", value) == value
+
+
+@pytest.mark.parametrize("value", [
+    "http://api.deepseek.com/v1",
+    "HTTP://api.deepseek.com/v1",
+    "http://192.168.1.5:11434/v1",
+    "http://0.0.0.0:11434/v1",
+    "http://localhost.example.com/v1",
+    "http://127.0.0.1.nip.io/v1",
+    "http://localhost@api.example.com/v1",
+    "http://[fe80::1]/v1",
+])
+def test_chat_base_url_rejects_plain_http_to_remote_hosts(value):
+    from companion.core.settings_schema import validate
+
+    with pytest.raises(ValueError, match="OPENAI_BASE_URL") as excinfo:
+        validate("OPENAI_BASE_URL", value)
+    assert "https" in str(excinfo.value)
+    assert value not in str(excinfo.value)
+
+
+@pytest.mark.parametrize("value", ["http://[::1/v1", "http://[not-an-ip]/v1"])
+def test_chat_base_url_with_malformed_host_is_rejected_by_name(value):
+    from companion.core.settings_schema import validate
+
+    with pytest.raises(ValueError, match="OPENAI_BASE_URL"):
+        validate("OPENAI_BASE_URL", value)
+
+
+@pytest.mark.parametrize("base_url, warned", [
+    ("http://api.example.com/v1", True),
+    ("http://user:pass@api.example.com/v1", True),
+    ("http://localhost:11434/v1", False),
+    ("https://api.example.com/v1", False),
+])
+def test_client_warns_once_for_plain_http_remote_base_url(base_url, warned, monkeypatch, caplog):
+    from companion.core.config import AppConfig
+    from companion.core.llm import client as llm_client
+
+    monkeypatch.setattr(llm_client, "_warned_plaintext_urls", set())
+    config = AppConfig(base_url=base_url, api_key="key")
+    with caplog.at_level("WARNING", logger=llm_client.__name__):
+        llm_client.OpenAICompatibleClient(config)
+        llm_client.OpenAICompatibleClient(config)
+    warnings = [record for record in caplog.records if record.levelname == "WARNING"]
+    assert len(warnings) == (1 if warned else 0)
+    if warned:
+        message = warnings[0].getMessage()
+        assert "api.example.com" in message
+        assert "pass" not in message
+        assert "key" not in message.replace("API key", "")
+
+
 def test_chat_model_is_stripped_and_required():
     from companion.core.settings_schema import validate
 
