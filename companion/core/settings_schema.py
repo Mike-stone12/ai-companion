@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
@@ -90,6 +91,21 @@ def validate(name: str, value: SettingValue) -> SettingValue:
         elif name in {"EMBEDDING_MODEL", "LIVE2D_MODEL"}:
             value = value.strip()
     return value
+
+
+def parse_value(name: str, raw: SettingValue) -> SettingValue:
+    """Parse editor text (JSON for typed settings), then validate via the schema.
+
+    Typed widget values are also accepted. Invalid text is passed to validate
+    so errors describe the required type without echoing the input.
+    """
+    setting = _SETTINGS_BY_NAME.get(name) if isinstance(name, str) else None
+    if setting is not None and setting.kind in {"bool", "int", "float"} and isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            pass
+    return validate(name, raw)
 
 
 def save_settings(config_path: Path, updates: dict[str, SettingValue]) -> None:

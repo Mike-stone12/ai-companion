@@ -21,14 +21,7 @@ def _setting(name: str) -> settings_schema.Setting:
 
 
 def _parse_value(setting: settings_schema.Setting, text: str) -> settings_schema.SettingValue:
-    value = text
-    if setting.kind in {"bool", "int", "float"}:
-        try:
-            value = json.loads(text)
-        except ValueError:
-            # Let the schema report the required type, without echoing the input.
-            pass
-    return settings_schema.validate(setting.name, value)
+    return settings_schema.parse_value(setting.name, text)
 
 
 def _print_setting(setting: settings_schema.Setting, file_values: dict[str, str], values: dict[str, str]) -> None:
