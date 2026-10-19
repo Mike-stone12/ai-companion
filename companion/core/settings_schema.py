@@ -32,6 +32,8 @@ class Setting:
 EDITABLE_SETTINGS = (
     Setting("CHAT_THINKING", "bool", False, "Chat reasoning"),
     Setting("CHAT_TOOLS", "bool", False, "Chat tools"),
+    Setting("VOICE_INPUT", "bool", False, "Push-to-talk voice input (requires transcription model)"),
+    Setting("TRANSCRIPTION_MODEL", "str", "", "Transcription model"),
     Setting("PROACTIVE_CHAT", "bool", False, "Proactive chat"),
     Setting("ACTIVE_APP_MONITOR", "bool", False, "Active app monitor (requires proactive chat)"),
     Setting("LOG_LEVEL", "choice", "INFO", "Log level", choices=("DEBUG", "INFO", "WARNING", "ERROR")),
@@ -88,7 +90,7 @@ def validate(name: str, value: SettingValue) -> SettingValue:
             value = value.strip().upper()
             if value not in setting.choices:
                 raise ValueError(f"{name} requires an allowed choice")
-        elif name in {"EMBEDDING_MODEL", "LIVE2D_MODEL"}:
+        elif name in {"EMBEDDING_MODEL", "LIVE2D_MODEL", "TRANSCRIPTION_MODEL"}:
             value = value.strip()
     return value
 

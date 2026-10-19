@@ -138,6 +138,8 @@ Recall depends on extraction and the configured model; this is a manual walkthro
 | `OPENAI_RETRIES` | Request retry setting | `2` |
 | `CHAT_THINKING` | Let the model reason before chat replies (Moonshot and DeepSeek only). Off is faster and keeps replies short enough to speak. | `0` |
 | `CHAT_TOOLS` | Enable time and reminder tools (up to 3 model requests per turn). Reminders stay in memory for this window session; no disk persistence. | `0` |
+| `VOICE_INPUT` | Opt in to push-to-talk; requires `TRANSCRIPTION_MODEL`. Not yet wired into the window. | `0` |
+| `TRANSCRIPTION_MODEL` | Transcription model identifier; uses the chat base URL and API key. Empty or whitespace-only disables voice input even when its flag is on. | Empty |
 | `PROACTIVE_CHAT` | Opt in to idle chat, time-of-day greetings, and spoken due reminders, checked every 30 seconds. Enable `CHAT_TOOLS` to set session reminders. Off creates no proactive timer or requests. | `0` |
 | `ACTIVE_APP_MONITOR` | Opt in to comments after a long foreground-app streak; requires `PROACTIVE_CHAT=1`. Uses only the foreground app name locally to track duration, then sends a short app-name/duration summary to the LLM. | `0` |
 | `LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, or `ERROR`. Logs go to the terminal and `logs/companion.log` in the user data directory (rotated at 1 MB, 3 backups). | `INFO` |

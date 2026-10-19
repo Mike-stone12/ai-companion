@@ -40,6 +40,9 @@ def test_defaults_only(config_path):
     assert config.chat_thinking is False
     assert config.proactive_chat is False
     assert config.active_app_monitor is False
+    assert config.voice_input is False
+    assert config.transcription_model == ""
+    assert config.voice_input_usable is False
     assert config.voice_zh == "zh-CN-XiaoxiaoNeural"
     assert not config_path.exists()
 
@@ -73,6 +76,60 @@ def test_active_app_monitor_opt_in(config_path, monkeypatch, source):
     else:
         write_config(config_path, {"ACTIVE_APP_MONITOR": True})
     assert build_config().active_app_monitor is True
+
+
+@pytest.mark.parametrize("value, expected", [
+    ("1", True), ("true", True), (" YES ", True), ("On", True),
+    ("0", False), ("false", False), (" NO ", False), ("Off", False),
+    ("", False), ("  ", False), ("unknown", False),
+])
+def test_voice_input_environment_flag(config_path, monkeypatch, value, expected):
+    monkeypatch.setenv("VOICE_INPUT", value)
+    monkeypatch.setenv("TRANSCRIPTION_MODEL", " transcription-model ")
+    config = build_config()
+    assert config.voice_input is expected
+    assert config.transcription_model == "transcription-model"
+    assert config.voice_input_usable is expected
+
+
+@pytest.mark.parametrize("model", ["", " \t\n "])
+def test_empty_transcription_model_environment(config_path, monkeypatch, model):
+    monkeypatch.setenv("VOICE_INPUT", "1")
+    monkeypatch.setenv("TRANSCRIPTION_MODEL", model)
+    config = build_config()
+    assert config.voice_input is True
+    assert config.transcription_model == ""
+    assert config.voice_input_usable is False
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+def test_voice_input_json_and_environment_precedence(config_path, monkeypatch, enabled):
+    write_config(config_path, {"VOICE_INPUT": enabled, "TRANSCRIPTION_MODEL": " file-model "})
+    before = config_path.read_bytes()
+    config = build_config()
+    assert config.voice_input is enabled
+    assert config.transcription_model == "file-model"
+    assert config.voice_input_usable is enabled
+    monkeypatch.setenv("VOICE_INPUT", "false" if enabled else "true")
+    monkeypatch.setenv("TRANSCRIPTION_MODEL", " env-model ")
+    config = build_config()
+    assert config.voice_input is (not enabled)
+    assert config.transcription_model == "env-model"
+    assert config.voice_input_usable is (not enabled)
+    monkeypatch.setenv("TRANSCRIPTION_MODEL", "  ")
+    config = build_config()
+    assert config.transcription_model == ""
+    assert config.voice_input_usable is False
+    assert config_path.read_bytes() == before
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+@pytest.mark.parametrize("model", ["", " \t\n ", " transcription-model "])
+def test_voice_input_usable_requires_flag_and_model(config_path, enabled, model):
+    config = type(build_config())(voice_input=enabled, transcription_model=model)
+    before = asdict(config)
+    assert config.voice_input_usable is (enabled and bool(model.strip()))
+    assert asdict(config) == before
 
 
 def test_dotenv_overrides_json_and_keeps_shell_precedence(config_path, monkeypatch):

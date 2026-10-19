@@ -30,6 +30,10 @@ def test_fields_follow_editable_schema_and_exclude_secrets(tmp_path):
         assert not field.env_overridden
     fields = fields_by_key(form)
     assert fields["CHAT_TOOLS"].value == "0"
+    assert fields["VOICE_INPUT"].value == "0"
+    assert fields["VOICE_INPUT"].kind == "bool"
+    assert fields["TRANSCRIPTION_MODEL"].value == ""
+    assert fields["TRANSCRIPTION_MODEL"].kind == "str"
     assert fields["MEMORY_LIMIT"].value == "24"
     assert fields["MEMORY_LIMIT"].minimum == 1
     assert fields["LOG_LEVEL"].choices == ("DEBUG", "INFO", "WARNING", "ERROR")
@@ -64,6 +68,10 @@ def test_only_none_defaults_to_process_environment(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("key, raw, expected", [
     ("CHAT_TOOLS", "true", True),
+    ("VOICE_INPUT", "true", True),
+    ("VOICE_INPUT", "false", False),
+    ("TRANSCRIPTION_MODEL", " transcription-model ", "transcription-model"),
+    ("TRANSCRIPTION_MODEL", "  ", ""),
     ("CHAT_TOOLS", False, False),
     ("MEMORY_LIMIT", "42", 42),
     ("MEMORY_LIMIT", 12, 12),
