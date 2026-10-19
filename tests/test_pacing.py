@@ -73,3 +73,50 @@ def test_busy_or_asleep_replies_come_a_little_later(availability, low, high):
 @pytest.mark.parametrize("availability", ["", "free", "drowsy"])
 def test_free_replies_start_at_once(availability):
     assert reply_delay(availability, random.Random(1)) == 0.0
+
+
+def stream(text, step=2):
+    splitter = MessageSplitter()
+    during = []
+    for i in range(0, len(text), step):
+        during += splitter.feed(text[i:i + step])
+    return during, splitter.finish()
+
+
+def test_one_line_reply_still_sends_its_first_sentence_while_streaming():
+    rest_of_line = "我等你好久了，今天过得怎么样？快跟我说说嘛，我超想听你讲今天发生的事情，好不好呀？"
+    during, rest = stream("你来啦！" + rest_of_line)
+
+    assert during[0] == "你来啦！"
+    assert during + rest == ["你来啦！", rest_of_line]
+
+
+def test_a_first_clause_without_an_ending_is_cut_at_a_comma_like_the_speech_path():
+    during, _ = stream("你终于来啦，我今天在学校等了你一整天，结果你一直没回消息")
+
+    assert during[0] == "你终于来啦，"
+
+
+def test_a_comma_too_early_does_not_cut():
+    during, _ = stream("嗯，好")
+
+    assert during == []
+
+
+def test_english_sentences_flush_at_a_period_and_space():
+    during, rest = stream("Hi there. How was your day today, anything fun?")
+
+    assert during[0] == "Hi there."
+
+
+def test_closing_marks_stay_with_their_sentence():
+    during, _ = stream("“真的吗？”我不信")
+
+    assert during[0] == "“真的吗？”"
+
+
+def test_later_messages_still_follow_line_breaks():
+    during, rest = stream("好呀！今天\n第二条，没有换行也不提前切开，因为不是第一条消息。还有一句")
+
+    assert during == ["好呀！", "今天"]
+    assert rest == ["第二条，没有换行也不提前切开，因为不是第一条消息。还有一句"]

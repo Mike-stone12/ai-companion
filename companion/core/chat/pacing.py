@@ -16,6 +16,14 @@ MIN_TYPING = 0.6
 MAX_TYPING = 4.0
 JITTER = 0.2
 MAX_REPLY_DELAY = 30.0
+# The first message must not wait for a line break the model may never send: it goes out
+# at its first complete sentence, or at a comma once it is this long. 10 matches where the
+# unpaced speech path (SentenceSplitter.first_soft_limit) starts speaking, so first speech
+# is no later with pacing on.
+FIRST_FLUSH_CHARS = 10
+SENTENCE_ENDS = "。！？!?…~"
+CLOSING_MARKS = "”’\"'」』）)】"
+CLAUSE_MARKS = "，,；;、"
 REPLY_DELAYS = {"busy": (4.0, 15.0), "asleep": (3.0, 8.0)}
 
 PACING_INSTRUCTION = (
@@ -39,8 +47,33 @@ class MessageSplitter:
             line, self.buffer = self.buffer.split("\n", 1)
             if line.strip():
                 messages.append(line.strip())
+        if not messages and not self.emitted and "\n" not in self.buffer:
+            cut = self._first_cut()
+            if cut:
+                messages.append(self.buffer[:cut].strip())
+                self.buffer = self.buffer[cut:]
         self.emitted += len(messages)
         return messages
+
+    def _first_cut(self) -> int:
+        """Where an unbroken first line can already be sent: after a complete sentence or a long clause."""
+        text = self.buffer
+        for index, char in enumerate(text):
+            is_period = char == "." and index + 1 < len(text) and text[index + 1] == " "
+            if char not in SENTENCE_ENDS and not is_period:
+                continue
+            end = index + 1
+            while end < len(text) and (text[end] in SENTENCE_ENDS or text[end] in CLOSING_MARKS):
+                end += 1
+            # A sentence is complete once something follows its marks (more marks may still come).
+            if end < len(text) and text[:end].strip():
+                return end
+            return 0
+        if len(text.strip()) >= FIRST_FLUSH_CHARS:
+            cut = max(text.rfind(mark) for mark in CLAUSE_MARKS) + 1
+            if cut > 4:
+                return cut
+        return 0
 
     def finish(self) -> list[str]:
         rest = " ".join(line.strip() for line in self.buffer.splitlines() if line.strip())
