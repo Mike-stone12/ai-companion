@@ -3,6 +3,7 @@
 from .events import ACTIVE_APP, GREETING, IDLE, REMINDER, Event
 
 MAX_REMINDER_TEXT_LENGTH = 200
+MAX_APP_NAME_LENGTH = 60
 
 
 def _required_text(event: Event, field: str) -> str:
@@ -26,6 +27,9 @@ def compose(event: Event) -> str:
     MAX_REMINDER_TEXT_LENGTH (200) characters, including a trailing ellipsis
     when truncated. Composition uses only the supplied event, never the
     current clock, so events produced with an injected time are deterministic.
+    Active-app names have non-printable characters removed, are trimmed, and
+    are capped at MAX_APP_NAME_LENGTH (60) characters. Names that become empty
+    after sanitization raise ValueError.
     """
     if event.kind == IDLE:
         return "The user has been idle; start a short, friendly check-in."
@@ -41,12 +45,15 @@ def compose(event: Event) -> str:
         return f"A reminder is due; give the user a short, friendly reminder about the following: {text}"
     if event.kind == ACTIVE_APP:
         app_name = _required_text(event, "app_name")
+        app_name = "".join(char for char in app_name if char.isprintable()).strip()[:MAX_APP_NAME_LENGTH]
+        if not app_name:
+            raise ValueError("active_app event requires a non-empty printable payload field 'app_name'")
         minutes = event.payload.get("minutes")
         if not isinstance(minutes, int) or isinstance(minutes, bool) or minutes < 0:
             raise ValueError("active_app event requires a nonnegative integer payload field 'minutes'")
         return (
-            f"The user has kept {app_name} active for {minutes} minutes; "
-            "give a short, friendly check-in and gently suggest a break."
+            f"The user has had {app_name} in the foreground for about {minutes} minutes; "
+            "offer one brief, caring, non-nagging remark."
         )
     raise ValueError(f"Unknown event kind: {event.kind!r}")
 
