@@ -680,7 +680,13 @@ class CompanionWindow(QWidget):
         content = self.history_text(reply)
         self.messages.append({"role": "assistant", "content": content})
         self.history.append("assistant", content)
-        self.start_summary_worker()
+        try:
+            self.start_summary_worker()
+        except Exception:
+            logger.info("Conversation summary worker could not start")
+            self.summary_thread = None
+            self.summary_worker = None
+            self.summary_snapshot = None
 
     def run_next_tts(self) -> None:
         if self.tts_thread is not None or not self.tts_queue:
@@ -804,6 +810,11 @@ class CompanionWindow(QWidget):
         self.set_talking(False)
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
+        # Ignore queued summary results once teardown begins.
+        self.summary_snapshot = None
+        if self.summary_thread is not None and self.summary_thread.isRunning():
+            self.summary_thread.quit()
+            self.summary_thread.wait(2000)
         self.save_window_state()
         self.idle_timer.stop()
         self.audio_watchdog.stop()

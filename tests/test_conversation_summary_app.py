@@ -19,10 +19,12 @@ def window(tmp_path):
     cls = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "CompanionWindow")
     methods = {
         "conversation_window", "start_summary_worker", "on_summary_ready", "on_summary_thread_finished",
+        "history_text", "record_reply", "closeEvent",
     }
-    cls.bases = []
+    cls.bases = [ast.Name(id="FakeWidget", ctx=ast.Load())]
     cls.body = [node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name in methods]
     namespace = {
+        "FakeWidget": type("FakeWidget", (), {"closeEvent": Mock()}),
         "ConversationSummary": ConversationSummary,
         "CONVERSATION_WINDOW": 11,
         "build_chat_messages": build_chat_messages,
@@ -31,7 +33,8 @@ def window(tmp_path):
         "SummaryWorker": Mock(side_effect=lambda *_: Mock()),
         "logger": Mock(),
     }
-    exec(compile(ast.Module(body=[cls], type_ignores=[]), str(path), "exec"), namespace)
+    module = ast.fix_missing_locations(ast.Module(body=[cls], type_ignores=[]))
+    exec(compile(module, str(path), "exec"), namespace)
     instance = namespace["CompanionWindow"]()
     instance.config = SimpleNamespace(conversation_summary=True, api_key="fake-key")
     instance.client = Mock()
@@ -46,7 +49,57 @@ def window(tmp_path):
     instance.summary_thread = None
     instance.summary_worker = None
     instance.summary_snapshot = None
+    instance.reply_emotion = None
+    instance.save_window_state = Mock()
+    instance.idle_timer = Mock()
+    instance.audio_watchdog = Mock()
+    instance.bridge = Mock()
+    instance.tts_queue = []
+    instance.discard_pending_clips = Mock()
     return instance
+
+
+@pytest.mark.parametrize("failure", ["SummaryWorker", "QThread", "plan_summary_update"])
+def test_summary_start_failure_does_not_interrupt_recording_reply(window, monkeypatch, failure):
+    namespace = window.record_reply.__globals__
+    with monkeypatch.context() as patch:
+        patch.setitem(namespace, failure, Mock(side_effect=RuntimeError("Private provider text")))
+        window.record_reply("Still recorded")
+
+    assert window.messages[-1] == {"role": "assistant", "content": "Still recorded"}
+    assert ConversationHistory(window.history.path).messages()[-1] == window.messages[-1]
+    assert window.summary_thread is None
+    assert window.summary_worker is None
+    assert window.summary_snapshot is None
+    namespace["logger"].info.assert_called_once_with("Conversation summary worker could not start")
+    window.start_summary_worker()
+    assert window.summary_thread is not None
+
+
+@pytest.mark.parametrize("state", ["running", "finished", "absent"])
+def test_close_waits_for_running_summary_and_ignores_late_result(window, state):
+    window.start_summary_worker()
+    thread = window.summary_thread
+    thread.isRunning.return_value = state == "running"
+    if state == "absent":
+        window.summary_thread = None
+    window.history.save = Mock()
+    event = Mock()
+
+    window.closeEvent(event)
+    window.on_summary_ready(ConversationSummary("Late result", 12))
+
+    if state == "running":
+        thread.quit.assert_called_once_with()
+        thread.wait.assert_called_once_with(2000)
+        assert thread.method_calls.index(("quit", (), {})) < thread.method_calls.index(("wait", (2000,), {}))
+    else:
+        thread.quit.assert_not_called()
+        thread.wait.assert_not_called()
+    assert window.summary_snapshot is None
+    assert window.history.summary is None
+    window.history.save.assert_not_called()
+    window.record_reply.__globals__["FakeWidget"].closeEvent.assert_called_once_with(event)
 
 
 def test_running_summary_skips_new_requests_until_thread_finishes(window):
