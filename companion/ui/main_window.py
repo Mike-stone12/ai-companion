@@ -456,6 +456,8 @@ class CompanionWindow(QWidget):
         ):
             return
         self.voice_session.start()
+        if self.voice_session.state != "recording":
+            return
         # Reserve this turn so typed input and proactive replies cannot race transcription.
         self.busy = True
         self.chat_input.setEnabled(False)
@@ -487,6 +489,8 @@ class CompanionWindow(QWidget):
         self.transcription_thread.start()
 
     def on_microphone_failed(self, message: str) -> None:
+        if self.voice_session is None or self.voice_session.state != "recording":
+            return
         self.voice_session.cancel()
         if self.closing:
             return

@@ -143,6 +143,53 @@ def test_microphone_failure_cancels_recording(window):
     window.thread.start.assert_not_called()
 
 
+def test_late_microphone_failure_during_transcription_preserves_turn(window):
+    start_recording(window)
+    window.microphone.pcm_ready.emit(b"\0\0" * 4800)
+    window.button.released.emit()
+    window.thread.start.assert_called_once()
+
+    def transcribe_with_late_failure(*args, **kwargs):
+        assert window.ui.voice_session.state == "transcribing"
+        window.microphone.failed.emit("Late microphone failure")
+        assert window.ui.busy is True
+        window.ui.chat_panel.add_notice.assert_not_called()
+        assert window.ui.voice_session.state == "transcribing"
+        window.ui.chat_input.setEnabled.assert_called_once_with(False)
+        window.ui.send_button.setEnabled.assert_called_once_with(False)
+        return "hello from voice"
+
+    window.client.side_effect = transcribe_with_late_failure
+    window.thread.started.emit()
+    window.ui.submit_message.assert_called_once_with("hello from voice")
+    window.ui.chat_panel.add_notice.assert_not_called()
+
+
+def test_late_microphone_failure_during_reply_preserves_turn(window):
+    window.ui.setup_voice_input(Mock())
+    window.ui.busy = True
+    assert window.ui.voice_session.state == "idle"
+    window.microphone.failed.emit("Late microphone failure")
+    assert window.ui.busy is True
+    window.ui.chat_panel.add_notice.assert_not_called()
+    window.ui.chat_input.setEnabled.assert_not_called()
+    window.ui.send_button.setEnabled.assert_not_called()
+    window.ui.set_status.assert_not_called()
+
+
+def test_press_without_starting_recording_leaves_input_available(window, monkeypatch):
+    window.ui.setup_voice_input(Mock())
+    monkeypatch.setattr(window.ui.voice_session, "start", lambda: None)
+    window.button.pressed.emit()
+    assert window.ui.voice_session.state == "idle"
+    assert window.ui.busy is False
+    window.microphone.start.assert_not_called()
+    window.ui.chat_input.setEnabled.assert_not_called()
+    window.ui.send_button.setEnabled.assert_not_called()
+    window.button.setEnabled.assert_not_called()
+    window.ui.set_status.assert_not_called()
+
+
 def test_close_discards_active_capture(window):
     start_recording(window)
     window.ui.closeEvent(Mock())
