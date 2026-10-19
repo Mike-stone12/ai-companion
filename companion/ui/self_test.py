@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 import time
 
-from PyQt6.QtCore import QEventLoop, QTimer, qInstallMessageHandler
+from PyQt6.QtCore import QEventLoop, QTimer
 from PyQt6.QtWidgets import QApplication
 
 from companion.core.config import AppConfig
@@ -22,16 +22,9 @@ MODEL_PROBE = """({
 
 
 def gui_checks(timeout_s: float = RENDER_TIMEOUT_S) -> list[Check]:
-    # Keep Qt and renderer console messages for the report: windowed builds have no stderr.
-    messages: list[str] = []
-    previous = qInstallMessageHandler(lambda _mode, _context, text: messages.append(text))
-    try:
-        return _gui_checks(timeout_s, messages)
-    finally:
-        qInstallMessageHandler(previous)
-
-
-def _gui_checks(timeout_s: float, messages: list[str]) -> list[Check]:
+    # No Python Qt message handler here: WebEngine threads logging through a Python callback
+    # need the GIL and could deadlock against the main thread. The renderer's own status
+    # line (MODEL_PROBE) carries its error message into the report instead.
     app = QApplication.instance() or QApplication(sys.argv[:1])
     from companion.ui.main_window import CompanionWindow
 
@@ -77,8 +70,6 @@ def _gui_checks(timeout_s: float, messages: list[str]) -> list[Check]:
             else f"not loaded (renderer status: {state['message'] or 'none'})",
         ),
     ]
-    if not all(check.ok for check in checks) and messages:
-        checks.append(Check("renderer log", False, " | ".join(messages[-8:]), required=False))
     window.close()
     app.processEvents()
     return checks

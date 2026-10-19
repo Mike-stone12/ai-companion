@@ -155,3 +155,27 @@ def test_missing_license_files_fail_the_self_test(monkeypatch, tmp_path):
     assert not check.ok
     assert check.required
     assert "NOTICE.md" in check.detail
+
+
+def test_watchdog_writes_a_failing_report_and_exits_when_the_window_hangs(tmp_path):
+    request = self_test.SelfTestRequest(tmp_path / "data", tmp_path / "report.txt")
+    exits = []
+
+    timer = self_test.start_watchdog(request, [Check("static", True)], timeout_s=0.05, exit_process=exits.append)
+    timer.join(2)
+
+    assert exits == [1]
+    report = (tmp_path / "report.txt").read_text(encoding="utf-8")
+    assert "PASS  static" in report
+    assert "FAIL  main window: self-test did not finish within 0s" in report
+
+
+def test_watchdog_is_cancelled_after_a_normal_run(tmp_path, monkeypatch):
+    monkeypatch.setattr(self_test, "static_checks", lambda: [])
+    started = []
+    real = self_test.start_watchdog
+    monkeypatch.setattr(self_test, "start_watchdog", lambda *a, **k: started.append(real(*a, **k)) or started[-1])
+
+    self_test.run(self_test.SelfTestRequest(tmp_path / "data", None), gui=lambda: [])
+
+    assert started and not started[0].is_alive()

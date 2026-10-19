@@ -18,11 +18,15 @@ import os
 import shutil
 import sys
 import tempfile
+import threading
 from collections.abc import Callable, MutableMapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 FLAG = "--self-test"
+# A hard stop if the window part hangs (the event loop never returns): the GUI checks
+# give up after 45 s on their own, so this only fires when the main thread is stuck.
+WATCHDOG_S = 120
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,20 +166,45 @@ def passed(checks: Sequence[Check]) -> bool:
     return all(check.ok or not check.required for check in checks)
 
 
-def run(request: SelfTestRequest, gui: Callable[[], list[Check]] | None = None) -> int:
+def _emit(report: str, request: SelfTestRequest) -> None:
+    # A windowed build on Windows has no stdout.
+    if sys.stdout is not None:
+        print(report, flush=True)
+    if request.report_path is not None:
+        request.report_path.write_text(report + "\n", encoding="utf-8")
+
+
+def start_watchdog(
+    request: SelfTestRequest, checks: list[Check], timeout_s: float = WATCHDOG_S,
+    exit_process: Callable[[int], None] = os._exit,
+) -> threading.Timer:
+    """Write a failing report and end the process if the self-test has not finished in time."""
+    def expire() -> None:
+        stuck = [*checks, Check("main window", False, f"self-test did not finish within {timeout_s:.0f}s")]
+        try:
+            _emit(format_report(stuck), request)
+        finally:
+            exit_process(1)
+
+    timer = threading.Timer(timeout_s, expire)
+    timer.daemon = True
+    timer.start()
+    return timer
+
+
+def run(
+    request: SelfTestRequest, gui: Callable[[], list[Check]] | None = None, *, watchdog_s: float = WATCHDOG_S,
+) -> int:
     checks = static_checks()
+    watchdog = start_watchdog(request, list(checks), watchdog_s)
     try:
         if gui is None:
             from companion.ui.self_test import gui_checks as gui
         checks += gui()
     except Exception as exc:  # Still write a report when the window cannot start at all.
         checks.append(Check("main window", False, f"{type(exc).__name__}: {exc}"))
-    report = format_report(checks)
-    # A windowed build on Windows has no stdout.
-    if sys.stdout is not None:
-        print(report, flush=True)
-    if request.report_path is not None:
-        request.report_path.write_text(report + "\n", encoding="utf-8")
+    watchdog.cancel()
+    _emit(format_report(checks), request)
     # Close the log file first so Windows can delete the throwaway directory.
     root = logging.getLogger()
     for handler in root.handlers[:]:

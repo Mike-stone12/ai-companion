@@ -14,7 +14,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: package-${{ github.ref }}
+  # Manual runs get their own group so several can run side by side (e.g. to check for flakes).
+  group: package-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || 'auto' }}
   cancel-in-progress: true
 
 jobs:
