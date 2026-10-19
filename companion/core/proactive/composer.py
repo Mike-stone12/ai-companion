@@ -1,6 +1,6 @@
 """Compose short LLM instructions from proactive events without checking policy."""
 
-from .events import GREETING, IDLE, REMINDER, Event
+from .events import ACTIVE_APP, GREETING, IDLE, REMINDER, Event
 
 MAX_REMINDER_TEXT_LENGTH = 200
 
@@ -17,7 +17,8 @@ def compose(event: Event) -> str:
 
     Idle events require no payload and supply no duration. Greetings require
     ``part_of_day`` (night, morning, afternoon, or evening); reminders require
-    non-empty string ``text``. Unknown kinds and missing or invalid required
+    non-empty string ``text``. Active-app events require a non-empty ``app_name``
+    and nonnegative integer ``minutes``. Unknown kinds and missing or invalid required
     fields raise ValueError. All other payload fields, including ``due_at``,
     are ignored. Eligibility and reminder due-time checks belong upstream.
 
@@ -38,6 +39,15 @@ def compose(event: Event) -> str:
         if len(text) > MAX_REMINDER_TEXT_LENGTH:
             text = text[:MAX_REMINDER_TEXT_LENGTH - 1] + "…"
         return f"A reminder is due; give the user a short, friendly reminder about the following: {text}"
+    if event.kind == ACTIVE_APP:
+        app_name = _required_text(event, "app_name")
+        minutes = event.payload.get("minutes")
+        if not isinstance(minutes, int) or isinstance(minutes, bool) or minutes < 0:
+            raise ValueError("active_app event requires a nonnegative integer payload field 'minutes'")
+        return (
+            f"The user has kept {app_name} active for {minutes} minutes; "
+            "give a short, friendly check-in and gently suggest a break."
+        )
     raise ValueError(f"Unknown event kind: {event.kind!r}")
 
 
