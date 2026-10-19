@@ -10,7 +10,7 @@ from collections.abc import Callable, Iterable
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Protocol
 
-from .events import GREETING, IDLE, REMINDER, Event
+from .events import GREETING, IDLE, MOOD, REMINDER, Event
 
 if TYPE_CHECKING:
     from companion.core.tools.reminders import ReminderStore
@@ -104,6 +104,48 @@ class AwakeGate:
 
     def __getattr__(self, name: str):
         return getattr(self._trigger, name)
+
+
+FeelingProbe = Callable[[datetime], tuple[str | None, float]]
+SULKING = frozenset({"anger", "jealousy"})
+SULK_THRESHOLD = 0.5
+MOOD_THRESHOLDS = {"longing": 0.5, "joy": 0.6}
+
+
+class MoodGate(AwakeGate):
+    """Skip polling while the companion is clearly annoyed or jealous: it waits to be coaxed."""
+
+    def __init__(self, trigger: Trigger, feeling: FeelingProbe):
+        def not_sulking(now: datetime) -> bool:
+            name, value = feeling(now)
+            return not (name in SULKING and value >= SULK_THRESHOLD)
+        super().__init__(trigger, not_sulking)
+
+
+class MoodTrigger:
+    """Propose reaching out when the companion misses the user or is in a great mood.
+
+    It proposes on every poll while the feeling is high and the user has been quiet
+    for ``min_quiet``; the policy's MOOD cooldown keeps it to one message per window.
+    """
+
+    def __init__(
+        self, feeling: FeelingProbe, last_activity: Callable[[], datetime | None],
+        min_quiet: timedelta = timedelta(minutes=10),
+    ):
+        self._feeling = feeling
+        self._last_activity = last_activity
+        self._min_quiet = min_quiet
+
+    def poll(self, now: datetime) -> list[Event]:
+        name, value = self._feeling(now)
+        threshold = MOOD_THRESHOLDS.get(name or "")
+        if threshold is None or value < threshold:
+            return []
+        last = self._last_activity()
+        if last is not None and now - last < self._min_quiet:
+            return []
+        return [Event(MOOD, now, {"feeling": name})]
 
 
 class TriggerAggregator:

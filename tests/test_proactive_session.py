@@ -133,3 +133,46 @@ def test_asleep_gate_also_silences_active_app_comments():
     inner.record_sample = Mock()
     gate.record_sample("Game", NOW)
     inner.record_sample.assert_called_once_with("Game", NOW)
+
+
+def feeling_of(name, value):
+    return lambda now: (name, value)
+
+
+def test_missing_the_user_makes_the_companion_reach_out_after_a_short_quiet():
+    session = ProactiveSession(ReminderStore(clock=lambda: NOW), NOW, feeling=feeling_of("longing", 0.6))
+    session.record_activity(NOW)
+
+    assert session.tick(NOW + timedelta(minutes=5), busy=False, input_has_text=False).event.kind == GREETING
+    result = session.tick(NOW + timedelta(minutes=10), busy=False, input_has_text=False)
+
+    assert result.event.kind == "mood"
+    assert "miss" in result.messages[0]["content"]
+    # Two-hour cooldown between mood-driven messages.
+    assert session.tick(NOW + timedelta(minutes=40), busy=False, input_has_text=False).event.kind == IDLE
+    assert session.tick(NOW + timedelta(minutes=90), busy=False, input_has_text=False) is None
+
+
+def test_a_happy_companion_shares_something():
+    session = ProactiveSession(ReminderStore(clock=lambda: NOW), NOW, feeling=feeling_of("joy", 0.7))
+    session.record_activity(NOW - timedelta(minutes=20))
+
+    kinds = [session.tick(NOW + timedelta(minutes=m), busy=False, input_has_text=False) for m in (0, 1)]
+
+    assert any(result and result.event.kind == "mood" and "share" in result.messages[0]["content"] for result in kinds)
+
+
+def test_an_annoyed_companion_waits_to_be_coaxed_but_reminders_still_fire():
+    store = ReminderStore(clock=lambda: NOW)
+    session = ProactiveSession(store, NOW - timedelta(hours=1), feeling=feeling_of("anger", 0.6))
+    store.add("Drink water", NOW + timedelta(minutes=1))
+
+    assert session.tick(NOW, busy=False, input_has_text=False) is None
+    assert session.tick(NOW + timedelta(minutes=1), busy=False, input_has_text=False).event.kind == REMINDER
+    assert session.tick(NOW + timedelta(hours=2), busy=False, input_has_text=False) is None
+
+
+def test_mild_feelings_change_nothing():
+    calm = ProactiveSession(ReminderStore(clock=lambda: NOW), NOW, feeling=feeling_of("longing", 0.2))
+
+    assert calm.tick(NOW, busy=False, input_has_text=False).event.kind == GREETING

@@ -153,3 +153,17 @@ def test_every_instruction_is_an_in_character_note_addressed_to_the_user(kind, p
     assert prompt.endswith(IN_CHARACTER)
     assert "directly to the user" in prompt
     assert "persona" in prompt
+
+
+@pytest.mark.parametrize(("feeling", "phrase"), [("longing", "missing the user"), ("joy", "share something")])
+def test_mood_events_say_why_she_reaches_out(feeling, phrase):
+    from companion.core.proactive.events import MOOD
+
+    assert phrase in compose(Event(MOOD, NOW, {"feeling": feeling}))
+
+
+def test_mood_events_need_a_known_feeling():
+    from companion.core.proactive.events import MOOD
+
+    with pytest.raises(ValueError, match="feeling"):
+        compose(Event(MOOD, NOW, {"feeling": "anger"}))
