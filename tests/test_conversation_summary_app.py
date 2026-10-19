@@ -63,6 +63,8 @@ def window(tmp_path):
     instance.discard_pending_clips = Mock()
     instance.voice_session = None
     instance.transcription_thread = None
+    instance.wake_thread = instance.wake_capture_timer = None
+    instance.pause_wake_word = Mock()
     return instance
 
 

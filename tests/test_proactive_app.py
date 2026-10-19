@@ -48,6 +48,7 @@ def window(tmp_path):
         "chat_input", "send_button", "chat_panel", "set_status", "client", "tool_registry",
         "on_reply_emotion", "on_reply_error", "run_next_tts", "start_memory_worker", "start_summary_worker",
         "audio_watchdog", "set_talking", "save_window_state", "idle_timer", "bridge", "discard_pending_clips",
+        "pause_wake_word", "resume_wake_word",
     ):
         setattr(instance, name, Mock())
     instance.chat_input.text.return_value = ""
@@ -59,6 +60,7 @@ def window(tmp_path):
     instance.summary_thread = None
     instance.voice_session = None
     instance.transcription_thread = None
+    instance.wake_thread = instance.wake_capture_timer = None
     instance.tts_queue = deque()
     instance.pending_clips = {}
     instance.pending_user_text = "stale previous user text"

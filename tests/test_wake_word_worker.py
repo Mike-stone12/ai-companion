@@ -182,3 +182,18 @@ def test_direct_feed_on_ui_thread_never_runs_recognition(make_worker):
     factory.return_value.feed.assert_not_called()
     assert "background QThread" in worker.error.values[0][0]
     assert worker.finished.values == [()]
+
+
+def test_reset_discards_partial_utterance_and_buffer_without_reloading_model(make_worker):
+    worker, factory, _, _ = make_worker()
+    factory.return_value.feed.return_value = "hey whale"
+    factory.return_value.is_final = False
+    worker.start()
+    worker.feed(b"\x01\x02\xff")
+    worker.reset()
+    worker.feed(b"\x03\x04")
+    factory.assert_called_once()
+    factory.return_value.reset.assert_called_once()
+    factory.return_value.feed.assert_called_with(b"\x03\x04")
+    assert worker.wakeDetected.values == [("Hey Whale",), ("Hey Whale",)]
+    assert not worker.finished.values

@@ -9,7 +9,7 @@ from copy import copy
 from functools import partial
 from pathlib import Path
 
-from PyQt6.QtCore import PYQT_VERSION_STR, QPoint, QRect, Qt, QThread, QTimer, QUrl, QUrlQuery
+from PyQt6.QtCore import PYQT_VERSION_STR, QPoint, QRect, Qt, QThread, QTimer, QUrl, QUrlQuery, pyqtSignal
 from PyQt6.QtGui import QAction, QActionGroup, QColor
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineCore import QWebEngineSettings
@@ -51,6 +51,7 @@ from companion.core.tools.builtin import build_builtin_registry
 from companion.core.tools.reminders import ReminderStore, local_now
 from companion.core.voice_input_actions import can_start_voice_input, deliver_voice_input_result
 from companion.core.voice_input_controller import VoiceInputController, VoiceInputResult
+from companion.core.wake_word_actions import wake_word_enabled
 from companion.core.window_state import (
     OPACITY_STEPS,
     SCALE_STEPS,
@@ -85,6 +86,7 @@ CHAT_PANEL_HEIGHT = 170  # at scale 1.0
 MIN_CHAT_PANEL_HEIGHT = 110
 # Safety net if playback stops making progress (e.g. the renderer crashed).
 AUDIO_WATCHDOG_MS = 120_000
+WAKE_CAPTURE_MS = 5_000
 
 
 def to_file_url(path: Path | None, *, directory: bool = False) -> str:
@@ -131,6 +133,9 @@ def print_resource_report(model_path: Path | None, vendor_dir: Path | None) -> N
 
 
 class CompanionWindow(QWidget):
+    wake_stop_requested = pyqtSignal()
+    wake_reset_requested = pyqtSignal()
+
     def __init__(self, config: AppConfig) -> None:
         super().__init__()
         self.config = config
@@ -182,6 +187,14 @@ class CompanionWindow(QWidget):
         self.talk_button = None
         self.transcription_thread: QThread | None = None
         self.transcription_worker: TranscriptionWorker | None = None
+        self.wake_thread: QThread | None = None
+        self.wake_worker = None
+        self.wake_microphone = None
+        self.wake_indicator = None
+        self.wake_capture_timer = None
+        self.wake_ready = False
+        self.wake_listening = False
+        self.wake_failed = False
 
         self.bridge = AvatarBridge(self)
         self.bridge.ready.connect(self.on_renderer_ready)
@@ -202,6 +215,104 @@ class CompanionWindow(QWidget):
         self.load_live2d_scene()
         self.restore_position()
         self.setup_proactive(reminders)
+        self.setup_wake_word()
+
+    def setup_wake_word(self) -> None:
+        if not wake_word_enabled(self.config):
+            return
+        from companion.adapters.microphone import Microphone
+        from companion.app.wake_word_worker import WakeWordWorker
+
+        self.wake_indicator = QLabel("Wake word on")
+        self.wake_indicator.setTextFormat(Qt.TextFormat.PlainText)
+        self.wake_indicator.setStyleSheet("color: #b7f3cf; font-size: 11px;")
+        self.wake_indicator.hide()
+        self.top_bar.layout().insertWidget(1, self.wake_indicator)
+        self.wake_capture_timer = QTimer(self)
+        self.wake_capture_timer.setSingleShot(True)
+        self.wake_capture_timer.timeout.connect(self.stop_voice_input)
+        self.wake_microphone = Microphone(self)
+        self.wake_microphone.failed.connect(self.on_wake_error)
+        self.wake_thread = QThread(self)
+        self.wake_worker = WakeWordWorker(self.config)
+        self.wake_worker.moveToThread(self.wake_thread)
+        queued = Qt.ConnectionType.QueuedConnection
+        self.wake_thread.started.connect(self.wake_worker.start, queued)
+        self.wake_microphone.pcm_ready.connect(self.wake_worker.feed, queued)
+        self.wake_stop_requested.connect(self.wake_worker.stop, queued)
+        self.wake_reset_requested.connect(self.wake_worker.reset, queued)
+        self.wake_worker.started.connect(self.on_wake_started)
+        self.wake_worker.wakeDetected.connect(self.on_wake_detected)
+        self.wake_worker.error.connect(self.on_wake_error)
+        self.wake_worker.finished.connect(self.on_wake_finished)
+        # Direct quit also works while closeEvent is waiting on the UI thread.
+        self.wake_worker.finished.connect(self.wake_thread.quit, Qt.ConnectionType.DirectConnection)
+        self.wake_thread.finished.connect(self.wake_worker.deleteLater)
+        self.wake_thread.finished.connect(self.on_wake_thread_finished)
+        self.wake_thread.finished.connect(self.wake_thread.deleteLater)
+        self.wake_thread.start()
+
+    def on_wake_started(self) -> None:
+        if self.closing or self.wake_failed:
+            self.wake_stop_requested.emit()
+            return
+        self.wake_ready = True
+        self.resume_wake_word()
+
+    def pause_wake_word(self) -> None:
+        if self.wake_microphone is None:
+            return
+        self.wake_listening = False
+        self.wake_indicator.hide()
+        self.wake_microphone.stop()
+
+    def resume_wake_word(self) -> None:
+        if not self.wake_ready or self.wake_failed or self.closing or self.wake_listening:
+            return
+        if (
+            self.busy or not self.stream_done or self.tts_thread is not None
+            or self.tts_queue or self.pending_clips or self.transcription_thread is not None
+            or self.voice_session.state != "idle"
+        ):
+            return
+        # Discard partial utterances from before capture/playback before feeding new PCM.
+        self.wake_reset_requested.emit()
+        if self.wake_microphone.start() and not self.wake_failed:
+            self.wake_listening = True
+            self.wake_indicator.show()
+
+    def on_wake_detected(self, _phrase: str) -> None:
+        if not self.wake_listening or self.closing or self.wake_failed:
+            return
+        if (
+            self.busy or not self.stream_done or self.tts_thread is not None
+            or self.tts_queue or self.pending_clips or self.transcription_thread is not None
+            or self.voice_session.state != "idle" or self.chat_input.text()
+        ):
+            return
+        self.start_voice_input()
+        if self.voice_session.state == "recording":
+            self.chat_panel.add_notice("Listening…")
+            self.wake_capture_timer.start(WAKE_CAPTURE_MS)
+
+    def on_wake_error(self, message: str) -> None:
+        if self.wake_failed:
+            return
+        self.wake_failed = True
+        logger.warning("Wake word disabled for this session: %s", message)
+        self.on_wake_finished()
+        self.wake_stop_requested.emit()
+
+    def on_wake_finished(self) -> None:
+        self.wake_ready = False
+        self.pause_wake_word()
+
+    def on_wake_thread_finished(self) -> None:
+        self.on_wake_finished()
+        self.wake_thread = None
+        self.wake_worker = None
+        if self.closing:
+            self.close()
 
     def setup_proactive(self, reminders: ReminderStore | None) -> None:
         self.proactive = None
@@ -238,6 +349,7 @@ class CompanionWindow(QWidget):
         if result is None or busy:
             return
         self.busy = True
+        self.pause_wake_word()
         self.chat_input.setEnabled(False)
         self.send_button.setEnabled(False)
         self.set_status("Thinking")
@@ -460,12 +572,15 @@ class CompanionWindow(QWidget):
             return
         # Reserve this turn so typed input and proactive replies cannot race transcription.
         self.busy = True
+        self.pause_wake_word()
         self.chat_input.setEnabled(False)
         self.send_button.setEnabled(False)
         self.set_status("Listening")
         self.microphone.start()
 
     def stop_voice_input(self) -> None:
+        if self.wake_capture_timer is not None:
+            self.wake_capture_timer.stop()
         if self.voice_session is None or self.voice_session.state != "recording":
             return
         # stop() delivers the last buffered PCM synchronously before finalizing the clip.
@@ -492,6 +607,8 @@ class CompanionWindow(QWidget):
         if self.voice_session is None or self.voice_session.state != "recording":
             return
         self.voice_session.cancel()
+        if self.wake_capture_timer is not None:
+            self.wake_capture_timer.stop()
         if self.closing:
             return
         self.chat_panel.add_notice(message)
@@ -512,6 +629,7 @@ class CompanionWindow(QWidget):
             self.close()
         else:
             self.talk_button.setEnabled(True)
+            self.resume_wake_word()
 
     def load_live2d_scene(self) -> None:
         logger.debug("Loading HTML from: %s", HTML_PATH)
@@ -695,6 +813,7 @@ class CompanionWindow(QWidget):
         if self.proactive is not None:
             self.proactive.record_activity(local_now())
         self.busy = True
+        self.pause_wake_word()
         self.chat_input.clear()
         self.chat_input.setEnabled(False)
         self.send_button.setEnabled(False)
@@ -998,12 +1117,23 @@ class CompanionWindow(QWidget):
         self.send_button.setEnabled(True)
         self.chat_input.setFocus()
         self.set_talking(False)
+        self.resume_wake_word()
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
         self.closing = True
+        if self.wake_capture_timer is not None:
+            self.wake_capture_timer.stop()
+        self.pause_wake_word()
         if self.voice_session is not None:
             self.voice_session.cancel()
             self.microphone.stop()
+        if self.wake_thread is not None and self.wake_thread.isRunning():
+            self.wake_stop_requested.emit()
+            if not self.wake_thread.wait(2000):
+                # Model loading may still be running; retain its owner until finished.
+                event.ignore()
+                self.hide()
+                return
         if self.transcription_thread is not None and self.transcription_thread.isRunning():
             self.transcription_thread.quit()
             if not self.transcription_thread.wait(2000):

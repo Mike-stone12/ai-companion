@@ -14,6 +14,7 @@ from test_voice_input_qt_adapters import Signal, load_class
 from companion.core.config import AppConfig
 from companion.core.voice_input_actions import can_start_voice_input, deliver_voice_input_result
 from companion.core.voice_input_controller import VoiceInputController, VoiceInputResult
+from companion.core.wake_word_actions import wake_word_enabled
 
 
 @pytest.fixture
@@ -33,14 +34,27 @@ def window(monkeypatch):
         partial=partial, transcribe=client, VoiceInputController=VoiceInputController,
         can_start_voice_input=can_start_voice_input, deliver_voice_input_result=deliver_voice_input_result,
         QPushButton=Mock(return_value=button), QThread=Mock(return_value=thread),
-        TranscriptionWorker=worker_class, Qt=SimpleNamespace(ConnectionType=SimpleNamespace(DirectConnection=1)),
+        TranscriptionWorker=worker_class, wake_word_enabled=wake_word_enabled, WAKE_CAPTURE_MS=5000,
+        QLabel=Mock(), QTimer=Mock(side_effect=lambda *_: Mock(timeout=Signal())),
+        Qt=SimpleNamespace(
+            ConnectionType=SimpleNamespace(DirectConnection=1, QueuedConnection=2),
+            TextFormat=SimpleNamespace(PlainText=1),
+        ),
     )
     instance = cls.__new__(cls)
     instance.config = AppConfig(voice_input=True, transcription_model="test-model")
     instance.voice_session = instance.microphone = instance.talk_button = None
     instance.transcription_thread = instance.transcription_worker = None
+    instance.wake_thread = instance.wake_worker = instance.wake_microphone = None
+    instance.wake_indicator = instance.wake_capture_timer = None
+    instance.wake_ready = instance.wake_listening = instance.wake_failed = False
+    instance.stream_done = True
+    instance.tts_thread = None
+    instance.pending_clips = {}
+    instance.top_bar = Mock()
     instance.busy = instance.closing = False
     instance.chat_input = Mock()
+    instance.chat_input.text.return_value = ""
     instance.send_button = Mock()
     instance.chat_panel = Mock()
     instance.set_status = Mock()
