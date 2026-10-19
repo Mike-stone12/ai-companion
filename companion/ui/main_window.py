@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sys
 from collections import deque
 from collections.abc import Callable
@@ -130,7 +129,7 @@ class CompanionWindow(QWidget):
         # Tools and proactive triggers share one in-memory store for this window.
         reminders = ReminderStore() if config.chat_tools or config.proactive_chat else None
         self.tool_registry = build_builtin_registry(reminders) if config.chat_tools else None
-        self.model_profile = discover_model_profile(os.getenv("LIVE2D_MODEL", "").strip())
+        self.model_profile = discover_model_profile(config.live2d_model)
         self.model_path = self.model_profile.path if self.model_profile else None
         self.vendor_dir = discover_vendor_dir()
         self.base_size = self.model_profile.window_size if self.model_profile else DEFAULT_WINDOW_SIZE
