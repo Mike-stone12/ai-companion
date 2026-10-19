@@ -308,6 +308,32 @@ python -m companion.core.memory.evaluation
 
 The extraction harness uses labelled Chinese cases in `evals/extraction_cases.json` and can score injected extractors fully offline. Run `python -m companion.core.memory.extraction_eval` for usage without making requests. A maintainer can explicitly run `python -m companion.core.memory.extraction_eval --live` with a configured API key; **`--live` sends the case messages to the configured LLM endpoint**. It reports store-decision accuracy, false stores, missed stores, keyword hit rate (all expected substrings found per positive case), and per-case errors. Live runs reuse the existing extractor, including its heuristic fallback on request or parse failures.
 
+### Packaging
+
+Build on each target operating system from the repository root, using the app
+environment with `requirements.txt` installed. Install PyInstaller separately;
+it is not included in either requirements file:
+
+```bash
+pip install pyinstaller
+pyinstaller ai-companion.spec
+```
+
+Output goes in `dist/`: `AI Companion.app` on macOS, and the `AI Companion/`
+one-folder build on Windows and Linux. The bundle includes the renderer, Live2D
+models, and vendor assets. Optional `vosk` is excluded, so wake-word detection
+is unavailable in this build; push-to-talk remains supported.
+
+User data still lives in the platform data directory described above (or the
+`COMPANION_DATA_DIR` override). `.env` is never bundled. To use it, place it next
+to the executable: `dist/AI Companion/.env` on Windows/Linux, or
+`dist/AI Companion.app/Contents/MacOS/.env` on macOS. The frozen path resolver
+passes that exact file to `companion/env.py`; it does not search beside the outer
+`.app` directory. The loader reads UTF-8 `KEY=value` lines, skips blank lines and
+comments, strips surrounding quotes, and preserves existing environment values.
+Alternatively, use the user data directory's `config.json` settings and the
+environment; API keys must come from the environment or `.env`, not `config.json`.
+
 ### Inspect stored memories
 
 Use the CLI without installing the GUI dependencies:
