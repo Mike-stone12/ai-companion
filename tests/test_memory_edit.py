@@ -116,6 +116,14 @@ def test_duplicate_matching_is_exact():
     assert result == [entry("likes tea", NOW), entries[1]]
 
 
+def test_unchanged_summary_matching_another_entry_is_rejected_without_mutation():
+    entries = [entry("Duplicate"), entry("Duplicate")]
+    before = deepcopy(entries)
+    with pytest.raises(DuplicateMemoryError):
+        edit_memory(entries, 0, " Duplicate ", now=unexpected_clock)
+    assert entries == before
+
+
 @pytest.mark.parametrize("summary", ["Likes tea", "  Likes\ntea  "])
 def test_noop_preserves_timestamp_and_returns_independent_copies(summary):
     entries = [entry("Likes tea"), entry("Another")]

@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from companion.core.memory.store import clip_memory_text
 from companion.memory_cli import main
 
 
@@ -157,3 +158,92 @@ def test_module_entry_point_utf8(store):
     assert "明天去北京" in result.stdout.decode("utf-8")
     assert result.stderr == b""
     assert (store.read_bytes(), store.stat().st_mtime_ns) == before
+
+
+@pytest.mark.parametrize("summary", ["  Corrected\n\ttext  ", "A long corrected memory " * 8])
+def test_edit_dry_run(store, entries, summary, capsys, run_readonly):
+    assert run_readonly(["--data-dir", str(store.parent), "edit", "2", summary]) == 0
+    output = capsys.readouterr()
+    assert f"Old: {entries[1]['summary']}" in output.out
+    assert f"New: {clip_memory_text(summary)}" in output.out
+    assert "nothing was saved" in output.out.lower()
+    assert output.err == ""
+
+
+@pytest.mark.parametrize("existing_backup", [False, True])
+def test_edit_write_preserves_entries_and_backs_up_original(store, existing_backup, capsys):
+    # More than the store's usual limit, with fields and summaries load() would normalize.
+    entries = [{"summary": f"  Original {index} " * 8, "custom": {"index": index}} for index in range(30)]
+    store.write_text(json.dumps(entries, ensure_ascii=False), encoding="utf-8")
+    original = store.read_bytes()
+    backup = store.with_name("memory.json.bak")
+    if existing_backup:
+        backup.write_bytes(b"previous backup")
+    assert main(["--data-dir", str(store.parent), "edit", "2", "  Corrected\ntext  ", "--write"]) == 0
+    output = capsys.readouterr()
+    assert "Saved" in output.out
+    assert str(backup) in output.out
+    assert output.err == ""
+    assert backup.read_bytes() == original
+    saved = json.loads(store.read_text(encoding="utf-8"))
+    assert len(saved) == len(entries)
+    assert saved[:1] == entries[:1]
+    assert saved[2:] == entries[2:]
+    assert saved[1] == {**entries[1], "summary": "Corrected text", "updated_at": saved[1]["updated_at"]}
+    assert saved[1]["updated_at"]
+    assert store.read_text(encoding="utf-8") == json.dumps(saved, ensure_ascii=False, indent=2)
+
+
+@pytest.mark.parametrize("write", [[], ["--write"]])
+@pytest.mark.parametrize(("index", "summary", "error"), [
+    ("0", "New", "index"),
+    ("-1", "New", "index"),
+    ("4", "New", "out of range"),
+    ("1", "", "empty"),
+    ("1", " \n\t ", "empty"),
+    ("1", "  Duplicate\ntext  ", "already has"),
+    ("1", "Long memory " * 10, "already has"),
+])
+def test_edit_rejected_without_file_changes(store, index, summary, error, write, capsys, run_readonly):
+    entries = [{"summary": "Edit me"}, {"summary": "Duplicate text"},
+               {"summary": clip_memory_text("Long memory " * 10)}]
+    store.write_text(json.dumps(entries), encoding="utf-8")
+    store.with_name("memory.json.bak").write_bytes(b"keep existing backup")
+    assert run_readonly(["--data-dir", str(store.parent), "edit", index, summary, *write]) != 0
+    output = capsys.readouterr()
+    assert error in output.err
+    assert "Traceback" not in output.err
+
+
+@pytest.mark.parametrize("index", ["abc", "1.5"])
+def test_edit_noninteger_index(store, index, capsys, run_readonly):
+    with pytest.raises(SystemExit) as exc:
+        run_readonly(["--data-dir", str(store.parent), "edit", index, "New", "--write"])
+    assert exc.value.code != 0
+    assert "invalid int value" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("write", [[], ["--write"]])
+def test_edit_missing_file(tmp_path, write, capsys, run_readonly):
+    data_dir = tmp_path / "nonexistent"
+    assert run_readonly(["--data-dir", str(data_dir), "edit", "1", "New", *write]) != 0
+    output = capsys.readouterr()
+    assert str(data_dir / "memory.json") in output.err
+    assert "not exist" in output.err
+    assert output.out == ""
+
+
+def test_edit_default_directory(store, monkeypatch, capsys, run_readonly):
+    from companion import paths
+
+    monkeypatch.setattr(paths, "user_data_dir", lambda: store.parent)
+    assert run_readonly(["edit", "1", "New"]) == 0
+    assert "New: New" in capsys.readouterr().out
+
+
+def test_edit_environment_and_explicit_override(store, monkeypatch, capsys, run_readonly):
+    monkeypatch.setenv("COMPANION_DATA_DIR", str(store.parent))
+    assert run_readonly(["edit", "1", "New"]) == 0
+    assert "New: New" in capsys.readouterr().out
+    assert run_readonly(["--data-dir", str(store.parent / "other"), "edit", "1", "New", "--write"]) != 0
+    assert "not exist" in capsys.readouterr().err
