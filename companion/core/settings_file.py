@@ -10,21 +10,26 @@ logger = logging.getLogger(__name__)
 
 def load_settings(path: Path) -> dict:
     """Read a JSON settings file; a missing, unreadable, or non-object file counts as empty."""
+    return load_json(path, dict)
+
+
+def load_json(path: Path, expected_type: type[dict] | type[list]) -> dict | list:
+    """Read a JSON container, treating missing, corrupt, or mismatched data as empty."""
     if not path.exists():
-        return {}
+        return expected_type()
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, ValueError) as exc:
         logger.warning("Ignoring unreadable settings file %s: %s", path, exc)
-        return {}
-    if not isinstance(data, dict):
-        logger.warning("Ignoring settings file %s: expected a JSON object", path)
-        return {}
+        return expected_type()
+    if not isinstance(data, expected_type):
+        logger.warning("Ignoring settings file %s: expected %s", path, expected_type.__name__)
+        return expected_type()
     return data
 
 
-def save_settings(path: Path, settings: dict) -> None:
-    """Write the whole settings object atomically, so a crash mid-write cannot truncate it."""
+def save_settings(path: Path, settings: dict | list) -> None:
+    """Write a JSON container atomically, so a crash mid-write cannot truncate it."""
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = path.with_name(path.name + ".tmp")
     temp_path.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
