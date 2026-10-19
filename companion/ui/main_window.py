@@ -39,6 +39,8 @@ from companion.core.model_profile import (
     discover_vendor_dir,
 )
 from companion.core.text import sanitize_reply_text, sanitize_tts_text
+from companion.core.tools.builtin import build_builtin_registry
+from companion.core.tools.reminders import ReminderStore
 from companion.core.window_state import (
     OPACITY_STEPS,
     SCALE_STEPS,
@@ -121,6 +123,8 @@ class CompanionWindow(QWidget):
         super().__init__()
         self.config = config
         self.client = OpenAICompatibleClient(config)
+        # The registry owns one in-memory store across all chat turns in this window.
+        self.tool_registry = build_builtin_registry(ReminderStore()) if config.chat_tools else None
         self.model_profile = discover_model_profile(os.getenv("LIVE2D_MODEL", "").strip())
         self.model_path = self.model_profile.path if self.model_profile else None
         self.vendor_dir = discover_vendor_dir()
@@ -530,7 +534,7 @@ class CompanionWindow(QWidget):
 
     def start_chat_worker(self, payload: list[dict[str, str]]) -> None:
         self.chat_thread = QThread(self)
-        self.chat_worker = ChatStreamWorker(self.client, payload)
+        self.chat_worker = ChatStreamWorker(self.client, payload, registry=self.tool_registry)
         self.chat_worker.moveToThread(self.chat_thread)
 
         self.chat_thread.started.connect(self.chat_worker.run)
