@@ -88,6 +88,20 @@ class WakeWordWorker(QObject):
             self._fail(exc)
 
     @pyqtSlot()
+    def reset(self) -> None:
+        """Discard an interrupted utterance before the owner resumes microphone PCM."""
+        if self._recognizer is None:
+            return
+        try:
+            self._check_thread()
+            self._recognizer.reset()
+            self._pcm.reset()
+            self._controller.stop()
+            self._controller.start()
+        except Exception as exc:
+            self._fail(exc)
+
+    @pyqtSlot()
     def stop(self) -> None:
         """Release recognition on this thread, discarding incomplete audio."""
         if not self._active:
