@@ -75,11 +75,12 @@ def edit_memory(
     if not summary:
         raise ValueError("memory summary must not be empty")
 
+    if any(entry.get("summary") == summary for other_index, entry in enumerate(entries) if other_index != index):
+        raise DuplicateMemoryError("another memory already has this summary")
+
     result = [dict(entry) for entry in entries]
     if summary == entries[index].get("summary"):
         return result
-    if any(entry.get("summary") == summary for other_index, entry in enumerate(entries) if other_index != index):
-        raise DuplicateMemoryError("another memory already has this summary")
 
     result[index]["summary"] = summary
     result[index]["updated_at"] = (utc_now_iso if now is None else now)()

@@ -1,13 +1,15 @@
-"""Read-only inspection of stored memories, without GUI dependencies."""
+"""Inspect and edit stored memories, without GUI dependencies."""
 
 from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
 from pathlib import Path
 
-from companion.core.memory.edit import memory_rows
+from companion.core.memory.edit import edit_memory, memory_rows
+from companion.core.memory.store import MemoryStore
 
 
 def _nonnegative_int(value: str) -> int:
@@ -27,6 +29,10 @@ def main(argv: list[str] | None = None) -> int:
     search.add_argument("query")
     show = commands.add_parser("show", help="show the full stored entry as JSON")
     show.add_argument("index", type=int, help="1-based index displayed by list or search")
+    edit = commands.add_parser("edit", help="preview a summary correction, or save it with --write")
+    edit.add_argument("index", type=int, help="1-based index displayed by list or search")
+    edit.add_argument("text", help="new summary")
+    edit.add_argument("--write", action="store_true", help="back up memory.json to memory.json.bak and save")
     args = parser.parse_args(argv)
 
     try:
@@ -48,6 +54,9 @@ def main(argv: list[str] | None = None) -> int:
         ):
             raise ValueError("expected a JSON list of memory objects with string summaries")
     except FileNotFoundError:
+        if args.command == "edit":
+            print(f"Error: memory file does not exist: {path}", file=sys.stderr)
+            return 1
         print(f"No memories found (checked {path}).")
         return 0
     except (OSError, ValueError) as exc:
@@ -59,6 +68,33 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Error: memory index {args.index} is out of range ({len(entries)} memories).", file=sys.stderr)
             return 1
         print(json.dumps(entries[args.index - 1], ensure_ascii=False, indent=2))
+        return 0
+
+    if args.command == "edit":
+        try:
+            edited = edit_memory(entries, args.index - 1, args.text)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+
+        print(f"Old: {entries[args.index - 1]['summary']}")
+        print(f"New: {edited[args.index - 1]['summary']}")
+        if not args.write:
+            print("Dry run: nothing was saved. Use --write to save.")
+            return 0
+
+        backup = path.with_name("memory.json.bak")
+        try:
+            # Preserve all raw entries and metadata, bypassing load's cleanup.
+            # Match the file's length so save() cannot drop older memories.
+            store = MemoryStore(path, limit=len(edited))
+            store.items = edited
+            shutil.copyfile(path, backup)
+            store.save()
+        except OSError as exc:
+            print(f"Error saving {path}: {exc}", file=sys.stderr)
+            return 1
+        print(f"Saved memory {args.index}. Backup: {backup}")
         return 0
 
     if not entries:

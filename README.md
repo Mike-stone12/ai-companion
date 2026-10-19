@@ -214,27 +214,35 @@ The extraction harness uses labelled Chinese cases in `evals/extraction_cases.js
 
 ### Inspect stored memories
 
-Use the read-only CLI without installing the GUI dependencies:
+Use the CLI without installing the GUI dependencies:
 
 ```bash
 python -m companion.memory_cli list
 python -m companion.memory_cli list --limit 5
 python -m companion.memory_cli search "咖啡"
 python -m companion.memory_cli show 1
+python -m companion.memory_cli edit 1 "Corrected memory text"
+python -m companion.memory_cli edit 1 "Corrected memory text" --write
 python -m companion.memory_cli --data-dir /path/to/data list
 ```
 
 The default directory follows the app's settings, including `COMPANION_DATA_DIR`
 from the environment or `.env`. Lists are newest first; indices are stable,
-1-based positions in the stored file and also work with `show`. Search matches
-case-insensitive substrings. These commands never save or migrate data.
+1-based positions in the stored file and also work with `show` and `edit`. Search
+matches case-insensitive substrings. By default, `edit` is a dry run: it prints the
+old and new summary without changing the file. Summaries use the store's whitespace
+normalization and shortening. With `--write`, it first copies the original file to
+`memory.json.bak` in the same directory (overwriting an older backup), then saves
+the correction and updates that entry's timestamp. Invalid indices, empty text,
+missing files, and exact duplicate summaries are rejected. Only `edit --write`
+saves data; none of these commands migrate data.
 
 ## Next steps
 
 Conflict-aware consolidation already supports ADD, UPDATE, and NOOP; DELETE decisions are ignored.
 
 - Collect live extraction evaluation numbers; a labelled extraction harness exists, and live numbers are pending.
-- Add a UI or CLI for editing and removing stored memories; read-only inspection is already available.
+- Add a UI for editing stored memories; CLI inspection and editing are already available.
 - Validate platforms beyond Windows.
 
 ## License and credits
