@@ -34,3 +34,4 @@ class AppConfig:
     conversation_summary: bool = os.getenv("CONVERSATION_SUMMARY", "1").strip() not in {"0", "false", "False"}
     memory_limit: int = int(os.getenv("MEMORY_LIMIT", "24"))
     chat_thinking: bool = env_flag("CHAT_THINKING", default=False)
+    chat_tools: bool = env_flag("CHAT_TOOLS", default=False)

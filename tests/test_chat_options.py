@@ -72,3 +72,13 @@ def test_conversation_summary_setting(monkeypatch, value, expected):
     # Evaluate import-time defaults without changing the shared config module.
     config_class = runpy.run_path(config.__file__)["AppConfig"]
     assert config_class().conversation_summary is expected
+
+
+@pytest.mark.parametrize("value, expected", [(None, False), ("1", True), ("0", False)])
+def test_chat_tools_setting(monkeypatch, value, expected):
+    if value is None:
+        monkeypatch.delenv("CHAT_TOOLS", raising=False)
+    else:
+        monkeypatch.setenv("CHAT_TOOLS", value)
+    config_class = runpy.run_path(config.__file__)["AppConfig"]
+    assert config_class().chat_tools is expected

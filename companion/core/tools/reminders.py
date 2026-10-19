@@ -1,4 +1,4 @@
-"""A small, caller-located reminder store with atomic JSON persistence."""
+"""A small reminder store with optional atomic JSON persistence."""
 
 from __future__ import annotations
 
@@ -39,15 +39,19 @@ class Reminder:
 class ReminderStore:
     """Store aware ISO timestamps; upcoming excludes times at or before now.
 
+    Omitting the path keeps reminders in memory for this store's lifetime.
     Files are reloaded for each operation. Concurrent writers require external
     coordination; atomic replacement protects against partially written JSON.
     """
 
-    def __init__(self, path: str | Path, clock: Callable[[], datetime] = local_now):
-        self.path = Path(path)
+    def __init__(self, path: str | Path | None = None, clock: Callable[[], datetime] = local_now):
+        self.path = Path(path) if path is not None else None
         self.clock = clock
+        self._reminders: list[Reminder] = []
 
     def _read(self) -> list[Reminder]:
+        if self.path is None:
+            return list(self._reminders)
         reminders = []
         for row in load_json(self.path, list):
             try:
@@ -70,7 +74,10 @@ class ReminderStore:
             raise ValueError("Reminder time cannot be in the past")
         reminders = self._read()
         reminder = Reminder(uuid4().hex[:12], text, due_time.isoformat(), now.isoformat())
-        save_settings(self.path, [asdict(item) for item in [*reminders, reminder]])
+        if self.path is None:
+            self._reminders = [*reminders, reminder]
+        else:
+            save_settings(self.path, [asdict(item) for item in [*reminders, reminder]])
         return reminder
 
     def list(self, include_past: bool = False) -> list[Reminder]:

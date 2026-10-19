@@ -20,6 +20,8 @@ from companion.core.memory.extractor import (
 )
 from companion.core.memory.store import MemoryStore
 from companion.core.text import SentenceSplitter
+from companion.core.tools.loop import run_tool_rounds
+from companion.core.tools.registry import ToolRegistry
 from companion.paths import MEMORY_PATH
 
 logger = logging.getLogger(__name__)
@@ -38,10 +40,14 @@ class ChatStreamWorker(QObject):
     finished = pyqtSignal(str)
     error = pyqtSignal(str)
 
-    def __init__(self, client: OpenAICompatibleClient, messages: list[dict[str, str]]) -> None:
+    def __init__(
+        self, client: OpenAICompatibleClient, messages: list[dict[str, str]],
+        *, registry: ToolRegistry | None = None,
+    ) -> None:
         super().__init__()
         self.client = client
         self.messages = messages
+        self.registry = registry
 
     @pyqtSlot()
     def run(self) -> None:
@@ -63,9 +69,17 @@ class ChatStreamWorker(QObject):
                 self.sentence.emit(sentence)
 
         try:
-            stream = self.client.stream_chat(self.messages) if self.client.config.api_key else iter([DEMO_REPLY])
-            for text in stream:
-                publish(tags.feed(text))
+            if self.client.config.chat_tools and self.client.config.api_key:
+                if self.registry is None:
+                    raise ValueError("Chat tools require a session registry")
+                run_tool_rounds(
+                    self.messages, self.registry, self.client.stream_chat_chunks,
+                    on_text=lambda text: publish(tags.feed(text)), max_rounds=3,
+                )
+            else:
+                stream = self.client.stream_chat(self.messages) if self.client.config.api_key else iter([DEMO_REPLY])
+                for text in stream:
+                    publish(tags.feed(text))
             publish(tags.flush())
             for sentence in splitter.flush():
                 self.sentence.emit(sentence)
