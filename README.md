@@ -22,6 +22,7 @@ Windows is the most tested platform; the maintainer also works on macOS. CI test
 - **Voice replies with lip sync:** synthesizes replies with Edge-TTS, selects a Chinese or English voice based on the response, and moves the avatar's mouth with the speech volume (Web Audio analyser driving `ParamMouthOpenY`, or the model's LipSync parameter).
 - **Persistent memory:** extracts short facts, saves them locally, and includes relevant and recent memories in later conversations.
 - **Proactive chat (opt-in):** set `PROACTIVE_CHAT=1` for idle chat, time-of-day greetings, and spoken due reminders; off by default (`PROACTIVE_CHAT=0`). Checks run every 30 seconds. Policy blocks events during an active reply or while the input contains text, applies a two-minute grace period after a user message, and enforces cooldowns of 30 minutes for idle chat and four hours for greetings (none for reminders). Enable `CHAT_TOOLS` to set session reminders.
+- **Active-app comments (opt-in):** set `ACTIVE_APP_MONITOR=1` together with `PROACTIVE_CHAT=1` (monitor off by default). After the same foreground app has been sampled for at least 40 minutes, the monitor proposes one brief, caring comment per streak, subject to proactive policy and a 60-minute cooldown between active-app comments. Only the foreground app name and streak duration are sent to the LLM for this event, never a process list. Supported on Windows and macOS; unsupported platforms return no sample and trigger no active-app comments.
 - **Background processing:** separate Qt workers handle chat requests, memory extraction, and speech synthesis.
 
 ## Memory design
@@ -68,6 +69,8 @@ flowchart LR
 ```
 
 When proactive chat is enabled, triggers propose events, policy checks eligibility, and the engine passes at most one eligible event per tick to the composer. Its instruction is appended to conversation context for a chat request through the existing streaming and speech pipeline. Proposals that are rejected or lose priority are not queued or retried. The proactive core is pure Python; its Qt timer lives only in the UI layer (`companion/ui/main_window.py`).
+
+With `ACTIVE_APP_MONITOR=1`, the UI samples the foreground-app adapter on each proactive tick and feeds app names to the pure-Python active-app streak trigger (`companion/core/proactive/active_app.py`).
 
 Replies are streamed: `ChatStreamWorker` reads the SSE stream, shows the text as it arrives, and uses `SentenceSplitter` to hand speakable chunks to TTS. Chunks are synthesized strictly in order and queued in the renderer; the talk gesture starts when playback starts and continues across queued clips. The splitter can cut the first chunk at a comma so speech starts early. If the stream breaks, the text received so far is kept and marked as interrupted.
 
@@ -171,9 +174,10 @@ companion/
     chat/               Emotion tags, history, conversation summary
     llm/                API client, SSE streaming, embeddings
     memory/             Store, extraction, consolidation, lexical/semantic recall, cache, evals, edits
-    proactive/          Events, policy, triggers, composer, engine tick, session adapter
+    proactive/          Events, policy, triggers (including active_app.py), composer, engine tick, session adapter
     tools/              Tool registry, built-in time and reminder tools, tool-call loop
   adapters/tts_edge.py  Edge TTS synthesis and voice selection
+  adapters/active_app.py Foreground-app name adapter (Windows and macOS)
   app/workers.py        Qt workers for chat, TTS, memory, and summary
   app/logging_setup.py  Console and rotating file logging
   memory_cli.py         Memory inspection and editing (dry run unless --write)
@@ -303,7 +307,6 @@ and non-editable settings (including `COMPANION_DATA_DIR`) are rejected.
 
 - Add a memory editing UI.
 - Add a settings panel.
-- Add an opt-in active-app monitor.
 - Add push-to-talk voice input.
 - Add an opt-in wake word.
 - Package the application for distribution.

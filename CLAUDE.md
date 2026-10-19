@@ -20,9 +20,10 @@ companion/core/            pure Python, never imports Qt: config, text, llm (cli
                            chat (emotion tags, history, conversation summary),
                            memory (store, gate, extractor, recall, consolidation),
                            model profiles, window state (settings file, placement rules)
-companion/core/proactive/  events, policy, triggers, composer, engine tick; opt-in via PROACTIVE_CHAT
+companion/core/proactive/  events, policy, triggers (including active-app trigger active_app.py),
+                           composer, engine tick; opt-in via PROACTIVE_CHAT
 companion/core/tools/      function-calling tools, opt-in via CHAT_TOOLS
-companion/adapters/        Edge TTS
+companion/adapters/        Edge TTS (tts_edge.py), foreground-app adapter (active_app.py)
 companion/app/             QThread workers, logging setup
 companion/memory_cli.py    memory inspection and editing (dry run unless --write)
 companion/settings_cli.py  non-secret settings inspection and editing
