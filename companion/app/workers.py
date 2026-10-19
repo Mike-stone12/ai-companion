@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from dataclasses import replace
 
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from companion.adapters import tts_edge
 from companion.core.chat.emotion import EmotionTagParser
+from companion.core.chat.history import ConversationSummary
+from companion.core.chat.summary import request_summary, update_conversation_summary
 from companion.core.llm.client import OpenAICompatibleClient
 from companion.core.memory.consolidate_pipeline import consolidate_store
 from companion.core.memory.consolidator import ConsolidationDecision, build_consolidation_messages
@@ -89,6 +92,44 @@ class TTSWorker(QObject):
             self.error.emit(str(exc))
             return
         self.finished.emit(audio_path)
+
+
+class SummaryWorker(QObject):
+    """Run one snapshot update on the window's dedicated summary QThread."""
+
+    finished = pyqtSignal(object)
+
+    def __init__(
+        self,
+        client: OpenAICompatibleClient,
+        turns: list[dict[str, str]],
+        summary: ConversationSummary | None,
+        window: int,
+    ) -> None:
+        super().__init__()
+        # Use the existing client's bounded retries and a positive, capped socket timeout.
+        self.client = OpenAICompatibleClient(replace(
+            client.config, request_timeout=max(1, min(client.config.request_timeout, 60)),
+        ))
+        self.turns = turns
+        self.summary = summary
+        self.window = window
+
+    @pyqtSlot()
+    def run(self) -> None:
+        result = self.summary
+        try:
+            if self.client.config.api_key:
+                result = update_conversation_summary(
+                    self.turns, self.summary,
+                    lambda turns, previous: request_summary(self.client, turns, previous),
+                    window=self.window,
+                )
+                if result is not self.summary:
+                    logger.info("Conversation summary updated: covered=%d", result.summarized_count)
+        except Exception:
+            logger.info("Conversation summary worker failed")
+        self.finished.emit(result)
 
 
 class MemoryWorker(QObject):

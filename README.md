@@ -33,6 +33,8 @@ The memory pipeline uses a lightweight extraction gate, structured LLM extractio
 
 With `MEMORY_CONSOLIDATION=1` (the default), new candidates are compared with stored memories, and duplicates or updates are merged instead of appended; DELETE decisions leave memories unchanged.
 
+Older turns beyond the context window are folded in the background into a running summary, saved with chat history and included in later requests.
+
 The store retains 24 entries by default, configurable through `MEMORY_LIMIT`. This implementation uses external, text-based memory; it does not update model weights.
 
 ### Current tradeoffs
@@ -112,6 +114,7 @@ Recall depends on extraction and the configured model; this is a manual walkthro
 | `EDGE_TTS_VOICE_EN` | English voice | `en-US-AriaNeural` |
 | `MEMORY_ENABLED` | Enable new memory extraction | `1` |
 | `MEMORY_CONSOLIDATION` | Compare and merge candidates with stored memories; `0` restores exact-text deduplication only | `1` |
+| `CONVERSATION_SUMMARY` | Fold older turns into a running summary; `0` disables updates and summary context | `1` |
 | `MEMORY_LIMIT` | Maximum retained memory entries | `24` |
 | `COMPANION_DATA_DIR` | Where memory and logs are stored | Platform user data directory |
 | `COMPANION_SYSTEM_PROMPT` | Companion's system instruction | Built-in companion prompt |

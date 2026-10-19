@@ -1,5 +1,6 @@
 import io
 import json
+import runpy
 
 import pytest
 
@@ -60,3 +61,14 @@ def test_chat_thinking_env_flag(monkeypatch):
     assert config.env_flag("CHAT_THINKING", default=True) is False
     monkeypatch.delenv("CHAT_THINKING")
     assert config.env_flag("CHAT_THINKING", default=False) is False
+
+
+@pytest.mark.parametrize("value, expected", [(None, True), ("0", False)])
+def test_conversation_summary_setting(monkeypatch, value, expected):
+    if value is None:
+        monkeypatch.delenv("CONVERSATION_SUMMARY", raising=False)
+    else:
+        monkeypatch.setenv("CONVERSATION_SUMMARY", value)
+    # Evaluate import-time defaults without changing the shared config module.
+    config_class = runpy.run_path(config.__file__)["AppConfig"]
+    assert config_class().conversation_summary is expected
