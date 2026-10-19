@@ -1161,10 +1161,11 @@ class CompanionWindow(QWidget):
             return
         text = self.tts_queue.popleft()
         voice = tts_edge.choose_tts_voice(self.config, text)
-        logger.debug("TTS voice=%s text=%s", voice, text)
+        rate, pitch = tts_edge.choose_tts_prosody(self.config, text)
+        logger.debug("TTS voice=%s rate=%s pitch=%s text=%s", voice, rate, pitch, text)
 
         self.tts_thread = QThread(self)
-        self.tts_worker = TTSWorker(text, voice)
+        self.tts_worker = TTSWorker(text, voice, rate, pitch)
         self.tts_worker.moveToThread(self.tts_thread)
 
         self.tts_thread.started.connect(self.tts_worker.run)

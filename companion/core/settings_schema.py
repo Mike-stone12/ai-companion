@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -47,7 +48,9 @@ EDITABLE_SETTINGS = (
     Setting("PROACTIVE_CHAT", "bool", False, "Proactive chat"),
     Setting("ACTIVE_APP_MONITOR", "bool", False, "Active app monitor (requires proactive chat)"),
     Setting("LOG_LEVEL", "choice", "INFO", "Log level", choices=("DEBUG", "INFO", "WARNING", "ERROR")),
-    Setting("EDGE_TTS_VOICE_ZH", "str", "zh-CN-XiaoxiaoNeural", "Chinese voice"),
+    Setting("EDGE_TTS_VOICE_ZH", "str", "zh-CN-XiaoyiNeural", "Chinese voice"),
+    Setting("TTS_PITCH", "str", "+10Hz", "Chinese voice pitch offset (e.g. +10Hz)"),
+    Setting("TTS_RATE", "str", "+6%", "Chinese voice speed offset (e.g. +6%)"),
     Setting("EDGE_TTS_VOICE_EN", "str", "en-US-AriaNeural", "English voice"),
     Setting("MEMORY_ENABLED", "bool", True, "Memory extraction"),
     Setting("MEMORY_CONSOLIDATION", "bool", True, "Memory consolidation"),
@@ -59,6 +62,15 @@ EDITABLE_SETTINGS = (
     Setting("LIVE2D_MODEL", "str", DEFAULT_MODEL, "Live2D model"),
 )
 _SETTINGS_BY_NAME = {setting.name: setting for setting in EDITABLE_SETTINGS}
+PROSODY_PATTERNS = {"TTS_PITCH": re.compile(r"[+-]\d{1,3}Hz"), "TTS_RATE": re.compile(r"[+-]\d{1,2}%")}
+PROSODY_LIMITS = {"TTS_PITCH": 100, "TTS_RATE": 99}
+
+
+def valid_prosody(name: str, value: str) -> bool:
+    """Edge TTS offsets: pitch within ±100 Hz, rate within ±99 %."""
+    if not PROSODY_PATTERNS[name].fullmatch(value):
+        return False
+    return abs(int(value.rstrip("Hz%"))) <= PROSODY_LIMITS[name]
 
 
 def validate(name: str, value: SettingValue) -> SettingValue:
@@ -104,6 +116,11 @@ def validate(name: str, value: SettingValue) -> SettingValue:
             "EMBEDDING_MODEL", "LIVE2D_MODEL", "TRANSCRIPTION_MODEL", "WAKE_WORD_PHRASES", "WAKE_WORD_MODEL_DIR",
         }:
             value = value.strip()
+        elif name in {"TTS_PITCH", "TTS_RATE"}:
+            value = value.strip()
+            if not valid_prosody(name, value):
+                example = "+10Hz" if name == "TTS_PITCH" else "+6%"
+                raise ValueError(f"{name} requires a signed offset such as {example}")
         elif name == "OPENAI_MODEL":
             value = value.strip()
             if not value:

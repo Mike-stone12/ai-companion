@@ -20,6 +20,8 @@ CONFIG_FIELDS = {
     "ACTIVE_APP_MONITOR": "active_app_monitor",
     "EDGE_TTS_VOICE_ZH": "voice_zh",
     "EDGE_TTS_VOICE_EN": "voice_en",
+    "TTS_PITCH": "tts_pitch",
+    "TTS_RATE": "tts_rate",
     "MEMORY_ENABLED": "memory_enabled",
     "MEMORY_CONSOLIDATION": "memory_consolidation",
     "MEMORY_RELEVANT_RECALL": "memory_relevant_recall",
