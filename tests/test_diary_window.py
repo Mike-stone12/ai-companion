@@ -131,3 +131,17 @@ def test_new_self_memories_reload_the_store(window):
     window.on_self_memory_ready([{"summary": "我最喜欢草莓"}])
 
     window.self_memory_store.load.assert_called_once()
+
+
+def test_own_context_never_cuts_an_entry(window):
+    window.diary_entries = [diary.DiaryEntry(YESTERDAY.date() - timedelta(days=d), "日" * 300, NOW) for d in range(3)]
+    window.self_memory_store.items = [
+        {"summary": "我" + "喜" * 40 + str(i), "category": "preference", "updated_at": NOW.isoformat()}
+        for i in range(5)
+    ]
+
+    text = window.own_context("x")
+
+    assert len(text) <= 600
+    assert all(line.startswith(("Your", "Things", "- ")) or not line for line in text.splitlines())
+    assert all(line.endswith(("…", ":")) or line.startswith("- 我") or not line for line in text.splitlines())

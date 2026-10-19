@@ -26,8 +26,8 @@ MAX_ENTRIES = 60
 MAX_ENTRY_CHARS = 300
 BACKFILL_DAYS = 3
 CONTEXT_ENTRIES = 3
-CONTEXT_ENTRY_CHARS = 120
-MAX_CONTEXT_CHARS = 400
+CONTEXT_ENTRY_CHARS = 100
+MAX_CONTEXT_CHARS = 420
 MAX_TRANSCRIPT_CHARS = 2000
 
 DIARY_INSTRUCTION = (
@@ -126,12 +126,18 @@ def render_diary_context(entries: Sequence[DiaryEntry]) -> str:
     recent = sorted(entries, key=lambda entry: entry.day)[-CONTEXT_ENTRIES:]
     if not recent:
         return ""
-    lines = []
-    for entry in recent:
+    header = "Your recent diary (your own memories of those days; stay consistent with them):"
+    lines: list[str] = []
+    length = len(header)
+    # Newest first while whole entries fit, then shown oldest first.
+    for entry in reversed(recent):
         text = entry.text if len(entry.text) <= CONTEXT_ENTRY_CHARS else entry.text[:CONTEXT_ENTRY_CHARS - 1] + "…"
-        lines.append(f"- {entry.day:%m-%d}: {text}")
-    block = "Your recent diary (your own memories of those days; stay consistent with them):\n" + "\n".join(lines)
-    return block[:MAX_CONTEXT_CHARS]
+        line = f"- {entry.day:%m-%d}: {text}"
+        if length + 1 + len(line) > MAX_CONTEXT_CHARS:
+            break
+        lines.insert(0, line)
+        length += 1 + len(line)
+    return "\n".join([header, *lines]) if lines else ""
 
 
 class DiaryStore:

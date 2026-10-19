@@ -183,3 +183,25 @@ def test_self_context_prefers_relevant_memories():
     assert text.startswith(SELF_CONTEXT_HEADER)
     assert "我答应周末陪他复习" in text
     assert render_self_context([]) == ""
+
+
+def test_diary_context_keeps_whole_entries_newest_first():
+    entries = [DiaryEntry(TODAY - timedelta(days=d), f"第{d}天" + "嗯" * 150, datetime.now(UTC)) for d in range(3)]
+
+    text = render_diary_context(entries)
+
+    assert len(text) <= MAX_CONTEXT_CHARS
+    assert "第0天" in text and "第1天" in text
+    assert all(line.endswith("…") or line.startswith("Your") for line in text.splitlines())
+    assert text.index("第1天") < text.index("第0天")
+
+
+def test_self_context_drops_whole_lines_that_do_not_fit():
+    items = [
+        {"summary": f"我{i}" + "喜" * 20, "category": "preference", "updated_at": f"2026-10-1{i}"} for i in range(5)
+    ]
+
+    text = render_self_context(items, max_chars=len(SELF_CONTEXT_HEADER) + 50)
+
+    assert text.count("\n- ") == 2
+    assert render_self_context(items, max_chars=10) == ""

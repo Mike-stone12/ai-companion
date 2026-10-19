@@ -69,8 +69,19 @@ def extract_self_memories(
     return [{**memory, "source": "self"} for memory in memories[:2]]
 
 
-def render_self_context(items: list[dict[str, str]], query: str = "", max_items: int = CONTEXT_ITEMS) -> str:
+def render_self_context(
+    items: list[dict[str, str]], query: str = "", max_items: int = CONTEXT_ITEMS, max_chars: int | None = None,
+) -> str:
+    """Relevant self memories as whole lines; with max_chars, lines that would not fit are left out."""
     if not items:
         return ""
     selected = select_request_memories(items, query, max_items, embed=None, relevant_recall=True)
-    return SELF_CONTEXT_HEADER + "\n" + "\n".join(f"- {item['summary']}" for item in selected)
+    lines = [SELF_CONTEXT_HEADER]
+    length = len(SELF_CONTEXT_HEADER)
+    for item in selected:
+        line = f"- {item['summary']}"
+        if max_chars is not None and length + 1 + len(line) > max_chars:
+            break
+        lines.append(line)
+        length += 1 + len(line)
+    return "\n".join(lines) if len(lines) > 1 else ""

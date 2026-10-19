@@ -996,8 +996,11 @@ class CompanionWindow(QWidget):
         """Her recent diary and what she has said about herself, for the chat context."""
         if getattr(self, "diary_store", None) is None:
             return ""
-        parts = [render_diary_context(self.diary_entries), render_self_context(self.self_memory_store.items, user_text)]
-        return "\n\n".join(part for part in parts if part)[:OWN_CONTEXT_CHARS]
+        diary = render_diary_context(self.diary_entries)
+        room = OWN_CONTEXT_CHARS - (len(diary) + 2 if diary else 0)
+        own = render_self_context(self.self_memory_store.items, user_text, max_chars=room)
+        # Both blocks are built from whole lines, so nothing is cut mid-entry.
+        return "\n\n".join(part for part in (diary, own) if part)
 
     def start_self_memory_worker(self, user_text: str, assistant_text: str) -> None:
         if getattr(self, "self_memory_store", None) is None or not self.config.api_key:
