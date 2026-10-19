@@ -130,6 +130,7 @@ Recall depends on extraction and the configured model; this is a manual walkthro
 ## Configuration
 
 The right-click menu has a **Settings…** entry that edits the same `config.json` settings.
+Use **Memories…** in the right-click menu to view, search, and edit stored memory summaries.
 
 | Variable | Purpose | Default |
 | --- | --- | --- |
@@ -309,7 +310,6 @@ and non-editable settings (including `COMPANION_DATA_DIR`) are rejected.
 
 ## Roadmap
 
-- Add a memory editing UI.
 - Add a settings panel.
 - Add push-to-talk voice input.
 - Add an opt-in wake word.
