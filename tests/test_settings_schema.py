@@ -11,6 +11,7 @@ CONFIG_FIELDS = {
     "CHAT_THINKING": "chat_thinking",
     "CHAT_TOOLS": "chat_tools",
     "PROACTIVE_CHAT": "proactive_chat",
+    "ACTIVE_APP_MONITOR": "active_app_monitor",
     "EDGE_TTS_VOICE_ZH": "voice_zh",
     "EDGE_TTS_VOICE_EN": "voice_en",
     "MEMORY_ENABLED": "memory_enabled",
@@ -63,6 +64,8 @@ def test_schema_covers_safe_settings_and_builtin_defaults():
 
 @pytest.mark.parametrize("name, value, expected", [
     ("CHAT_THINKING", True, True),
+    ("ACTIVE_APP_MONITOR", True, True),
+    ("ACTIVE_APP_MONITOR", False, False),
     ("MEMORY_ENABLED", False, False),
     ("MEMORY_LIMIT", 1, 1),
     ("MEMORY_LIMIT", 1000, 1000),
@@ -94,6 +97,7 @@ def test_validate_rejects_uneditable_names(name):
 
 @pytest.mark.parametrize("name, value", [
     ("CHAT_THINKING", "true"), ("CHAT_TOOLS", 1), ("PROACTIVE_CHAT", 0.0),
+    ("ACTIVE_APP_MONITOR", "true"),
     ("MEMORY_ENABLED", None), ("MEMORY_LIMIT", True), ("MEMORY_LIMIT", "24"),
     ("MEMORY_LIMIT", 2.5), ("MEMORY_LIMIT", 0), ("MEMORY_LIMIT", -1),
     ("MEMORY_LIMIT", float("nan")), ("MEMORY_LIMIT", float("inf")),
@@ -181,6 +185,7 @@ def test_saved_settings_round_trip_through_existing_loader(tmp_path):
 
     updates = {
         "CHAT_THINKING": True, "CHAT_TOOLS": True, "PROACTIVE_CHAT": True,
+        "ACTIVE_APP_MONITOR": True,
         "LOG_LEVEL": " warning ", "EDGE_TTS_VOICE_ZH": "custom-zh", "EDGE_TTS_VOICE_EN": "custom-en",
         "MEMORY_ENABLED": False, "MEMORY_CONSOLIDATION": False, "MEMORY_RELEVANT_RECALL": False,
         "MEMORY_SEMANTIC_RECALL": True, "EMBEDDING_MODEL": " embedding-model ",

@@ -83,6 +83,7 @@ def test_set_dry_run(config, capsys, run_readonly):
 @pytest.mark.parametrize(("key", "value", "expected"), [
     ("MEMORY_LIMIT", "42", 42),
     ("CHAT_TOOLS", "false", False),
+    ("ACTIVE_APP_MONITOR", "true", True),
     ("LOG_LEVEL", " debug ", "DEBUG"),
     ("EDGE_TTS_VOICE_ZH", "自定义语音", "自定义语音"),
     ("EMBEDDING_MODEL", " model ", "model"),

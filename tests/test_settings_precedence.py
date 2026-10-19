@@ -39,6 +39,7 @@ def test_defaults_only(config_path):
     assert config.memory_limit == 24
     assert config.chat_thinking is False
     assert config.proactive_chat is False
+    assert config.active_app_monitor is False
     assert config.voice_zh == "zh-CN-XiaoxiaoNeural"
     assert not config_path.exists()
 
@@ -63,6 +64,15 @@ def test_environment_overrides_json(config_path, monkeypatch):
     config = build_config()
     assert config.memory_limit == 17
     assert config.chat_thinking is False
+
+
+@pytest.mark.parametrize("source", ["environment", "json"])
+def test_active_app_monitor_opt_in(config_path, monkeypatch, source):
+    if source == "environment":
+        monkeypatch.setenv("ACTIVE_APP_MONITOR", "1")
+    else:
+        write_config(config_path, {"ACTIVE_APP_MONITOR": True})
+    assert build_config().active_app_monitor is True
 
 
 def test_dotenv_overrides_json_and_keeps_shell_precedence(config_path, monkeypatch):
@@ -90,7 +100,7 @@ def test_merge_converts_scalars_and_does_not_mutate_inputs():
 
 @pytest.mark.parametrize("value", [True, False, 1, 0, " YES ", "false", "False", "", "  "])
 def test_json_flags_parse_exactly_like_environment(config_path, monkeypatch, value):
-    keys = ("CHAT_THINKING", "PROACTIVE_CHAT", "MEMORY_ENABLED", "CONVERSATION_SUMMARY")
+    keys = ("CHAT_THINKING", "PROACTIVE_CHAT", "ACTIVE_APP_MONITOR", "MEMORY_ENABLED", "CONVERSATION_SUMMARY")
     write_config(config_path, dict.fromkeys(keys, value))
     from_json = build_config()
     write_config(config_path, {})

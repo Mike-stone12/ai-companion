@@ -37,10 +37,11 @@ def window(tmp_path):
         "QTimer": Mock(), "QThread": Mock(), "ChatStreamWorker": Mock(), "Callable": Callable,
         "sanitize_reply_text": sanitize_reply_text, "sanitize_tts_text": sanitize_tts_text,
         "tts_edge": SimpleNamespace(is_available=lambda: True), "logger": Mock(),
+        "foreground_app_name": Mock(return_value="Editor"),
     }
     exec(compile(ast.fix_missing_locations(ast.Module(body=[cls], type_ignores=[])), str(path), "exec"), namespace)
     instance = namespace["CompanionWindow"]()
-    instance.config = SimpleNamespace(proactive_chat=True)
+    instance.config = SimpleNamespace(proactive_chat=True, active_app_monitor=False)
     instance.history = ConversationHistory(tmp_path / "history.json")
     instance.messages = [{"role": "system", "content": "Companion"}]
     for name in (
@@ -83,6 +84,57 @@ def test_enabled_timer_starts_every_thirty_seconds_and_stops_on_close(window):
     timer.stop.assert_called_once_with()
     window.on_proactive_tick()
     window.conversation_window.assert_not_called()
+
+
+@pytest.mark.parametrize("proactive_chat, monitor", [(False, False), (False, True), (True, False)])
+def test_disabled_monitor_never_queries_adapter(window, proactive_chat, monitor):
+    window.config.proactive_chat = proactive_chat
+    window.config.active_app_monitor = monitor
+    window.setup_proactive(ReminderStore())
+    window.on_proactive_tick()
+    window.on_proactive_tick.__globals__["foreground_app_name"].assert_not_called()
+    assert window.proactive is None or window.proactive.active_app is None
+
+
+def test_monitor_samples_before_each_engine_tick_even_when_busy(window):
+    window.config.active_app_monitor = True
+    window.setup_proactive(ReminderStore())
+    window.busy = True
+    namespace = window.on_proactive_tick.__globals__
+    calls = Mock()
+    calls.attach_mock(namespace["foreground_app_name"], "query")
+    window.proactive.active_app.record_sample = calls.sample
+    window.proactive.engine.tick = calls.tick
+    calls.tick.return_value = None
+    for seconds in (30, 60):
+        now = NOW + timedelta(seconds=seconds)
+        namespace["local_now"].return_value = now
+        window.on_proactive_tick()
+        assert [call[0] for call in calls.mock_calls] == ["query", "sample", "tick"]
+        calls.sample.assert_called_once_with("Editor", now)
+        assert calls.tick.call_args.args[0] == now
+        calls.reset_mock()
+
+
+@pytest.mark.parametrize("raises", [False, True])
+def test_monitor_unavailable_sample_skips_update_and_still_ticks(window, raises):
+    window.config.active_app_monitor = True
+    window.setup_proactive(ReminderStore())
+    namespace = window.on_proactive_tick.__globals__
+    query = namespace["foreground_app_name"]
+    query.return_value = None
+    if raises:
+        query.side_effect = RuntimeError("Unavailable")
+    window.proactive.active_app.record_sample = Mock()
+    window.proactive.engine.tick = Mock(return_value=None)
+    window.on_proactive_tick()
+    query.assert_called_once_with()
+    window.proactive.active_app.record_sample.assert_not_called()
+    window.proactive.engine.tick.assert_called_once()
+    assert namespace["logger"].debug.called
+    namespace["logger"].info.assert_not_called()
+    namespace["logger"].warning.assert_not_called()
+    namespace["logger"].error.assert_not_called()
 
 
 @pytest.mark.parametrize("state", ["busy", "streaming", "tts", "queued_speech", "playing", "typing"])
