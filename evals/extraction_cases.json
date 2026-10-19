@@ -1,0 +1,25 @@
+{
+  "description": "Fictional Chinese cases for extraction evaluation. Every expected keyword must appear in at least one summary for a positive case to count as a keyword hit.",
+  "cases": [
+    {"id": "nickname", "user_message": "以后叫我小满吧，这是我的昵称。", "assistant_reply": "好的，小满。", "should_store": true, "expected_keywords": ["小满"]},
+    {"id": "occupation", "user_message": "我是一名小学音乐老师。", "should_store": true, "expected_keywords": ["小学", "音乐"]},
+    {"id": "home", "user_message": "我现在住在苏州，已经住了五年。", "should_store": true, "expected_keywords": ["苏州"]},
+    {"id": "pet", "user_message": "我养了一只猫，名字叫芝麻。", "should_store": true, "expected_keywords": ["猫", "芝麻"]},
+    {"id": "drink_preference", "user_message": "我一直喜欢喝无糖绿茶。", "should_store": true, "expected_keywords": ["无糖", "绿茶"]},
+    {"id": "food_dislike", "user_message": "我不喜欢香菜，点菜时总会要求不放。", "should_store": true, "expected_keywords": ["不", "香菜"]},
+    {"id": "music_preference", "user_message": "我平时最爱听爵士乐。", "should_store": true, "expected_keywords": ["爵士"]},
+    {"id": "learning_plan", "user_message": "我打算今年学会游泳，已经报名了课程。", "should_store": true, "expected_keywords": ["游泳"]},
+    {"id": "moving_plan", "user_message": "我和室友计划月底搬家。", "should_store": true, "expected_keywords": ["月底", "搬家"]},
+    {"id": "exam", "user_message": "我下周三要参加资格考试。", "should_store": true, "expected_keywords": ["下周三", "考试"]},
+    {"id": "appointment", "user_message": "我预约了明天下午去看牙医。", "should_store": true, "expected_keywords": ["明天", "牙"]},
+    {"id": "family_visit", "user_message": "这周六我要去机场接来探望我的妈妈。", "should_store": true, "expected_keywords": ["周六", "妈妈"]},
+    {"id": "greeting", "user_message": "早上好呀！", "assistant_reply": "早上好，今天也要开心。", "should_store": false, "expected_keywords": []},
+    {"id": "thanks", "user_message": "谢谢你，刚才解释得很清楚。", "should_store": false, "expected_keywords": []},
+    {"id": "joke", "user_message": "给我讲个冷笑话吧。", "should_store": false, "expected_keywords": []},
+    {"id": "science_question", "user_message": "为什么海水是蓝色的？", "should_store": false, "expected_keywords": []},
+    {"id": "weather_question", "user_message": "明天会下雨吗？", "should_store": false, "expected_keywords": []},
+    {"id": "general_exam_question", "user_message": "资格考试一般需要带什么证件？", "should_store": false, "expected_keywords": []},
+    {"id": "temporary_mood", "user_message": "哈哈，刚才那个笑话真好笑。", "should_store": false, "expected_keywords": []},
+    {"id": "translation", "user_message": "请把这句例句翻译成英文：我喜欢喝咖啡。", "should_store": false, "expected_keywords": []}
+  ]
+}
