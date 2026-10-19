@@ -26,9 +26,9 @@ companion/app/             QThread workers, logging setup
 companion/memory_cli.py    read-only memory inspector
 companion/ui/              main window, chat panel, QWebChannel bridge to the renderer
 live2d_renderer.html       avatar renderer (PixiJS + pixi-live2d-display, lip sync, queue)
-models/                   Live2D models; companion.json holds window size, motion roles,
+models/                    Live2D models; companion.json holds window size, motion roles,
                            and the emotion -> expression map
-evals/                    offline memory evaluation cases
+evals/                     offline memory evaluation cases
 tests/                     pytest suite for companion/core and adapters (no Qt needed)
 ```
 

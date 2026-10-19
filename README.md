@@ -137,7 +137,7 @@ companion/
     llm/                API client and SSE streaming
     memory/             Store, gate, extractor, consolidation, recall, evaluation, edit helpers
     tools/              Tool registry, built-in time and reminder tools, tool-call loop
-  adapters/tts_edge.py   Edge TTS synthesis and voice selection
+  adapters/tts_edge.py  Edge TTS synthesis and voice selection
   app/workers.py        QThread workers for chat, TTS, and memory extraction
   memory_cli.py         Read-only memory inspector
   ui/                   Main window, chat panel, avatar bridge
