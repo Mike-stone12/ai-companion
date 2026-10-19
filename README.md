@@ -196,6 +196,23 @@ pytest
 
 The tests cover `companion/core`, which never imports PyQt or edge-tts, so they run without a display or the GUI dependencies. CI runs `ruff` and `pytest` on Ubuntu, Windows, and macOS for every pull request, with only `requirements-dev.txt` installed; a Qt import added to `companion/core` fails there.
 
+### Inspect stored memories
+
+Use the read-only CLI without installing the GUI dependencies:
+
+```bash
+python -m companion.memory_cli list
+python -m companion.memory_cli list --limit 5
+python -m companion.memory_cli search "咖啡"
+python -m companion.memory_cli show 1
+python -m companion.memory_cli --data-dir /path/to/data list
+```
+
+The default directory follows the app's settings, including `COMPANION_DATA_DIR`
+from the environment or `.env`. Lists are newest first; indices are stable,
+1-based positions in the stored file and also work with `show`. Search matches
+case-insensitive substrings. These commands never save or migrate data.
+
 ## Next steps
 
 - Evaluate extraction and recall on a repeatable conversation set.
