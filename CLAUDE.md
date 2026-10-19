@@ -41,6 +41,8 @@ companion/core/            pure Python, never imports Qt: config, api_key (keych
                            wake_word.py (pure-Python wake-word matcher),
                            wake_word_controller.py (listening session controller),
                            llm/transcription.py (transcription client)
+companion/core/state/      the companion's own mood (decays toward calm, misses the user after a
+                           day), last contact, current activity; state.json; COMPANION_STATE
 companion/core/proactive/  events, policy, triggers (including active-app trigger active_app.py),
                            composer (app-note framing; replies stay in the persona's voice and
                            address the user), engine tick; opt-in via PROACTIVE_CHAT

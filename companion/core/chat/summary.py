@@ -108,15 +108,19 @@ def build_chat_messages(
     recent_turns: list[dict[str, str]],
     memory_context: str | None = None,
     summary: str | None = None,
+    state_context: str | None = None,
 ) -> list[dict[str, str]]:
     """Assemble chat context from already-windowed turns without changing inputs.
 
     Preserve the app's system/memory/recent order when no summary is supplied.
-    A nonblank summary adds a labelled system message immediately before turns.
+    A nonblank companion state follows memory; a nonblank summary adds a
+    labelled system message immediately before turns.
     """
     messages = [{"role": "system", "content": system_prompt}]
     if memory_context:
         messages.append({"role": "system", "content": memory_context})
+    if state_context and state_context.strip():
+        messages.append({"role": "system", "content": state_context.strip()})
     if summary and summary.strip():
         messages.append({"role": "system", "content": "Conversation summary:\n" + summary.strip()})
     return [*messages, *recent_turns]

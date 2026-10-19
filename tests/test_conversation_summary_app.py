@@ -20,8 +20,8 @@ def window(tmp_path):
     tree = ast.parse(path.read_text(encoding="utf-8"))
     cls = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "CompanionWindow")
     methods = {
-        "conversation_window", "start_summary_worker", "on_summary_ready", "on_summary_thread_finished",
-        "history_text", "record_reply", "closeEvent",
+        "conversation_window", "state_context", "start_summary_worker", "on_summary_ready",
+        "on_summary_thread_finished", "history_text", "record_reply", "closeEvent",
     }
     cls.bases = [ast.Name(id="FakeWidget", ctx=ast.Load())]
     cls.body = [node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name in methods]

@@ -351,10 +351,12 @@
     }
 
     // Emotions map to model expressions through companion.json. The face changes as soon as
-    // the reply's emotion is known and returns to default a few seconds after speaking ends.
+    // the reply's emotion is known and, a few seconds after speaking ends, returns to the idle
+    // face: the companion's current mood (set from Python) or the default expression.
     const EMOTION_HOLD_MS = 4000;
     let currentEmotion = null;
     let emotionResetTimer = null;
+    let idleEmotion = null;
 
     function setEmotion(name) {
       clearTimeout(emotionResetTimer);
@@ -374,7 +376,20 @@
     function resetEmotion() {
       clearTimeout(emotionResetTimer);
       currentEmotion = null;
+      if (model && idleEmotion) {
+        model.expression(idleEmotion);
+        return;
+      }
       getMotionManager()?.expressionManager?.resetExpression();
+    }
+
+    function setIdleEmotion(name) {
+      idleEmotion = name && expressionConfig[name] ? name : null;
+      // A reply's own expression keeps priority until its hold time ends.
+      if (!currentEmotion && !talking) {
+        resetEmotion();
+      }
+      return idleEmotion !== null;
     }
 
     function scheduleEmotionReset() {
@@ -672,6 +687,7 @@
         bridge.stopAudio.connect(stopAudio);
         bridge.setTalking.connect(setTalking);
         bridge.setEmotion.connect(setEmotion);
+        bridge.setIdleEmotion.connect(setIdleEmotion);
         bridge.playRandomMotion.connect(playRandomMotion);
         bridge.reportReady();
       });
@@ -685,6 +701,8 @@
       stopAudio,
       getLipSyncState: () => ({ parameter: mouthParamId, mouthOpen }),
       setEmotion,
+      setIdleEmotion,
+      getIdleEmotion: () => idleEmotion,
       resetEmotion
     };
 

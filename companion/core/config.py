@@ -52,6 +52,8 @@ class AppConfig:
     proactive_chat: bool = env_flag("PROACTIVE_CHAT", default=False, values=_values)
     active_app_monitor: bool = env_flag("ACTIVE_APP_MONITOR", default=False, values=_values)
     live2d_model: str = _values.get("LIVE2D_MODEL", "").strip()
+    companion_state: bool = env_flag("COMPANION_STATE", default=True, values=_values)
+    mood_half_life_minutes: int = int(_values.get("MOOD_HALF_LIFE_MINUTES", "120"))
 
     @property
     def voice_input_usable(self) -> bool:

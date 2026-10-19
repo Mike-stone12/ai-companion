@@ -6,6 +6,7 @@ import sys
 from collections import deque
 from collections.abc import Callable
 from copy import copy
+from datetime import timedelta
 from functools import partial
 from pathlib import Path
 
@@ -21,6 +22,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMenu,
+    QMessageBox,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -48,6 +50,14 @@ from companion.core.model_profile import (
 from companion.core.persona import BuiltinPersonas, Persona, PersonaStore, effective_system_prompt
 from companion.core.proactive.session import ProactiveSession, proactive_request
 from companion.core.settings_form import SettingsForm
+from companion.core.state import (
+    StateStore,
+    apply_reply_emotion,
+    idle_emotion,
+    record_user_message,
+    render_state_context,
+    state_summary_lines,
+)
 from companion.core.text import sanitize_reply_text, sanitize_tts_text
 from companion.core.tools.builtin import build_builtin_registry
 from companion.core.tools.reminders import ReminderStore, local_now
@@ -64,7 +74,7 @@ from companion.core.window_state import (
     save_window_state,
     scaled_size,
 )
-from companion.paths import CONFIG_PATH, DATA_DIR, HISTORY_PATH, HTML_PATH, MEMORY_PATH, PERSONA_PATH
+from companion.paths import CONFIG_PATH, DATA_DIR, HISTORY_PATH, HTML_PATH, MEMORY_PATH, PERSONA_PATH, STATE_PATH
 from companion.ui.avatar_bridge import AvatarBridge
 from companion.ui.chat_panel import ChatPanel
 from companion.ui.memory_dialog import MemoryDialog
@@ -162,6 +172,10 @@ class CompanionWindow(QWidget):
         self.messages: list[dict[str, str]] = [
             {"role": "system", "content": self.system_message()}, *self.history.messages(),
         ]
+        # The companion's own mood and last contact (companion/core/state); None when turned off.
+        self.state_store = StateStore(STATE_PATH) if config.companion_state else None
+        self.companion_state = self.state_store.load(local_now()) if self.state_store else None
+        self.idle_face: str | None = None
 
         print_resource_report(self.model_path, self.vendor_dir)
 
@@ -216,6 +230,13 @@ class CompanionWindow(QWidget):
         self.idle_timer = QTimer(self)
         self.idle_timer.setInterval(9000)
         self.idle_timer.timeout.connect(self.play_random_motion)
+
+        # The mood fades with time, so the idle face is rechecked even when nobody talks.
+        self.mood_timer = QTimer(self)
+        self.mood_timer.setInterval(60_000)
+        self.mood_timer.timeout.connect(self.refresh_idle_emotion)
+        if self.companion_state is not None:
+            self.mood_timer.start()
 
         self.setup_window()
         self.build_ui()
@@ -712,6 +733,7 @@ class CompanionWindow(QWidget):
         menu.addSeparator()
         menu.addAction("Reset position", self.reset_position)
         menu.addAction("Persona…", self.show_persona_dialog)
+        menu.addAction("Companion state…", self.show_state)
         menu.addAction("Settings…", self.show_settings)
         menu.addAction("Memories…", self.show_memories)
         menu.addSeparator()
@@ -755,6 +777,54 @@ class CompanionWindow(QWidget):
         except OSError as exc:
             self.chat_panel.add_notice(f"Could not save the persona: {exc}")
         dialog.deleteLater()
+
+    def mood_half_life(self) -> timedelta:
+        return timedelta(minutes=max(self.config.mood_half_life_minutes, 5))
+
+    def state_context(self) -> str:
+        state = getattr(self, "companion_state", None)
+        return render_state_context(state, local_now(), self.mood_half_life()) if state is not None else ""
+
+    def update_state(self, state) -> None:
+        self.companion_state = state
+        try:
+            self.state_store.save(state)
+        except OSError as exc:
+            logger.warning("Could not save the companion state: %s", type(exc).__name__)
+        self.refresh_idle_emotion()
+
+    def record_user_activity(self) -> None:
+        state = getattr(self, "companion_state", None)
+        if state is not None:
+            self.update_state(record_user_message(state, local_now(), self.mood_half_life()))
+
+    def record_reply_mood(self) -> None:
+        state = getattr(self, "companion_state", None)
+        if state is not None:
+            emotion = self.reply_emotion or "neutral"
+            self.update_state(apply_reply_emotion(state, emotion, local_now(), self.mood_half_life()))
+
+    def refresh_idle_emotion(self) -> None:
+        state = getattr(self, "companion_state", None)
+        if state is None or not self.renderer_ready:
+            return
+        face = idle_emotion(state, local_now(), self.mood_half_life())
+        if face != self.idle_face:
+            self.idle_face = face
+            self.bridge.setIdleEmotion.emit(face or "")
+
+    def state_viewer_text(self) -> str:
+        if self.companion_state is None:
+            return "The companion's mood is turned off (COMPANION_STATE in Settings)."
+        return "\n".join(state_summary_lines(self.companion_state, local_now(), self.mood_half_life()))
+
+    def show_state(self) -> None:
+        box = QMessageBox(self)
+        box.setWindowTitle("Companion state")
+        box.setTextFormat(Qt.TextFormat.PlainText)
+        box.setText(self.state_viewer_text())
+        box.exec()
+        box.deleteLater()
 
     def show_memories(self) -> None:
         # Saving through the live store keeps subsequent recall and writes in sync.
@@ -808,6 +878,8 @@ class CompanionWindow(QWidget):
         self.set_status("Ready")
         self.idle_timer.start()
         self.play_random_motion()
+        self.idle_face = None
+        self.refresh_idle_emotion()
 
     def set_talking(self, talking: bool) -> None:
         if self.renderer_ready:
@@ -823,6 +895,8 @@ class CompanionWindow(QWidget):
         summary = self.history.summary if self.config.conversation_summary else None
         system_prompt = self.messages[0]["content"]
         turns = [dict(message) for message in self.messages[1:][-CONVERSATION_WINDOW:]]
+        # Read before this message updates the last-contact time, so a long silence shows.
+        state_context = self.state_context()
         relevant_recall = self.config.memory_relevant_recall
         embed = self.memory_embedder
         memory_store = self.memory_store
@@ -838,6 +912,7 @@ class CompanionWindow(QWidget):
                     query=user_text, relevant_recall=relevant_recall, embed=embed,
                 ),
                 summary=summary.text if summary else None,
+                state_context=state_context,
             )
 
         return build_context if defer else build_context()
@@ -863,6 +938,7 @@ class CompanionWindow(QWidget):
         self.history.append("user", user_text)
         self.reset_reply_state()
         self.start_chat_worker(self.conversation_window(user_text, defer=True))
+        self.record_user_activity()
 
     def reset_reply_state(self) -> None:
         self.reply_parts = []
@@ -999,6 +1075,7 @@ class CompanionWindow(QWidget):
         reply = sanitize_reply_text(raw_reply)
         if reply:
             self.record_reply(reply)
+            self.record_reply_mood()
             if self.pending_user_text:
                 self.start_memory_worker(self.pending_user_text, reply)
         self.render_reply()
