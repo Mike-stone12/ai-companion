@@ -6,6 +6,8 @@ import re
 from datetime import UTC, datetime
 from pathlib import Path
 
+from companion.core.memory.recall import select_context_memories
+
 logger = logging.getLogger(__name__)
 
 
@@ -64,12 +66,12 @@ class MemoryStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(json.dumps(self.items[-self.limit :], ensure_ascii=False, indent=2), encoding="utf-8")
 
-    def render_context(self, max_items: int = 8) -> str:
+    def render_context(self, max_items: int = 8, *, query: str = "", relevant_recall: bool = True) -> str:
         if not self.items:
             return ""
 
-        recent = sorted(self.items, key=lambda item: item.get("updated_at", ""), reverse=True)[:max_items]
-        lines = [f"- [{item.get('category', 'memory')}] {item['summary']}" for item in recent]
+        selected = select_context_memories(self.items, query, max_items, relevant_recall)
+        lines = [f"- [{item.get('category', 'memory')}] {item['summary']}" for item in selected]
         return "长期记忆（已压缩）:\n" + "\n".join(lines)
 
     def trim(self) -> None:

@@ -9,6 +9,7 @@ import pytest
 
 from companion.core.chat.history import ConversationHistory, ConversationSummary
 from companion.core.chat.summary import build_chat_messages, plan_summary_update
+from companion.core.memory.store import MemoryStore
 
 
 @pytest.fixture
@@ -36,7 +37,7 @@ def window(tmp_path):
     module = ast.fix_missing_locations(ast.Module(body=[cls], type_ignores=[]))
     exec(compile(module, str(path), "exec"), namespace)
     instance = namespace["CompanionWindow"]()
-    instance.config = SimpleNamespace(conversation_summary=True, api_key="fake-key")
+    instance.config = SimpleNamespace(conversation_summary=True, memory_relevant_recall=True, api_key="fake-key")
     instance.client = Mock()
     instance.history = ConversationHistory(tmp_path / "history.json", max_entries=24)
     instance.history.entries = [
@@ -45,7 +46,7 @@ def window(tmp_path):
         for role in ("user", "assistant")
     ]
     instance.messages = [{"role": "system", "content": "System"}, *instance.history.messages()]
-    instance.memory_store = SimpleNamespace(render_context=lambda: "Memory")
+    instance.memory_store = SimpleNamespace(render_context=lambda **kwargs: "Memory")
     instance.summary_thread = None
     instance.summary_worker = None
     instance.summary_snapshot = None
@@ -57,6 +58,22 @@ def window(tmp_path):
     instance.tts_queue = []
     instance.discard_pending_clips = Mock()
     return instance
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+def test_chat_context_passes_current_message_and_recall_flag(window, tmp_path, enabled):
+    window.config.memory_relevant_recall = enabled
+    window.memory_store = MemoryStore(tmp_path / "memory.json")
+    window.memory_store.items = [
+        {"summary": "coffee", "updated_at": "2026-10-01"},
+        *[{"summary": f"books {day}", "updated_at": f"2026-10-{day:02d}"} for day in range(2, 11)],
+    ]
+
+    context = window.conversation_window("coffee")
+
+    memory_context = context[1]["content"]
+    assert ("- [memory] coffee" in memory_context) is enabled
+    assert len(memory_context.splitlines()[1:]) == 8
 
 
 @pytest.mark.parametrize("failure", ["SummaryWorker", "QThread", "plan_summary_update"])
