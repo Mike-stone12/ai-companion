@@ -38,6 +38,7 @@ class AppConfig:
     memory_limit: int = int(os.getenv("MEMORY_LIMIT", "24"))
     chat_thinking: bool = env_flag("CHAT_THINKING", default=False)
     chat_tools: bool = env_flag("CHAT_TOOLS", default=False)
+    proactive_chat: bool = env_flag("PROACTIVE_CHAT", default=False)
 
     def __post_init__(self) -> None:
         self.embedding_model = self.embedding_model.strip()

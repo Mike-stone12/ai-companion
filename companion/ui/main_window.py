@@ -41,9 +41,10 @@ from companion.core.model_profile import (
     discover_model_profile,
     discover_vendor_dir,
 )
+from companion.core.proactive.session import ProactiveSession, proactive_request
 from companion.core.text import sanitize_reply_text, sanitize_tts_text
 from companion.core.tools.builtin import build_builtin_registry
-from companion.core.tools.reminders import ReminderStore
+from companion.core.tools.reminders import ReminderStore, local_now
 from companion.core.window_state import (
     OPACITY_STEPS,
     SCALE_STEPS,
@@ -126,8 +127,9 @@ class CompanionWindow(QWidget):
         super().__init__()
         self.config = config
         self.client = OpenAICompatibleClient(config)
-        # The registry owns one in-memory store across all chat turns in this window.
-        self.tool_registry = build_builtin_registry(ReminderStore()) if config.chat_tools else None
+        # Tools and proactive triggers share one in-memory store for this window.
+        reminders = ReminderStore() if config.chat_tools or config.proactive_chat else None
+        self.tool_registry = build_builtin_registry(reminders) if config.chat_tools else None
         self.model_profile = discover_model_profile(os.getenv("LIVE2D_MODEL", "").strip())
         self.model_path = self.model_profile.path if self.model_profile else None
         self.vendor_dir = discover_vendor_dir()
@@ -183,6 +185,35 @@ class CompanionWindow(QWidget):
         self.build_ui()
         self.load_live2d_scene()
         self.restore_position()
+        self.setup_proactive(reminders)
+
+    def setup_proactive(self, reminders: ReminderStore | None) -> None:
+        self.proactive = None
+        self.proactive_timer = None
+        if self.config.proactive_chat:
+            self.proactive = ProactiveSession(reminders, local_now())
+            self.proactive_timer = QTimer(self)
+            self.proactive_timer.setInterval(30_000)
+            self.proactive_timer.timeout.connect(self.on_proactive_tick)
+            self.proactive_timer.start()
+
+    def on_proactive_tick(self) -> None:
+        if self.proactive is None:
+            return
+        busy = bool(
+            self.busy or not self.stream_done or self.tts_thread is not None
+            or self.tts_queue or self.pending_clips
+        )
+        result = self.proactive.tick(local_now(), busy=busy, input_has_text=bool(self.chat_input.text()))
+        if result is None or busy:
+            return
+        self.busy = True
+        self.chat_input.setEnabled(False)
+        self.send_button.setEnabled(False)
+        self.set_status("Thinking")
+        self.pending_user_text = ""
+        self.reset_reply_state()
+        self.start_chat_worker(proactive_request(self.conversation_window(defer=True), result))
 
     def setup_window(self) -> None:
         flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool
@@ -530,6 +561,8 @@ class CompanionWindow(QWidget):
         if not user_text or self.busy:
             return
 
+        if self.proactive is not None:
+            self.proactive.record_activity(local_now())
         self.busy = True
         self.chat_input.clear()
         self.chat_input.setEnabled(False)
@@ -677,7 +710,8 @@ class CompanionWindow(QWidget):
         reply = sanitize_reply_text(raw_reply)
         if reply:
             self.record_reply(reply)
-            self.start_memory_worker(self.pending_user_text, reply)
+            if self.pending_user_text:
+                self.start_memory_worker(self.pending_user_text, reply)
         self.render_reply()
         self.pending_user_text = ""
         self.stream_done = True
@@ -835,6 +869,9 @@ class CompanionWindow(QWidget):
         self.set_talking(False)
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
+        if self.proactive_timer is not None:
+            self.proactive_timer.stop()
+        self.proactive = None
         # Ignore queued summary results once teardown begins.
         self.summary_snapshot = None
         if self.summary_thread is not None and self.summary_thread.isRunning():

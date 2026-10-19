@@ -141,6 +141,7 @@ class NoQt:
 
 sys.meta_path.insert(0, NoQt())
 import companion.core.proactive.triggers
+import companion.core.proactive.session
 assert not any(name == 'PyQt6' or name.startswith('PyQt6.') for name in sys.modules)
 """
     result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)

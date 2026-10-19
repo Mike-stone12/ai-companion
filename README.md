@@ -111,7 +111,8 @@ Recall depends on extraction and the configured model; this is a manual walkthro
 | `OPENAI_TIMEOUT` | Request timeout in seconds | `60` |
 | `OPENAI_RETRIES` | Request retry setting | `2` |
 | `CHAT_THINKING` | Let the model reason before chat replies (Moonshot and DeepSeek only). Off is faster and keeps replies short enough to speak. | `0` |
-| `CHAT_TOOLS` | Enable time and reminder tools (up to 3 model requests per turn). Reminders stay in memory for this window session; no notifications or disk persistence. | `0` |
+| `CHAT_TOOLS` | Enable time and reminder tools (up to 3 model requests per turn). Reminders stay in memory for this window session; no disk persistence. | `0` |
+| `PROACTIVE_CHAT` | Opt in to idle chat, time-of-day greetings, and spoken due reminders, checked every 30 seconds. Enable `CHAT_TOOLS` to set session reminders. Off creates no proactive timer or requests. | `0` |
 | `LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, or `ERROR`. Logs go to the terminal and `logs/companion.log` in the user data directory (rotated at 1 MB, 3 backups). | `INFO` |
 | `EDGE_TTS_VOICE_ZH` | Chinese voice | `zh-CN-XiaoxiaoNeural` |
 | `EDGE_TTS_VOICE_EN` | English voice | `en-US-AriaNeural` |

@@ -84,6 +84,16 @@ def test_chat_tools_setting(monkeypatch, value, expected):
     assert config_class().chat_tools is expected
 
 
+@pytest.mark.parametrize("value, expected", [(None, False), ("1", True), ("0", False)])
+def test_proactive_chat_setting(monkeypatch, value, expected):
+    if value is None:
+        monkeypatch.delenv("PROACTIVE_CHAT", raising=False)
+    else:
+        monkeypatch.setenv("PROACTIVE_CHAT", value)
+    config_class = runpy.run_path(config.__file__)["AppConfig"]
+    assert config_class().proactive_chat is expected
+
+
 @pytest.mark.parametrize("value, expected", [(None, False), ("0", False), ("1", True), (" YES ", True)])
 def test_memory_semantic_recall_setting(monkeypatch, value, expected):
     monkeypatch.setenv("EMBEDDING_MODEL", "embed-model")

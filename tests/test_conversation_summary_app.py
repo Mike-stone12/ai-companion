@@ -56,6 +56,7 @@ def window(tmp_path):
     instance.reply_emotion = None
     instance.save_window_state = Mock()
     instance.idle_timer = Mock()
+    instance.proactive_timer = None
     instance.audio_watchdog = Mock()
     instance.bridge = Mock()
     instance.tts_queue = []
