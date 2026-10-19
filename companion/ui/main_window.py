@@ -1215,6 +1215,13 @@ class CompanionWindow(QWidget):
             self.chat_panel.show_typing()
         self.message_timer.start(int(delay * 1000))
 
+    def voice_mood(self) -> str | None:
+        state = getattr(self, "companion_state", None)
+        if state is None:
+            return None
+        mood = current_mood(state, local_now(), self.persona.traits, self.mood_half_life())
+        return mood.emotion if mood.intensity >= IDLE_THRESHOLD else None
+
     def typing_slowness(self) -> float:
         """Annoyed or hurt, the companion types a little slower."""
         state = getattr(self, "companion_state", None)
@@ -1349,6 +1356,9 @@ class CompanionWindow(QWidget):
         text = self.tts_queue.popleft()
         voice = tts_edge.choose_tts_voice(self.config, text)
         rate, pitch = tts_edge.choose_tts_prosody(self.config, text)
+        if tts_edge.contains_cjk(text):
+            # Only the (cute) Chinese voice is shaped; the mood colours it slightly.
+            rate, pitch = tts_edge.mood_prosody((rate, pitch), self.voice_mood())
         logger.debug("TTS voice=%s rate=%s pitch=%s text=%s", voice, rate, pitch, text)
 
         self.tts_thread = QThread(self)

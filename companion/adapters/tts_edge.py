@@ -48,6 +48,20 @@ def choose_tts_prosody(config: AppConfig, text: str) -> tuple[str, str]:
     return config.tts_rate, config.tts_pitch
 
 
+# How the companion's current mood colours its voice: (rate %, pitch Hz) added to the base.
+MOOD_SHIFTS = {"angry": (4, -6), "sad": (-6, -4), "happy": (2, 4)}
+
+
+def mood_prosody(prosody: tuple[str, str], emotion: str | None) -> tuple[str, str]:
+    """Shift a (rate, pitch) pair for the mood: annoyed is quicker and lower, sad slower, happy brighter."""
+    shift = MOOD_SHIFTS.get(emotion or "")
+    if shift is None:
+        return prosody
+    rate = min(max(int(prosody[0].rstrip("%")) + shift[0], -99), 99)
+    pitch = min(max(int(prosody[1].rstrip("Hz")) + shift[1], -100), 100)
+    return f"{rate:+d}%", f"{pitch:+d}Hz"
+
+
 async def synthesize_to_file(
     text: str, voice: str, timeout: float = TTS_TOTAL_TIMEOUT_S, *, rate: str = "+0%", pitch: str = "+0Hz",
 ) -> str:
