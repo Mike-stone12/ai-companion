@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta
 
-from .events import GREETING, IDLE, REMINDER, Event
+from .events import ACTIVE_APP, GREETING, IDLE, REMINDER, Event
 
 
 @dataclass(frozen=True)
@@ -49,7 +49,9 @@ class ProactivePolicy:
                 return False, "quiet_hours"
 
         last_fired = self._last_fired.get(event.kind)
-        cooldown = self.config.cooldowns.get(event.kind, timedelta(0))
+        # Active-app monitoring remains opt-in, with a default when enabled.
+        default_cooldown = timedelta(minutes=60) if event.kind == ACTIVE_APP else timedelta(0)
+        cooldown = self.config.cooldowns.get(event.kind, default_cooldown)
         if last_fired is not None and event.at - last_fired < cooldown:
             return False, "cooldown"
         return True, "ok"

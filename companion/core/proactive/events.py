@@ -6,6 +6,7 @@ from datetime import datetime
 IDLE = "idle"
 GREETING = "greeting"
 REMINDER = "reminder"
+ACTIVE_APP = "active_app"
 
 
 @dataclass(frozen=True)
