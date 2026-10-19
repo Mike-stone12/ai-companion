@@ -67,7 +67,7 @@ class GreetingTrigger:
 
 
 class ReminderTrigger:
-    """Propose each due reminder ID once using an in-memory reminder store.
+    """Propose each due reminder ID once, persisting proposal IDs when enabled.
 
     The store is queried without consuming reminders. Payloads preserve its
     short reminder text and ISO due timestamp, omitting IDs and creation times.
@@ -82,6 +82,7 @@ class ReminderTrigger:
         for reminder in self._store.due(now):
             if reminder.id not in self._proposed:
                 self._proposed.add(reminder.id)
+                self._store.mark_proposed(reminder.id)
                 events.append(Event(REMINDER, now, {"text": reminder.text, "due_at": reminder.due_at}))
         return events
 

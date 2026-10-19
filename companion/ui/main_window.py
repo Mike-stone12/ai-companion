@@ -57,7 +57,7 @@ from companion.core.window_state import (
     save_window_state,
     scaled_size,
 )
-from companion.paths import CONFIG_PATH, HISTORY_PATH, HTML_PATH, MEMORY_PATH
+from companion.paths import CONFIG_PATH, DATA_DIR, HISTORY_PATH, HTML_PATH, MEMORY_PATH
 from companion.ui.avatar_bridge import AvatarBridge
 from companion.ui.chat_panel import ChatPanel
 from companion.ui.memory_dialog import MemoryDialog
@@ -131,8 +131,10 @@ class CompanionWindow(QWidget):
         super().__init__()
         self.config = config
         self.client = OpenAICompatibleClient(config)
-        # Tools and proactive triggers share one in-memory store for this window.
-        reminders = ReminderStore() if config.chat_tools or config.proactive_chat else None
+        # Tools and proactive triggers share a store; only CHAT_TOOLS enables persistence.
+        reminders = None
+        if config.chat_tools or config.proactive_chat:
+            reminders = ReminderStore(data_dir=DATA_DIR if config.chat_tools else None)
         self.tool_registry = build_builtin_registry(reminders) if config.chat_tools else None
         self.model_profile = discover_model_profile(config.live2d_model)
         self.model_path = self.model_profile.path if self.model_profile else None

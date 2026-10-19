@@ -38,7 +38,8 @@ evals/                     offline memory evaluation cases
 tests/                     pytest suite for companion/core and adapters (no Qt needed)
 ```
 
-User data (memory, chat history, logs, and `config.json` with the window placement) lives in the
+User data (memory, chat history, logs, `reminders.json` when `CHAT_TOOLS` is enabled,
+and `config.json` with the window placement) lives in the
 platform user data directory, e.g. `~/Library/Application Support/AICompanion/` on macOS, not in
 the repo.
 
