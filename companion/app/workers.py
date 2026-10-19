@@ -1,14 +1,25 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from companion.adapters import tts_edge
 from companion.core.chat.emotion import EmotionTagParser
 from companion.core.llm.client import OpenAICompatibleClient
-from companion.core.memory.extractor import extract_memories_with_llm
+from companion.core.memory.consolidate_pipeline import consolidate_store
+from companion.core.memory.consolidator import ConsolidationDecision, build_consolidation_messages
+from companion.core.memory.extractor import (
+    MEMORY_RETRY_DELAYS,
+    extract_memories_with_llm,
+    extraction_request_options,
+)
+from companion.core.memory.store import MemoryStore
 from companion.core.text import SentenceSplitter
+from companion.paths import MEMORY_PATH
+
+logger = logging.getLogger(__name__)
 
 DEMO_REPLY = (
     "Demo mode is active. Set OPENAI_API_KEY, OPENAI_BASE_URL, and OPENAI_MODEL to enable live responses."
@@ -90,10 +101,28 @@ class MemoryWorker(QObject):
         self.user_text = user_text
         self.assistant_text = assistant_text
 
+    def request_consolidation(self, candidate: str, existing: list[str]) -> ConsolidationDecision | str | None:
+        if not self.client.config.api_key:
+            return None
+        if not existing:
+            return ConsolidationDecision("ADD", None, candidate)
+        return self.client.complete(
+            build_consolidation_messages(candidate, existing),
+            extra=extraction_request_options(self.client.config.base_url),
+            retry_delays=MEMORY_RETRY_DELAYS,
+        )
+
     @pyqtSlot()
     def run(self) -> None:
         try:
             memories = extract_memories_with_llm(self.client, self.user_text, self.assistant_text)
+            if self.client.config.memory_consolidation:
+                store = MemoryStore(MEMORY_PATH, self.client.config.memory_limit)
+                result = consolidate_store(store, memories, self.request_consolidation)
+                logger.info(
+                    "Memory consolidation: added=%d updated=%d unchanged=%d fallback=%d",
+                    result.added, result.updated, result.unchanged, result.fallback_count,
+                )
         except Exception as exc:  # noqa: BLE001
             self.error.emit(str(exc))
             return

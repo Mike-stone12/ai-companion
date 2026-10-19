@@ -30,5 +30,6 @@ class AppConfig:
     request_timeout: int = int(os.getenv("OPENAI_TIMEOUT", "60"))
     request_retries: int = int(os.getenv("OPENAI_RETRIES", "2"))
     memory_enabled: bool = os.getenv("MEMORY_ENABLED", "1").strip() not in {"0", "false", "False"}
+    memory_consolidation: bool = os.getenv("MEMORY_CONSOLIDATION", "1").strip() not in {"0", "false", "False"}
     memory_limit: int = int(os.getenv("MEMORY_LIMIT", "24"))
     chat_thinking: bool = env_flag("CHAT_THINKING", default=False)
