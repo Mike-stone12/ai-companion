@@ -4,7 +4,9 @@
 
 **A desktop companion that remembers the conversation.**
 
-A Windows application combining an animated Live2D character, LLM chat, bilingual voice replies, and persistent memory. The project explores how a conversational interface can retain useful facts across sessions while keeping its context compact.
+A desktop application combining an animated Live2D character, LLM chat, bilingual voice replies, and persistent memory. The project explores how a conversational interface can retain useful facts across sessions while keeping its context compact.
+
+Windows is the most tested platform; the maintainer also works on macOS. CI tests the core without GUI dependencies on Ubuntu, Windows, and macOS; it does not validate the GUI on those platforms.
 
 **Stack:** Python · PyQt6 / Qt WebEngine · OpenAI-compatible APIs · Edge-TTS · PixiJS · Live2D
 
@@ -15,8 +17,8 @@ A Windows application combining an animated Live2D character, LLM chat, bilingua
 - **Desktop character:** a transparent, frameless, draggable window with a Live2D avatar. Ships with two models, a whale-girl maid (default) and Hiyori, which can be swapped with one setting.
 - **Window controls:** right-click the character or the drag bar for a menu with size presets (70–150 %), opacity presets (55–100 %), reset position, and quit. Position, size, and opacity are saved to `config.json` in the user data directory and restored on the next start; a saved position that is no longer on any screen (an unplugged monitor, for example) falls back to the default spot above the taskbar.
 - **Chat history:** a scrollable bubble panel shows the conversation (user right, companion left, notices centered) and the current reply fills in as it streams. The conversation is saved to `history.json` in the user data directory and restored on the next start, both on screen and as context for the model.
-- **Emotional expressions:** the model opens each reply with an emotion tag (`[happy]`, `[sad]`, `[angry]`, `[surprised]`, `[shy]`, `[confused]`, `[awkward]`, `[neutral]`). The tag is stripped from the stream before display and speech, and the avatar switches to the matching expression for the reply, returning to default a few seconds after it stops speaking.
-- **Streaming chat:** connects to any OpenAI-compatible endpoint (Moonshot/Kimi by default, DeepSeek supported) and streams the reply, so text appears as it is generated and speech starts after the first clause instead of the whole reply. Median time from sending a message to the first spoken word dropped from 2.97 s to 1.70 s (DeepSeek `deepseek-flash`, three prompts) and no longer grows with reply length.
+- **Emotional expressions:** the model is instructed to open each reply with an emotion tag (`[happy]`, `[sad]`, `[angry]`, `[surprised]`, `[shy]`, `[confused]`, `[awkward]`, `[neutral]`). The tag is stripped from the stream before display and speech, and the avatar switches to the matching expression when the model profile provides one, returning to default a few seconds after it stops speaking.
+- **Streaming chat:** connects to an OpenAI-compatible endpoint (Moonshot/Kimi by default, with DeepSeek configuration in `.env.example`) and streams the reply, so text appears as it is generated and speech can start after the first clause instead of the whole reply.
 - **Voice replies with lip sync:** synthesizes replies with Edge-TTS, selects a Chinese or English voice based on the response, and moves the avatar's mouth with the speech volume (Web Audio analyser driving `ParamMouthOpenY`, or the model's LipSync parameter).
 - **Persistent memory:** extracts short facts, saves them locally, and includes relevant and recent memories in later conversations.
 - **Proactive chat (opt-in):** set `PROACTIVE_CHAT=1` for idle chat, time-of-day greetings, and spoken due reminders; off by default (`PROACTIVE_CHAT=0`). Checks run every 30 seconds. Policy blocks events during an active reply or while the input contains text, applies a two-minute grace period after a user message, and enforces cooldowns of 30 minutes for idle chat and four hours for greetings (none for reminders). Enable `CHAT_TOOLS` to set session reminders.
@@ -27,8 +29,8 @@ A Windows application combining an animated Live2D character, LLM chat, bilingua
 The memory pipeline uses a lightweight extraction gate, structured LLM extraction, and a heuristic fallback:
 
 1. **Detect useful input.** Chinese-language patterns identify personal facts, preferences, plans, and upcoming events. Common chit-chat openers are deliberately not triggers, because every extraction costs an API request.
-2. **Extract candidates.** Messages that pass the gate are sent to an LLM in JSON mode. Where the provider supports it (Moonshot, DeepSeek), reasoning is turned off for this call, which makes extraction several times faster. If the LLM finds nothing worth remembering, nothing is stored. High-precision heuristics (name, identity, likes, location) are used only when the request itself fails.
-3. **Queue in the background.** Extraction runs off the UI thread. Jobs queue (up to five) instead of being dropped while one is running, and rate-limited requests are retried after 10 s and 25 s.
+2. **Extract candidates.** Messages that pass the gate are sent to an LLM in JSON mode. For Moonshot and DeepSeek endpoints, the request disables reasoning. If the LLM finds nothing worth remembering, nothing is stored. Heuristics (name, identity, likes, location) are used when no API key is configured, the request fails, or the reply cannot be parsed into the expected memory list.
+3. **Queue in the background.** Extraction runs off the UI thread. Up to five jobs can wait while one runs; a full queue drops the oldest pending job. Rate-limited requests are retried after 10 s and 25 s.
 4. **Normalize and store.** Summaries are shortened, deduplicated by exact summary text, timestamped, and stored in `memory.json` in the user data directory (see [Data flow](#data-flow)).
 5. **Recall into context.** Up to eight memories are added to the next chat request alongside a bounded conversation history. With `MEMORY_RELEVANT_RECALL=1` (the default), up to half the slots prefer lexical matches to the current user message; remaining slots are filled by recency. Empty queries or no overlap fall back to selecting recent entries. Selections are returned in stored order. Setting the flag to `0` restores the previous recency-only selection in newest-first order.
 
@@ -61,23 +63,23 @@ flowchart LR
     Audio -- "started / finished" --> Bridge
     Chat --> Memory["MemoryWorker"]
     Memory --> Store["MemoryStore / local JSON"]
-    Store --> Context["Recent memory context"]
+    Store --> Context["Recalled memory context"]
     Context --> Chat
 ```
 
 When proactive chat is enabled, triggers propose events, policy checks eligibility, and the engine passes at most one eligible event per tick to the composer. Its instruction is appended to conversation context for a chat request through the existing streaming and speech pipeline. Proposals that are rejected or lose priority are not queued or retried. The proactive core is pure Python; its Qt timer lives only in the UI layer (`companion/ui/main_window.py`).
 
-Replies are streamed: `ChatStreamWorker` reads the SSE stream, shows the text as it arrives, and hands each complete sentence to `SentenceSplitter`-driven TTS. Sentences are synthesized strictly in order and queued in the renderer, which plays them back to back with a single talk gesture; the first clause is cut at a comma after a few words so speech starts early. If the stream breaks, the text received so far is kept and marked as interrupted.
+Replies are streamed: `ChatStreamWorker` reads the SSE stream, shows the text as it arrives, and uses `SentenceSplitter` to hand speakable chunks to TTS. Chunks are synthesized strictly in order and queued in the renderer; the talk gesture starts when playback starts and continues across queued clips. The splitter can cut the first chunk at a comma so speech starts early. If the stream breaks, the text received so far is kept and marked as interrupted.
 
-Emotion tags are parsed off the start of the stream (`companion/core/chat/emotion.py`); only the leading tag is held back, so untagged replies are not delayed. The tag is kept in the conversation history sent back to the model, because without it the model imitates its own untagged replies and stops tagging after a turn or two (2/8 tagged replies vs 8/8 in an eight-turn test).
+Emotion tags are parsed off the start of the stream (`companion/core/chat/emotion.py`); only a possible leading tag is held back. The tag is kept in the conversation history sent back to the model to reinforce the requested reply format.
 
-The Python application owns conversation state and worker lifecycles. Everything that does not need Qt (configuration, the LLM client, memory, model profiles) lives in `companion/core` and is tested without a GUI. The embedded HTML renderer handles the avatar and plays the synthesized speech. Python and the renderer talk over a QWebChannel object (`companion/ui/avatar_bridge.py`): Python sends play / stop / talking / motion commands, and the renderer reports when it is ready and when audio starts, finishes, or fails. The talk gesture therefore starts with the audio rather than when the request is sent, and the mouth follows the speech volume frame by frame (applied after motions and physics, right before rendering), and a two-minute watchdog resets the window if the renderer never reports back. Qt signals return worker results to the interface.
+The Python application owns conversation state and worker lifecycles. `companion/core` contains configuration, the LLM client, memory, and model profiles and is tested without a GUI. The embedded HTML renderer handles the avatar and plays the synthesized speech. Python and the renderer talk over a QWebChannel object (`companion/ui/avatar_bridge.py`): Python sends play / stop / talking / motion commands, and the renderer reports when it is ready and when audio starts, finishes, or fails. The talk gesture starts with the audio, and the mouth follows the speech volume frame by frame (applied after motions and physics, right before rendering). A two-minute watchdog stops playback and discards pending audio if playback makes no progress. Qt signals return worker results to the interface.
 
 ## Quick start
 
-**Requirements:** Windows, Python 3.11+, and an API key for a compatible LLM provider. Chat and voice synthesis require network access.
+**Requirements:** Python 3.11+ and an API key for a compatible LLM provider. Live chat and voice synthesis require network access.
 
-Run these commands in **PowerShell**:
+### Windows (PowerShell)
 
 ```powershell
 git clone https://github.com/Mike-stone12/ai-companion.git
@@ -91,6 +93,24 @@ Edit `.env` with your provider's API key, endpoint, and model, then start the ap
 
 ```powershell
 .\venv\Scripts\python.exe main.py
+```
+
+### macOS / Linux
+
+Use Python 3.11 or newer for `python3`:
+
+```bash
+git clone https://github.com/Mike-stone12/ai-companion.git
+cd ai-companion
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+cp .env.example .env
+```
+
+Edit `.env` with your provider's API key, endpoint, and model, then start the application:
+
+```bash
+.venv/bin/python main.py
 ```
 
 Using the environment's Python executable directly avoids requiring shell activation.
@@ -126,7 +146,7 @@ Recall depends on extraction and the configured model; this is a manual walkthro
 | `EMBEDDING_MODEL` | Embedding model identifier; uses the chat base URL and API key. Empty disables semantic recall even when its flag is on | Empty |
 | `CONVERSATION_SUMMARY` | Fold older turns into a running summary; `0` disables updates and summary context | `1` |
 | `MEMORY_LIMIT` | Maximum retained memory entries | `24` |
-| `COMPANION_DATA_DIR` | Where memory and logs are stored | Platform user data directory |
+| `COMPANION_DATA_DIR` | Where memory, chat history, settings, and logs are stored | Platform user data directory |
 | `COMPANION_SYSTEM_PROMPT` | Companion's system instruction | Built-in companion prompt |
 | `LIVE2D_MODEL` | Model folder under `models/` (`whale-girl`, `hiyori`) or a path to a `.model3.json` | `whale-girl` |
 | `LIVE2D_VENDOR_DIR` | Optional renderer dependency directory | `vendor/` |
@@ -143,21 +163,30 @@ You can also add an optional `"settings"` object to `config.json` in the user da
 main.py                 Entry point
 companion/
   core/                 Pure Python, no Qt: config, text cleanup, model profiles, window state
+    settings_file.py    JSON loading and atomic writes
+    settings_schema.py  Editable settings metadata, validation, and persistence
+    settings_values.py  Merge config.json settings with environment overrides
+    legacy_data.py      Migrate legacy memory.json at startup
     chat/               Emotion tags, history, conversation summary
-    llm/                API client and SSE streaming
-    memory/             Store, gate, extractor, consolidation, recall, evaluation, edit helpers
-    proactive/          Events, policy, triggers, composer, engine tick
+    llm/                API client, SSE streaming, embeddings
+    memory/             Store, extraction, consolidation, lexical/semantic recall, cache, evals, edits
+    proactive/          Events, policy, triggers, composer, engine tick, session adapter
     tools/              Tool registry, built-in time and reminder tools, tool-call loop
   adapters/tts_edge.py  Edge TTS synthesis and voice selection
-  app/workers.py        QThread workers for chat, TTS, and memory extraction
-  memory_cli.py         Read-only memory inspector
+  app/workers.py        Qt workers for chat, TTS, memory, and summary
+  app/logging_setup.py  Console and rotating file logging
+  memory_cli.py         Memory inspection and editing (dry run unless --write)
+  settings_cli.py       Non-secret settings inspection and editing
+  paths.py              Resource paths and platform user data directories
+  env.py                Load .env while preserving shell overrides
   ui/                   Main window, chat panel, avatar bridge
   qt_bootstrap.py       Windows Qt DLL setup and import diagnostics
 evals/                  Offline memory evaluation cases
-tests/                  pytest suite for companion/core (runs without Qt)
+tests/                  Core, adapter, and CLI tests (runs without Qt)
 live2d_renderer.html     Embedded avatar renderer
 .env.example            Example provider and voice settings
 requirements.txt        Pinned Python dependencies
+requirements-dev.txt    pytest and ruff for development and CI
 models/whale-girl/      Default model (CC BY-NC-SA 4.0, see NOTICE.md)
 models/hiyori/          Alternative model (Live2D Free Material License)
 vendor/                 Renderer dependencies (PixiJS 6, Cubism Core, pixi-live2d-display 0.4.0)
@@ -176,7 +205,7 @@ Put a Cubism 4 model in its own folder under `models/` and, optionally, add a `c
 }
 ```
 
-`motions.talk` lists the motion groups played when the companion starts replying, and `motions.ambient` lists the groups played occasionally while idle. The model's idle group loops automatically. `expressions` maps emotion tags to `.exp3.json` files; they are registered on the model settings in memory when the model loads, so the model files themselves stay unmodified. Emotions without a mapping (or models without `expressions`) keep the default face. Without `companion.json`, the renderer uses the first `*.model3.json` in the folder and guesses roles from group names (`Talk`/`Tap`, `Flick`). Select the model with `LIVE2D_MODEL=<folder>`.
+`motions.talk` lists the motion groups played when speech playback starts, and `motions.ambient` lists the groups played occasionally while idle. The model's idle group loops automatically. `expressions` maps emotion tags to `.exp3.json` files; they are registered on the model settings in memory when the model loads, so the model files themselves stay unmodified. Emotions without a mapping (or models without `expressions`) keep the default face. Without `companion.json`, Python selects the first `*.model3.json` in sorted filename order and the renderer guesses roles from group names (`Talk`/`Tap`, `Flick`). Select the model with `LIVE2D_MODEL=<folder>`.
 
 ### Data flow
 
@@ -188,15 +217,15 @@ User data lives outside the project, so a packaged read-only app can still write
 | Windows | `%APPDATA%\AICompanion\` |
 | Linux | `$XDG_DATA_HOME/ai-companion/` (default `~/.local/share/ai-companion/`) |
 
-It holds `memory.json`, `history.json` (the last 200 turns), `config.json` (window position, size, and opacity under a `window` key), and `logs/`. On first start, a `memory.json` left in the project root by older versions is moved there; if one already exists in the data directory, neither file is touched. `.env` (secrets, ignored by Git) and the models stay in the project.
+It holds `memory.json`, `history.json` (up to 200 individual user/assistant messages plus an optional running summary), `config.json` (window position, size, and opacity under `window`, and optional app settings under `settings`), and `logs/`. At startup, a `memory.json` left in the project root by older versions is moved there; if one already exists in the data directory, neither file is touched. `.env` (secrets, ignored by Git) and the models stay in the project.
 
-At the default `INFO` level the log records requests, memory counts, and errors but no conversation text; reply and TTS text appear only at `DEBUG`. Memories and conversation history are stored locally as plain JSON, and recalled memory text is sent to the configured LLM endpoint with chat requests. Replies are sent to Edge-TTS for speech synthesis. The renderer loads all dependencies from `vendor/` and only falls back to a version-pinned CDN copy if a local file is missing.
+Routine `INFO` logs record requests and memory counts; TTS text is logged at `DEBUG`. Error logs may include provider error details. Memories and conversation history are stored locally as plain JSON, and recalled memory text is sent to the configured LLM endpoint with chat requests. Replies are sent to Edge-TTS for speech synthesis. The renderer loads PixiJS and Cubism Core locally and tries the local `cubism4.min.js` bundle before version-pinned CDN copies if that bundle fails to load or initialize.
 
 ### Troubleshooting
 
-- **Qt import or DLL errors:** use a fresh virtual environment and `pip install -r requirements.txt`. On Windows the startup log prints the DLL directories it added and, for Anaconda installs, whether the ICU runtime conflicts with PyQt6.
+- **Qt import or DLL errors:** use a fresh virtual environment and `pip install -r requirements.txt`. On import failure, the log lists any DLL directories added on Windows. An additional ICU mismatch diagnostic is available only when the optional `lief` library and relevant DLLs are present.
 - **No character appears:** check the resource paths logged at startup (`logs/companion.log` in the data directory), or set `LIVE2D_MODEL` and `LIVE2D_VENDOR_DIR` explicitly. `LOG_LEVEL=DEBUG` also lists every renderer file it looked for.
-- **Chat fails:** verify the API key, model identifier, endpoint, and network connectivity. If no reply text arrives within 30 s (an overloaded DeepSeek keeps the stream open with keep-alive comments and no content), the window gives up with "模型服务繁忙" instead of waiting; a stall of 30 s between pieces of a reply also ends it.
+- **Chat fails:** verify the API key, model identifier, endpoint, and network connectivity. The stream parser checks 30 s first-content and idle deadlines on incoming lines; text or tool-call deltas count as content. This catches streams that send only keep-alives. A blocked network read instead relies on `OPENAI_TIMEOUT`.
 - **No voice on a slow network:** each sentence's speech synthesis is capped at 20 s (5 s to connect, 15 s per read). After the first failure the rest of that reply is shown as text only, so a bad connection does not stack one timeout per sentence.
 - **Window in the wrong place or size:** right-click it and choose **Reset position** or a size preset. A saved position that is off every screen is ignored at startup; to discard the rest, delete the `window` section from `config.json` in the data directory.
 - **Memory is not recalled:** check that extraction completed, that `memory.json` in the data directory contains the fact, and that it remains among the recent entries.
@@ -209,7 +238,7 @@ ruff check .
 pytest
 ```
 
-The tests cover `companion/core`, which never imports PyQt or edge-tts, so they run without a display or the GUI dependencies. CI runs `ruff` and `pytest` on Ubuntu, Windows, and macOS for every pull request, with only `requirements-dev.txt` installed; a Qt import added to `companion/core` fails there.
+The tests cover the core, adapters, and CLIs without a display or GUI dependencies; `companion/core` never imports PyQt or edge-tts. For every pull request, CI runs `ruff` on Ubuntu and `pytest` on Ubuntu, Windows, and macOS with Python 3.11 and only `requirements-dev.txt` installed. These checks do not launch or validate the GUI.
 
 Run the repeatable offline evaluation of the extraction gate and lexical recall with:
 
@@ -240,8 +269,8 @@ matches case-insensitive substrings. By default, `edit` is a dry run: it prints 
 old and new summary without changing the file. Summaries use the store's whitespace
 normalization and shortening. With `--write`, it first copies the original file to
 `memory.json.bak` in the same directory (overwriting an older backup), then saves
-the correction and updates that entry's timestamp. Invalid indices, empty text,
-missing files, and exact duplicate summaries are rejected. Only `edit --write`
+the correction and updates that entry's timestamp if the normalized summary changes.
+Invalid indices, empty text, missing files, and exact duplicate summaries are rejected. Only `edit --write`
 saves data; none of these commands migrate data.
 
 ### Edit settings
@@ -269,13 +298,15 @@ environment override is reported when editing. Directory selection follows the
 memory CLI, including `COMPANION_DATA_DIR` and `.env`. Unknown, invalid, secret,
 and non-editable settings (including `COMPANION_DATA_DIR`) are rejected.
 
-## Next steps
+## Roadmap
 
-Conflict-aware consolidation already supports ADD, UPDATE, and NOOP; DELETE decisions are ignored.
-
-- Collect live extraction evaluation numbers; a labelled extraction harness exists, and live numbers are pending.
-- Add a UI for editing stored memories; CLI inspection and editing are already available.
-- Validate platforms beyond Windows.
+- Add a memory editing UI.
+- Add a settings panel.
+- Add an opt-in active-app monitor.
+- Add push-to-talk voice input.
+- Add an opt-in wake word.
+- Package the application for distribution.
+- Collect and publish live extraction evaluation numbers using the existing labelled harness.
 
 ## License and credits
 
