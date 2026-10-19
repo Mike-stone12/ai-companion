@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import random
 import sys
 from collections import deque
 from collections.abc import Callable
@@ -31,7 +32,14 @@ from PyQt6.QtWidgets import (
 
 from companion.adapters import tts_edge
 from companion.adapters.active_app import foreground_app_name
-from companion.app.workers import ChatStreamWorker, MemoryWorker, SummaryWorker, TranscriptionWorker, TTSWorker
+from companion.app.workers import (
+    AppraisalWorker,
+    ChatStreamWorker,
+    MemoryWorker,
+    SummaryWorker,
+    TranscriptionWorker,
+    TTSWorker,
+)
 from companion.core.api_key import ApiKeyStore
 from companion.core.chat.emotion import EMOTION_INSTRUCTION
 from companion.core.chat.history import ConversationHistory, ConversationSummary, display_text
@@ -54,10 +62,15 @@ from companion.core.schedule import block_at, presence_label
 from companion.core.settings_form import SettingsForm
 from companion.core.state import (
     StateStore,
-    apply_reply_emotion,
+    active_reasons,
+    apply_events,
+    apply_reply_tag,
+    enter_care_mode,
     idle_emotion,
+    looks_distressed,
     record_user_message,
     render_state_context,
+    should_appraise,
     state_summary_lines,
 )
 from companion.core.text import sanitize_reply_text, sanitize_tts_text
@@ -178,6 +191,9 @@ class CompanionWindow(QWidget):
         self.state_store = StateStore(STATE_PATH) if config.companion_state else None
         self.companion_state = self.state_store.load(local_now()) if self.state_store else None
         self.idle_face: str | None = None
+        self.emotion_rng = random.Random()
+        self.appraisal_thread: QThread | None = None
+        self.appraisal_worker: AppraisalWorker | None = None
 
         print_resource_report(self.model_path, self.vendor_dir)
 
@@ -825,7 +841,7 @@ class CompanionWindow(QWidget):
         state = getattr(self, "companion_state", None)
         if state is None:
             return ""
-        return render_state_context(self.scheduled(state), local_now(), self.mood_half_life())
+        return render_state_context(self.scheduled(state), local_now(), self.persona.traits, self.mood_half_life())
 
     def update_state(self, state) -> None:
         self.companion_state = state
@@ -838,28 +854,74 @@ class CompanionWindow(QWidget):
     def record_user_activity(self) -> None:
         state = getattr(self, "companion_state", None)
         if state is not None:
-            self.update_state(record_user_message(state, local_now(), self.mood_half_life()))
+            self.update_state(record_user_message(state, local_now(), self.persona.traits, self.mood_half_life()))
 
     def record_reply_mood(self) -> None:
         state = getattr(self, "companion_state", None)
         if state is not None:
-            emotion = self.reply_emotion or "neutral"
-            self.update_state(apply_reply_emotion(state, emotion, local_now(), self.mood_half_life()))
+            traits, base = self.persona.traits, self.mood_half_life()
+            self.update_state(apply_reply_tag(state, self.reply_emotion, local_now(), traits, base))
 
     def refresh_idle_emotion(self) -> None:
         state = getattr(self, "companion_state", None)
         if state is None or not self.renderer_ready:
             return
-        face = idle_emotion(state, local_now(), self.mood_half_life())
+        face = idle_emotion(state, local_now(), self.persona.traits, self.mood_half_life())
         if face != self.idle_face:
             self.idle_face = face
             self.bridge.setIdleEmotion.emit(face or "")
+
+    def precheck_distress(self, user_text: str) -> None:
+        """Zero-cost keyword check before the reply: the answer to an upsetting message is caring."""
+        state = getattr(self, "companion_state", None)
+        if state is not None and looks_distressed(user_text):
+            self.update_state(enter_care_mode(state, local_now()))
+
+    def start_appraisal_worker(self, user_text: str, assistant_text: str) -> None:
+        """Judge an emotional turn in the background; small talk never gets this far."""
+        state = getattr(self, "companion_state", None)
+        if state is None or not self.config.emotion_appraisal or not self.config.api_key:
+            return
+        if not should_appraise(user_text):
+            return
+        if self.appraisal_thread is not None:
+            logger.debug("Emotion appraisal still running; skipping this turn")
+            return
+        grievances = active_reasons(state, local_now(), self.persona.traits, self.mood_half_life())
+        self.appraisal_thread = QThread(self)
+        self.appraisal_worker = AppraisalWorker(self.client, user_text, assistant_text, grievances)
+        self.appraisal_worker.moveToThread(self.appraisal_thread)
+        self.appraisal_thread.started.connect(self.appraisal_worker.run)
+        self.appraisal_worker.finished.connect(self.on_appraisal_ready)
+        self.appraisal_worker.finished.connect(self.appraisal_worker.deleteLater)
+        self.appraisal_worker.finished.connect(self.appraisal_thread.quit)
+        self.appraisal_thread.finished.connect(self.on_appraisal_thread_finished)
+        self.appraisal_thread.finished.connect(self.appraisal_thread.deleteLater)
+        self.appraisal_thread.start()
+
+    def on_appraisal_ready(self, appraisal) -> None:
+        state = getattr(self, "companion_state", None)
+        if appraisal is None or state is None or self.closing:
+            return
+        logger.info(
+            "Emotion appraisal: %s, distress=%.2f",
+            ", ".join(f"{event.type}:{event.intensity:.2f}" for event in appraisal.events) or "none",
+            appraisal.user_distress,
+        )
+        self.update_state(apply_events(
+            state, appraisal.events, local_now(), self.persona.traits, self.mood_half_life(),
+            user_distress=appraisal.user_distress, rng=self.emotion_rng,
+        ))
+
+    def on_appraisal_thread_finished(self) -> None:
+        self.appraisal_thread = None
+        self.appraisal_worker = None
 
     def state_viewer_text(self) -> str:
         if self.companion_state is None:
             return "The companion's mood is turned off (COMPANION_STATE in Settings)."
         state = self.scheduled(self.companion_state)
-        return "\n".join(state_summary_lines(state, local_now(), self.mood_half_life()))
+        return "\n".join(state_summary_lines(state, local_now(), self.persona.traits, self.mood_half_life()))
 
     def show_state(self) -> None:
         box = QMessageBox(self)
@@ -980,6 +1042,7 @@ class CompanionWindow(QWidget):
         self.messages.append({"role": "user", "content": user_text})
         self.history.append("user", user_text)
         self.reset_reply_state()
+        self.precheck_distress(user_text)
         self.start_chat_worker(self.conversation_window(user_text, defer=True))
         self.record_user_activity()
 
@@ -1121,6 +1184,8 @@ class CompanionWindow(QWidget):
             self.record_reply_mood()
             if self.pending_user_text:
                 self.start_memory_worker(self.pending_user_text, reply)
+                if getattr(self, "companion_state", None) is not None:
+                    self.start_appraisal_worker(self.pending_user_text, reply)
         self.render_reply()
         self.pending_user_text = ""
         self.stream_done = True
@@ -1305,6 +1370,11 @@ class CompanionWindow(QWidget):
         if self.proactive_timer is not None:
             self.proactive_timer.stop()
         self.proactive = None
+        appraisal_thread = getattr(self, "appraisal_thread", None)
+        if appraisal_thread is not None and appraisal_thread.isRunning():
+            # Results after closing are ignored; give the request a bounded moment to finish.
+            appraisal_thread.quit()
+            appraisal_thread.wait(2000)
         # Ignore queued summary results once teardown begins.
         self.summary_snapshot = None
         if self.summary_thread is not None and self.summary_thread.isRunning():

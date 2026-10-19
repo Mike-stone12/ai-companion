@@ -16,6 +16,7 @@ from typing import Protocol
 
 from companion.core import settings_file
 from companion.core.schedule import DEFAULT_SCHEDULE, ScheduleBlock, schedule_from_list, schedule_to_list
+from companion.core.state.traits import DEFAULT_TRAITS, Traits
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ FIELD_LIMITS = {
 # Short fields are single-line; the rest keep line breaks.
 SINGLE_LINE = frozenset({"id", "title", "name", "user_name"})
 TEXT_FIELDS = ("name", "user_name", "relationship", "personality", "speaking_style", "background")
-EDITABLE_FIELDS = (*TEXT_FIELDS, "schedule")
+EDITABLE_FIELDS = (*TEXT_FIELDS, "schedule", "traits")
 
 COMMON_RULES = (
     "Always speak directly to the user, the person at this computer, and stay in character. "
@@ -72,6 +73,8 @@ class Persona:
     background: str = ""
     # The daily routine (companion/core/schedule.py); empty means no routine.
     schedule: tuple[ScheduleBlock, ...] = field(default=DEFAULT_SCHEDULE)
+    # Emotional personality (companion/core/state/traits.py).
+    traits: Traits = DEFAULT_TRAITS
 
     def system_prompt(self) -> str:
         """Render the persona as the companion's system instruction."""
@@ -96,6 +99,7 @@ class Persona:
     def to_dict(self) -> dict[str, object]:
         data: dict[str, object] = {name: getattr(self, name) for name in ("id", "title", *TEXT_FIELDS)}
         data["schedule"] = schedule_to_list(self.schedule)
+        data["traits"] = self.traits.to_dict()
         return data
 
     @classmethod
@@ -106,13 +110,15 @@ class Persona:
         values: dict[str, object] = {
             item.name: _clean(item.name, data[item.name])
             for item in fields(cls)
-            if item.name in data and item.name != "schedule"
+            if item.name in data and item.name not in {"schedule", "traits"}
         }
         values["id"] = values.get("id") or CUSTOM_ID
         values["title"] = values.get("title") or "Custom"
         # Files written before the routine existed get the default one.
         if "schedule" in data:
             values["schedule"] = schedule_from_list(data["schedule"])
+        if "traits" in data:
+            values["traits"] = Traits.from_dict(data["traits"])
         return cls(**values)
 
     def with_fields(self, **changes: str) -> Persona:
@@ -125,6 +131,10 @@ class Persona:
             if name == "schedule":
                 if not isinstance(value, tuple) or not all(isinstance(block, ScheduleBlock) for block in value):
                     raise ValueError("schedule must be parsed ScheduleBlocks")
+                cleaned[name] = value
+            elif name == "traits":
+                if not isinstance(value, Traits):
+                    raise ValueError("traits must be a Traits value")
                 cleaned[name] = value
             else:
                 cleaned[name] = _clean(name, value)

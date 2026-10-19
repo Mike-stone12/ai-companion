@@ -22,6 +22,7 @@ from companion.core.memory.extractor import (
     extraction_request_options,
 )
 from companion.core.memory.store import MemoryStore
+from companion.core.state import appraise
 from companion.core.text import SentenceSplitter
 from companion.core.tools.loop import run_tool_rounds
 from companion.core.tools.registry import ToolRegistry
@@ -163,6 +164,29 @@ class TTSWorker(QObject):
             self.error.emit(str(exc))
             return
         self.finished.emit(audio_path)
+
+
+class AppraisalWorker(QObject):
+    """Ask the LLM what happened emotionally in one turn; emits an Appraisal or None."""
+
+    finished = pyqtSignal(object)
+
+    def __init__(
+        self, client: OpenAICompatibleClient, user_text: str, assistant_text: str, grievances: dict[str, list[str]],
+    ) -> None:
+        super().__init__()
+        self.client = client
+        self.user_text = user_text
+        self.assistant_text = assistant_text
+        self.grievances = grievances
+
+    def complete(self, messages: list[dict[str, str]]) -> str:
+        # JSON mode with reasoning off, like memory extraction; no retries, it is optional.
+        return self.client.complete(messages, extra=extraction_request_options(self.client.config.base_url))
+
+    @pyqtSlot()
+    def run(self) -> None:
+        self.finished.emit(appraise(self.complete, self.user_text, self.assistant_text, self.grievances))
 
 
 class SummaryWorker(QObject):

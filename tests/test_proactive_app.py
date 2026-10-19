@@ -27,7 +27,7 @@ def window(tmp_path):
         "setup_proactive", "on_proactive_tick", "send_message", "reset_reply_state", "start_chat_worker",
         "on_reply_delta", "on_reply_sentence", "on_reply_finished", "render_reply", "history_text", "record_reply",
         "maybe_finish_reply", "finish_interaction", "closeEvent", "submit_message",
-        "record_user_activity", "record_reply_mood",
+        "record_user_activity", "record_reply_mood", "precheck_distress",
     }
     cls.bases = [ast.Name(id="FakeWidget", ctx=ast.Load())]
     cls.body = [node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name in methods]

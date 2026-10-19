@@ -32,6 +32,7 @@ CONFIG_FIELDS = {
     "COMPANION_STATE": "companion_state",
     "MOOD_HALF_LIFE_MINUTES": "mood_half_life_minutes",
     "DAILY_SCHEDULE": "daily_schedule",
+    "EMOTION_APPRAISAL": "emotion_appraisal",
 }
 
 

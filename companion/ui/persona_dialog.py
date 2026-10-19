@@ -11,12 +11,15 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPlainTextEdit,
+    QScrollArea,
+    QSlider,
     QVBoxLayout,
     QWidget,
 )
 
 from companion.core.persona import CUSTOM_ID, FIELD_LIMITS, Persona, PersonaProvider
 from companion.core.schedule import format_schedule, parse_schedule
+from companion.core.state.traits import STYLE_LABELS, STYLES, TRAIT_LABELS, TRAIT_NAMES, Traits
 
 FIELD_LABELS = {
     "name": "Companion's name",
@@ -53,7 +56,7 @@ class PersonaDialog(QDialog):
         self.current = current
         self.base = current
         self.setWindowTitle("Persona")
-        self.resize(640, 760)
+        self.resize(660, 820)
         # The avatar window styles descendant editors for a dark background.
         self.setStyleSheet("""
             QLineEdit, QPlainTextEdit {
@@ -72,7 +75,9 @@ class PersonaDialog(QDialog):
         intro.setWordWrap(True)
         layout.addWidget(intro)
 
-        form = QFormLayout()
+        # The form grew past small screens' height, so it scrolls.
+        content = QWidget()
+        form = QFormLayout(content)
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         self.preset = QComboBox()
         self.preset.setObjectName("PERSONA_PRESET")
@@ -110,7 +115,25 @@ class PersonaDialog(QDialog):
         help_label.setWordWrap(True)
         help_label.setStyleSheet("color: palette(mid); font-size: 11px;")
         form.addRow("", help_label)
-        layout.addLayout(form)
+        # Emotional personality: how strongly it reacts and how it shows it.
+        self.trait_sliders: dict[str, QSlider] = {}
+        for name in TRAIT_NAMES:
+            slider = QSlider(Qt.Orientation.Horizontal)
+            slider.setRange(0, 100)
+            slider.setObjectName(f"PERSONA_TRAIT_{name.upper()}")
+            slider.setAccessibleName(TRAIT_LABELS[name])
+            self.trait_sliders[name] = slider
+            form.addRow(self._label(TRAIT_LABELS[name]), slider)
+        self.style = QComboBox()
+        self.style.setObjectName("PERSONA_STYLE")
+        for style in STYLES:
+            self.style.addItem(STYLE_LABELS[style], style)
+        form.addRow(self._label("When upset"), self.style)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setWidget(content)
+        layout.addWidget(scroll, 1)
         self.error = self._label("")
         self.error.setWordWrap(True)
         self.error.setStyleSheet("color: #c62828;")
@@ -139,6 +162,9 @@ class PersonaDialog(QDialog):
             else:
                 editor.setPlainText(value)
         self.schedule.setPlainText(format_schedule(persona.schedule))
+        for name, slider in self.trait_sliders.items():
+            slider.setValue(round(getattr(persona.traits, name) * 100))
+        self.style.setCurrentIndex(max(self.style.findData(persona.traits.style), 0))
 
     def load_preset(self, _index: int = 0) -> None:
         persona_id = self.preset.currentData()
@@ -153,7 +179,11 @@ class PersonaDialog(QDialog):
             name: editor.text() if isinstance(editor, QLineEdit) else editor.toPlainText()
             for name, editor in self.editors.items()
         }
-        return self.base.with_fields(**values, schedule=parse_schedule(self.schedule.toPlainText()))
+        traits = Traits(
+            **{name: slider.value() / 100 for name, slider in self.trait_sliders.items()},
+            style=self.style.currentData(),
+        )
+        return self.base.with_fields(**values, schedule=parse_schedule(self.schedule.toPlainText()), traits=traits)
 
     def accept(self) -> None:
         try:
