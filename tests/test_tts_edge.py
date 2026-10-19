@@ -120,3 +120,18 @@ def test_invalid_prosody_from_the_environment_falls_back_to_neutral():
     config = AppConfig(tts_pitch="loud", tts_rate="+5")
 
     assert tts_edge.choose_tts_prosody(config, "你好") == ("+0%", "+0Hz")
+
+
+@pytest.mark.parametrize(("emotion", "expected"), [
+    ("angry", ("+10%", "+4Hz")),
+    ("sad", ("+0%", "+6Hz")),
+    ("happy", ("+8%", "+14Hz")),
+    (None, ("+6%", "+10Hz")),
+    ("confused", ("+6%", "+10Hz")),
+])
+def test_mood_shifts_the_chinese_prosody(emotion, expected):
+    assert tts_edge.mood_prosody(("+6%", "+10Hz"), emotion) == expected
+
+
+def test_mood_shift_stays_within_edge_limits():
+    assert tts_edge.mood_prosody(("+98%", "-98Hz"), "angry") == ("+99%", "-100Hz")

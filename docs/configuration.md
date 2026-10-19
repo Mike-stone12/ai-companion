@@ -32,6 +32,7 @@ character, and **Memories…** views, searches, and edits stored memory summarie
 | `TTS_RATE` | Speed offset for the Chinese voice, e.g. `+6%` (±99 %) | `+6%` |
 | `COMPANION_STATE` | The companion's mood carries over between replies, fades toward calm, turns into missing you after a day without a message, and sets the idle face. Stored in `state.json`. | `1` |
 | `MOOD_HALF_LIFE_MINUTES` | How fast the mood fades (minimum 5) | `120` |
+| `REPLY_PACING` | Reply in one to four short messages, one per line from the model, each after a "typing…" pause based on its length (0.6–4 s, slower when annoyed or hurt); a busy or sleeping companion picks up 4–15 s or 3–8 s later (never over 30 s). Speech follows the messages. `0` restores one streaming bubble. | `1` |
 | `DAILY_SCHEDULE` | Follow the persona's daily routine: what it is doing goes into the prompt and the top bar, and while asleep it starts nothing but reminders (it still answers) | `1` |
 | `EDGE_TTS_VOICE_EN` | English voice | `en-US-AriaNeural` |
 | `MEMORY_ENABLED` | Enable new memory extraction | `1` |

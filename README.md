@@ -14,6 +14,7 @@ It runs on macOS, Windows, and Linux, and works with any OpenAI-compatible chat 
 ## Highlights
 
 - **A character, not a chat box.** A frameless, draggable Live2D avatar with idle motions, emotion expressions picked by the model (happy, shy, surprised, …), and mouth movement that follows its voice.
+- **Texts like a friend.** A reply arrives as one to four short messages with a "typing…" pause between them, a little later when it is busy or asleep; the first one is spoken as soon as it is complete.
 - **Speaks as it thinks.** Replies stream in and the first sentence is spoken while the rest is still being written; median time to the first spoken word is about 1.7 s. Chinese and English voices are chosen automatically (Edge TTS), with a lively, slightly raised Chinese voice by default.
 - **A life of its own.** Its mood carries over from one reply to the next and fades over a couple of hours; after a day without hearing from you it misses you, and the idle face shows how it feels. It also keeps a daily routine: in class in the morning, free in the evening, sleepy late at night, asleep after half past midnight. It still answers when asleep (groggily), and while asleep it starts nothing but your reminders.
 - **Remembers you.** Short facts ("you like coffee", "your exam is on Friday") are extracted in the background, merged with what it already knows, and brought back when relevant. Older conversation is folded into a running summary.
@@ -102,6 +103,7 @@ Most things can be changed from **Settings…** in the right-click menu; changes
 | `TTS_PITCH` / `TTS_RATE` | `+10Hz` / `+6%` | Pitch and speed offsets for the Chinese voice |
 | `COMPANION_STATE` | on | Mood that carries over between replies (`MOOD_HALF_LIFE_MINUTES`, default 120) |
 | `DAILY_SCHEDULE` | on | The daily routine from the persona: sleeping, busy, and drowsy times |
+| `REPLY_PACING` | on | Replies arrive as a few short messages with "typing…" pauses, like texting |
 | `VOICE_INPUT` + `TRANSCRIPTION_MODEL` | off | Hold-to-talk button (needs a transcription model from your provider) |
 | `PROACTIVE_CHAT` | off | Greetings, idle check-ins, and spoken reminders |
 | `ACTIVE_APP_MONITOR` | off | One caring remark after about 40 minutes in the same app (needs `PROACTIVE_CHAT`; Windows and macOS) |

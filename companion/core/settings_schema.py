@@ -42,8 +42,11 @@ EDITABLE_SETTINGS = (
     Setting("WAKE_WORD", "bool", False, "Wake word (requires wake phrases and model directory)"),
     Setting("WAKE_WORD_PHRASES", "str", "", "Wake phrases (comma-separated)"),
     Setting("WAKE_WORD_MODEL_DIR", "str", "", "Wake-word Vosk model directory"),
-    Setting("COMPANION_STATE", "bool", True, "Companion feelings that carry over between replies"),
+    Setting(
+        "COMPANION_STATE", "bool", True, "Companion feelings that carry over between replies (also colour the voice)",
+    ),
     Setting("EMOTION_APPRAISAL", "bool", True, "Judge emotional turns with one extra LLM request"),
+    Setting("REPLY_PACING", "bool", True, "Reply in a few short messages with typing pauses"),
     Setting("MOOD_HALF_LIFE_MINUTES", "int", 120, "Mood half-life (minutes)", minimum=5),
     Setting("DAILY_SCHEDULE", "bool", True, "Daily routine (sleeps, studies, has evenings off)"),
     Setting("PROACTIVE_CHAT", "bool", False, "Proactive chat"),
