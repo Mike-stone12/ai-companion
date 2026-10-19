@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 import time
 
-from PyQt6.QtCore import QEventLoop, QTimer
+from PyQt6.QtCore import QEventLoop
 from PyQt6.QtWidgets import QApplication
 
 from companion.core.config import AppConfig
@@ -38,27 +38,25 @@ def gui_checks(timeout_s: float = RENDER_TIMEOUT_S) -> list[Check]:
     state = {"loaded": None, "groups": -1, "message": ""}
     window.web_view.loadFinished.connect(lambda ok: state.update(loaded=ok))
 
-    loop = QEventLoop()
     deadline = time.monotonic() + timeout_s
 
     def record(value: object) -> None:
         if isinstance(value, dict):
             state.update(groups=int(value.get("groups") or -1), message=str(value.get("message") or ""))
 
-    def poll() -> None:
+    # Drive the event loop by hand instead of waiting on a QTimer: on a CI runner macOS can
+    # throttle timers of a background app (App Nap), which once stalled this wait for good.
+    next_probe = 0.0
+    while time.monotonic() < deadline:
+        app.processEvents(QEventLoop.ProcessEventsFlag.AllEvents, POLL_MS // 5)
         rendered = state["groups"] > 0 and window.renderer_ready
         # The renderer reports start-up failures on its status line; stop waiting then.
-        if rendered or "failed" in state["message"].lower() or time.monotonic() > deadline:
-            loop.quit()
-            return
-        if state["loaded"]:
+        if rendered or "failed" in state["message"].lower():
+            break
+        if state["loaded"] and time.monotonic() >= next_probe:
             window.web_view.page().runJavaScript(MODEL_PROBE, record)
-
-    timer = QTimer()
-    timer.timeout.connect(poll)
-    timer.start(POLL_MS)
-    loop.exec()
-    timer.stop()
+            next_probe = time.monotonic() + POLL_MS / 1000
+        time.sleep(0.01)
 
     checks = [
         Check("main window", True, f"{window.width()}x{window.height()}"),

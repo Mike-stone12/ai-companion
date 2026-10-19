@@ -73,5 +73,8 @@ if sys.platform == "darwin":
         info_plist={
             "NSMicrophoneUsageDescription": "AI Companion uses the microphone for push-to-talk and wake-word input.",
             "NSHighResolutionCapable": True,
+            # Keep timers (renderer, proactive chat, the self-test) running when the window is
+            # in the background; App Nap would otherwise throttle them.
+            "NSAppSleepDisabled": True,
         },
     )
