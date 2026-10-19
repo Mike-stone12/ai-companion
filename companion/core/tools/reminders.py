@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -9,6 +10,8 @@ from pathlib import Path
 from uuid import uuid4
 
 from companion.core.settings_file import load_json, save_settings
+
+logger = logging.getLogger(__name__)
 
 
 def local_now() -> datetime:
@@ -39,15 +42,46 @@ class Reminder:
 class ReminderStore:
     """Store aware ISO timestamps; upcoming excludes times at or before now.
 
-    Omitting the path keeps reminders in memory for this store's lifetime.
-    Files are reloaded for each operation. Concurrent writers require external
-    coordination; atomic replacement protects against partially written JSON.
+    A data directory loads a versioned snapshot once and saves changes, excluding
+    IDs already proposed by the proactive trigger. Reads remain non-consuming.
+    With neither path nor data directory, the store never accesses disk.
+
+    The legacy path interface uses an unversioned list reloaded per operation.
+    Concurrent writers require external coordination.
     """
 
-    def __init__(self, path: str | Path | None = None, clock: Callable[[], datetime] = local_now):
+    def __init__(
+        self, path: str | Path | None = None, clock: Callable[[], datetime] = local_now,
+        *, data_dir: str | Path | None = None,
+    ):
+        if path is not None and data_dir is not None:
+            raise ValueError("Supply either a legacy path or a data directory")
         self.path = Path(path) if path is not None else None
+        self._snapshot_path = Path(data_dir) / "reminders.json" if data_dir is not None else None
         self.clock = clock
         self._reminders: list[Reminder] = []
+        self._proposed: set[str] = set()
+        if self._snapshot_path is not None:
+            # The persistence module imports Reminder; defer this import until construction.
+            from .reminder_store import load_reminders
+
+            self._reminders = load_reminders(self._snapshot_path)
+
+    def _save_snapshot(self) -> None:
+        if self._snapshot_path is None:
+            return
+        from .reminder_store import save_reminders
+
+        try:
+            save_reminders(self._snapshot_path, self._reminders, completed_ids=self._proposed)
+        except (OSError, ValueError) as exc:
+            logger.warning("Could not save reminders to %s: %s", self._snapshot_path, exc)
+
+    def mark_proposed(self, reminder_id: str) -> None:
+        """Persist existing trigger deduplication, even if policy rejects the proposal."""
+        if reminder_id not in self._proposed:
+            self._proposed.add(reminder_id)
+            self._save_snapshot()
 
     def _read(self) -> list[Reminder]:
         if self.path is None:
@@ -76,6 +110,7 @@ class ReminderStore:
         reminder = Reminder(uuid4().hex[:12], text, due_time.isoformat(), now.isoformat())
         if self.path is None:
             self._reminders = [*reminders, reminder]
+            self._save_snapshot()
         else:
             save_settings(self.path, [asdict(item) for item in [*reminders, reminder]])
         return reminder
