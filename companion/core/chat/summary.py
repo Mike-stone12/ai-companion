@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Callable
 
 from companion.core.chat.emotion import EmotionTagParser
+from companion.core.chat.history import ConversationSummary
 from companion.core.llm.client import OpenAICompatibleClient
 from companion.core.memory.extractor import MEMORY_RETRY_DELAYS, extraction_request_options
 
@@ -71,6 +73,34 @@ def plan_summary_update(
     if len(older) - covered < batch:
         return None
     return older[covered:], len(older)
+
+
+def update_conversation_summary(
+    turns: list[dict[str, str]],
+    summary: ConversationSummary | None,
+    request: Callable[[list[dict[str, str]], str | None], str | None],
+    *,
+    window: int,
+    batch: int = DEFAULT_SUMMARY_BATCH,
+) -> ConversationSummary | None:
+    """Fold eligible turns, advancing the cursor only after a successful request.
+
+    The injected request receives eligible turns and the previous summary text.
+    No work, a failed request, or an empty reply returns the original summary.
+    """
+    plan = plan_summary_update(turns, window, summary.summarized_count if summary else 0, batch)
+    if plan is None:
+        return summary
+    older, covered = plan
+    try:
+        text = request(older, summary.text if summary else None)
+    except Exception:
+        # Exception messages can contain private conversation or provider text.
+        logger.info("Conversation summary request failed")
+        return summary
+    if not text or not text.strip():
+        return summary
+    return ConversationSummary(text, covered)
 
 
 def build_chat_messages(

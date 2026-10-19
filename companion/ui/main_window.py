@@ -25,9 +25,10 @@ from PyQt6.QtWidgets import (
 )
 
 from companion.adapters import tts_edge
-from companion.app.workers import ChatStreamWorker, MemoryWorker, TTSWorker
+from companion.app.workers import ChatStreamWorker, MemoryWorker, SummaryWorker, TTSWorker
 from companion.core.chat.emotion import EMOTION_INSTRUCTION
-from companion.core.chat.history import ConversationHistory, display_text
+from companion.core.chat.history import ConversationHistory, ConversationSummary, display_text
+from companion.core.chat.summary import build_chat_messages, plan_summary_update
 from companion.core.config import AppConfig
 from companion.core.llm.client import OpenAICompatibleClient
 from companion.core.memory.gate import should_extract_memory
@@ -65,6 +66,7 @@ LIVE2D_LOADER_CANDIDATES = (
 
 
 MEMORY_QUEUE_LIMIT = 5
+CONVERSATION_WINDOW = 11  # Individual messages, excluding system and memory context.
 CHAT_PANEL_HEIGHT = 170  # at scale 1.0
 MIN_CHAT_PANEL_HEIGHT = 110
 # Safety net if playback stops making progress (e.g. the renderer crashed).
@@ -138,6 +140,9 @@ class CompanionWindow(QWidget):
         self.tts_worker: TTSWorker | None = None
         self.memory_thread: QThread | None = None
         self.memory_worker: MemoryWorker | None = None
+        self.summary_thread: QThread | None = None
+        self.summary_worker: SummaryWorker | None = None
+        self.summary_snapshot: tuple[int, int, ConversationSummary | None] | None = None
         self.memory_jobs: deque[tuple[str, str]] = deque(maxlen=MEMORY_QUEUE_LIMIT)
         self.tts_queue: deque[str] = deque()
         self.pending_clips: dict[str, str] = {}
@@ -488,11 +493,12 @@ class CompanionWindow(QWidget):
             self.bridge.playRandomMotion.emit()
 
     def conversation_window(self) -> list[dict[str, str]]:
-        history = self.messages[:] if len(self.messages) <= 12 else [self.messages[0], *self.messages[-11:]]
-        memory_context = self.memory_store.render_context()
-        if memory_context:
-            return [history[0], {"role": "system", "content": memory_context}, *history[1:]]
-        return history
+        summary = self.history.summary if self.config.conversation_summary else None
+        return build_chat_messages(
+            self.messages[0]["content"], self.messages[1:][-CONVERSATION_WINDOW:],
+            memory_context=self.memory_store.render_context(),
+            summary=summary.text if summary else None,
+        )
 
     def send_message(self) -> None:
         user_text = self.chat_input.text().strip()
@@ -571,6 +577,47 @@ class CompanionWindow(QWidget):
         self.memory_thread.finished.connect(self.memory_thread.deleteLater)
         self.memory_thread.start()
 
+    def start_summary_worker(self) -> None:
+        if not self.config.conversation_summary or not self.config.api_key or self.summary_thread is not None:
+            return
+        turns = self.history.messages()
+        summary = self.history.summary
+        if plan_summary_update(turns, CONVERSATION_WINDOW, summary.summarized_count if summary else 0) is None:
+            return
+        # self.messages is append-only; history.entries is capped on every save.
+        self.summary_snapshot = (len(self.messages), len(turns), summary)
+        self.summary_thread = QThread(self)
+        self.summary_worker = SummaryWorker(self.client, turns, summary, CONVERSATION_WINDOW)
+        self.summary_worker.moveToThread(self.summary_thread)
+        self.summary_thread.started.connect(self.summary_worker.run)
+        self.summary_worker.finished.connect(self.on_summary_ready)
+        self.summary_worker.finished.connect(self.summary_worker.deleteLater)
+        self.summary_worker.finished.connect(self.summary_thread.quit)
+        self.summary_thread.finished.connect(self.on_summary_thread_finished)
+        self.summary_thread.finished.connect(self.summary_thread.deleteLater)
+        self.summary_thread.start()
+
+    def on_summary_ready(self, summary: ConversationSummary | None) -> None:
+        if self.summary_snapshot is None or not self.config.conversation_summary:
+            return
+        message_count, history_count, previous = self.summary_snapshot
+        if summary is None or summary is previous:
+            return
+        appended = len(self.messages) - message_count
+        dropped = max(0, history_count + appended - len(self.history.entries))
+        previous = self.history.summary
+        self.history.summary = ConversationSummary(summary.text, max(0, summary.summarized_count - dropped))
+        try:
+            self.history.save()
+        except Exception:
+            self.history.summary = previous
+            logger.info("Conversation summary save failed")
+
+    def on_summary_thread_finished(self) -> None:
+        self.summary_thread = None
+        self.summary_worker = None
+        self.summary_snapshot = None
+
     def render_reply(self) -> None:
         reply = sanitize_reply_text("".join(self.reply_parts))
         notes = "".join(f"\n\n{note}" for note in self.reply_notes)
@@ -633,6 +680,13 @@ class CompanionWindow(QWidget):
         content = self.history_text(reply)
         self.messages.append({"role": "assistant", "content": content})
         self.history.append("assistant", content)
+        try:
+            self.start_summary_worker()
+        except Exception:
+            logger.info("Conversation summary worker could not start")
+            self.summary_thread = None
+            self.summary_worker = None
+            self.summary_snapshot = None
 
     def run_next_tts(self) -> None:
         if self.tts_thread is not None or not self.tts_queue:
@@ -756,6 +810,11 @@ class CompanionWindow(QWidget):
         self.set_talking(False)
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
+        # Ignore queued summary results once teardown begins.
+        self.summary_snapshot = None
+        if self.summary_thread is not None and self.summary_thread.isRunning():
+            self.summary_thread.quit()
+            self.summary_thread.wait(2000)
         self.save_window_state()
         self.idle_timer.stop()
         self.audio_watchdog.stop()
