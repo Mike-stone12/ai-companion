@@ -132,7 +132,7 @@ def test_environment_override_note(config, monkeypatch, write, capsys):
 
 @pytest.mark.parametrize("key", [
     "UNKNOWN", "OPENAI_API_KEY", "api_key", "MY_SECRET", "ACCESS_TOKEN", "PASSWORD",
-    "COMPANION_DATA_DIR", "OPENAI_BASE_URL", "PYTHONPATH",
+    "COMPANION_DATA_DIR", "MOONSHOT_BASE_URL", "PYTHONPATH",
 ])
 @pytest.mark.parametrize("command", [["show"], ["set"], ["set", "--write"]])
 def test_uneditable_keys_rejected(config, key, command, capsys, run_readonly):

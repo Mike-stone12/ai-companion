@@ -7,6 +7,7 @@ import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 from companion.core import settings_file
 from companion.core.model_profile import DEFAULT_MODEL
@@ -30,6 +31,8 @@ class Setting:
 # AppConfig instance. Tests compare them with the existing consumers' defaults.
 # An empty LIVE2D_MODEL selects DEFAULT_MODEL in model_profile.
 EDITABLE_SETTINGS = (
+    Setting("OPENAI_BASE_URL", "str", "https://api.moonshot.ai/v1", "Chat API base URL (OpenAI-compatible)"),
+    Setting("OPENAI_MODEL", "str", "kimi-k2.6", "Chat model"),
     Setting("CHAT_THINKING", "bool", False, "Chat reasoning"),
     Setting("CHAT_TOOLS", "bool", False, "Chat tools"),
     Setting("VOICE_INPUT", "bool", False, "Push-to-talk voice input (requires transcription model)"),
@@ -97,6 +100,15 @@ def validate(name: str, value: SettingValue) -> SettingValue:
             "EMBEDDING_MODEL", "LIVE2D_MODEL", "TRANSCRIPTION_MODEL", "WAKE_WORD_PHRASES", "WAKE_WORD_MODEL_DIR",
         }:
             value = value.strip()
+        elif name == "OPENAI_MODEL":
+            value = value.strip()
+            if not value:
+                raise ValueError(f"{name} requires a model name")
+        elif name == "OPENAI_BASE_URL":
+            value = value.strip().rstrip("/")
+            parts = urlsplit(value)
+            if parts.scheme not in {"http", "https"} or not parts.netloc or any(char.isspace() for char in value):
+                raise ValueError(f"{name} requires an http(s) URL")
     return value
 
 

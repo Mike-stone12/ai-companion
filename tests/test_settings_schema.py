@@ -8,6 +8,8 @@ import pytest
 from companion import paths
 
 CONFIG_FIELDS = {
+    "OPENAI_BASE_URL": "base_url",
+    "OPENAI_MODEL": "model",
     "CHAT_THINKING": "chat_thinking",
     "CHAT_TOOLS": "chat_tools",
     "VOICE_INPUT": "voice_input",
@@ -49,7 +51,6 @@ def test_schema_covers_safe_settings_and_builtin_defaults():
     assert schema.keys() >= CONFIG_FIELDS.keys() | {"LOG_LEVEL", "LIVE2D_MODEL", "WAKE_WORD_PHRASES"}
     assert schema.keys() <= SETTING_NAMES
     assert "COMPANION_DATA_DIR" not in schema
-    assert "OPENAI_BASE_URL" not in schema
     assert "MOONSHOT_BASE_URL" not in schema
     config = build_config()
     for name, entry in schema.items():
@@ -231,3 +232,30 @@ def test_saved_settings_round_trip_through_existing_loader(tmp_path):
     assert config.wake_word_phrases == ("小鲸", "hey whale")
     assert config.wake_word_usable is True
     assert values["LOG_LEVEL"] == "WARNING"
+
+
+@pytest.mark.parametrize("value, expected", [
+    (" https://api.deepseek.com/v1 ", "https://api.deepseek.com/v1"),
+    ("https://api.deepseek.com/v1/", "https://api.deepseek.com/v1"),
+    ("http://localhost:11434/v1", "http://localhost:11434/v1"),
+])
+def test_chat_base_url_is_normalized(value, expected):
+    from companion.core.settings_schema import validate
+
+    assert validate("OPENAI_BASE_URL", value) == expected
+
+
+@pytest.mark.parametrize("value", ["", "api.deepseek.com", "ftp://x.example/v1", "https://", "https://a b/v1"])
+def test_chat_base_url_must_be_an_http_url(value):
+    from companion.core.settings_schema import validate
+
+    with pytest.raises(ValueError, match="OPENAI_BASE_URL"):
+        validate("OPENAI_BASE_URL", value)
+
+
+def test_chat_model_is_stripped_and_required():
+    from companion.core.settings_schema import validate
+
+    assert validate("OPENAI_MODEL", " deepseek-chat ") == "deepseek-chat"
+    with pytest.raises(ValueError, match="OPENAI_MODEL"):
+        validate("OPENAI_MODEL", "  ")
