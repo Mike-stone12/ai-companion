@@ -60,6 +60,20 @@
       ]
     },
     {
+      "name": "the upset message itself gets a caring reply (pre-check, before any appraisal)",
+      "steps": [
+        {"user": "你烦死了", "events": [{"type": "criticism", "intensity": 1.0}]},
+        {"user": "闭嘴吧", "events": [{"type": "criticism", "intensity": 1.0}]},
+        {"user": "我今天被老板骂了，好难过", "events": []}
+      ],
+      "expect": [
+        {"step": 2, "prompt_contains": "Keep replies short and cool", "presets": ["touchy"]},
+        {"step": 3, "care_mode": true},
+        {"step": 3, "prompt_contains": "comfort them first"},
+        {"step": 3, "prompt_lacks": "Keep replies short and cool"}
+      ]
+    },
+    {
       "name": "the user is genuinely upset",
       "steps": [
         {"user": "你真没用", "events": [{"type": "criticism", "intensity": 0.9}]},

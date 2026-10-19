@@ -17,6 +17,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from .appraisal import looks_distressed
 from .model import (
     AppraisalEvent,
     CompanionState,
@@ -25,6 +26,7 @@ from .model import (
     current_feelings,
     day_mood,
     dominant,
+    enter_care_mode,
     fresh_state,
     idle_emotion,
     in_care_mode,
@@ -59,6 +61,9 @@ def _apply_step(state: CompanionState, step: dict, now: datetime, traits: Traits
     events = [AppraisalEvent(e["type"], e.get("intensity", 0.5), e.get("reason", ""), tuple(e.get("targets", [])))
               for e in step.get("events", [])]
     if step.get("user") is not None:
+        # As in the window: the zero-cost distress pre-check runs before the reply.
+        if looks_distressed(step["user"]):
+            state = enter_care_mode(state, now)
         state = record_user_message(state, now, traits, BASE)
     return apply_events(state, events, now, traits, BASE, user_distress=step.get("distress", 0.0), rng=rng), now
 
