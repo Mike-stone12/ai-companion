@@ -64,7 +64,8 @@ def test_required_failures_fail_the_run():
 
 
 def fake_keyring(monkeypatch, priority):
-    module = types.SimpleNamespace(get_keyring=lambda: type("Backend", (), {"priority": priority})())
+    backend = type("Backend", (), {"priority": priority, "get_password": lambda *_: None})()
+    module = types.SimpleNamespace(get_keyring=lambda: backend, get_password=lambda *_: None)
     monkeypatch.setitem(sys.modules, "keyring", module)
 
 
@@ -77,7 +78,7 @@ def test_static_checks_cover_resources_and_mark_linux_keychain_optional(monkeypa
     monkeypatch.setitem(sys.modules, "edge_tts", types.ModuleType("edge_tts"))
     checks = {check.name: check for check in self_test.static_checks(platform)}
 
-    for name in ("bundled resources", "Live2D model", "renderer vendor files", "user data directory",
+    for name in ("bundled resources", "Live2D model", "renderer vendor files", "license files", "user data directory",
                  "default persona", "keyring package", "text-to-speech package"):
         assert checks[name].ok, checks[name]
     assert checks["keychain backend"].required is required
@@ -140,3 +141,17 @@ def test_run_reports_a_crashing_window_instead_of_raising(tmp_path, monkeypatch)
 
     assert self_test.run(request, gui=boom) == 1
     assert "FAIL  main window: RuntimeError: no display" in (tmp_path / "report.txt").read_text(encoding="utf-8")
+
+
+def test_missing_license_files_fail_the_self_test(monkeypatch, tmp_path):
+    from companion import paths
+
+    monkeypatch.setattr(paths, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(paths, "NOTICE_PATH", tmp_path / "NOTICE.md")
+    fake_keyring(monkeypatch, 5)
+
+    check = next(check for check in self_test.static_checks("darwin") if check.name == "license files")
+
+    assert not check.ok
+    assert check.required
+    assert "NOTICE.md" in check.detail

@@ -93,18 +93,28 @@ jobs:
         shell: bash
         run: cat "$RUNNER_TEMP/self-test.txt" || echo "No self-test report was written."
 
+      # The license and attribution notices are inside each bundle (see DATAS in the spec);
+      # a top-level copy in every archive puts them in front of whoever unpacks it.
       - name: Archive (macOS)
         if: runner.os == 'macOS'
-        run: ditto -c -k --keepParent "dist/AI Companion.app" "${{ matrix.archive }}"
+        run: |
+          mkdir -p "package/AI Companion"
+          ditto "dist/AI Companion.app" "package/AI Companion/AI Companion.app"
+          cp LICENSE NOTICE.md "package/AI Companion/"
+          ditto -c -k --keepParent "package/AI Companion" "${{ matrix.archive }}"
 
       - name: Archive (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: Compress-Archive -Path "dist\AI Companion" -DestinationPath "${{ matrix.archive }}"
+        run: |
+          Copy-Item LICENSE, NOTICE.md -Destination "dist\AI Companion"
+          Compress-Archive -Path "dist\AI Companion" -DestinationPath "${{ matrix.archive }}"
 
       - name: Archive (Linux)
         if: runner.os == 'Linux'
-        run: tar -czf "${{ matrix.archive }}" -C dist "AI Companion"
+        run: |
+          cp LICENSE NOTICE.md "dist/AI Companion/"
+          tar -czf "${{ matrix.archive }}" -C dist "AI Companion"
 
       - uses: actions/upload-artifact@v4
         with:

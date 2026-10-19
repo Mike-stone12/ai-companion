@@ -109,9 +109,20 @@ def static_checks(platform: str = sys.platform) -> list[Check]:
     def keychain_backend() -> str:
         import keyring
 
+        from companion.core.api_key import ApiKeyStore
+
+        # keyring finds backends through entry points, which a frozen build can lose; the app
+        # would then silently fall back to .env. An explicit empty environ ignores the
+        # self-test's COMPANION_KEYCHAIN=0, and checking availability reads no secret.
         backend = keyring.get_keyring()
-        _require(getattr(backend, "priority", 0) > 0, f"no usable backend ({type(backend).__module__})")
+        _require(ApiKeyStore(environ={}).available, f"no usable backend ({type(backend).__module__})")
         return type(backend).__module__
+
+    def license_files() -> str:
+        for path in (paths.LICENSE_PATH, paths.NOTICE_PATH):
+            _require(path.is_file(), f"missing {path.name}")
+        _require("CC BY-NC-SA" in paths.NOTICE_PATH.read_text(encoding="utf-8"), "NOTICE.md lacks the model license")
+        return "LICENSE, NOTICE.md"
 
     def persona() -> str:
         from companion.core.persona import BuiltinPersonas
@@ -124,6 +135,7 @@ def static_checks(platform: str = sys.platform) -> list[Check]:
         _check("bundled resources", resources),
         _check("Live2D model", model),
         _check("renderer vendor files", vendor),
+        _check("license files", license_files),
         _check("user data directory", data_dir),
         _check("Qt modules", imports(
             "PyQt6.QtCore", "PyQt6.QtWidgets", "PyQt6.QtWebEngineWidgets", "PyQt6.QtWebChannel",

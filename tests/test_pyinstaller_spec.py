@@ -57,8 +57,13 @@ def test_data_destinations_match_frozen_resource_paths(spec_lists, monkeypatch, 
     html = paths["HTML_PATH"].relative_to(tmp_path)
     models = paths["MODELS_DIR"].relative_to(tmp_path)
     vendor = paths["VENDOR_DIR"].relative_to(tmp_path)
+    license_file = paths["LICENSE_PATH"].relative_to(tmp_path)
+    notice = paths["NOTICE_PATH"].relative_to(tmp_path)
     # A file is copied into its destination; a directory's contents go there.
-    expected = {(html, html.parent), (models, models), (vendor, vendor)}
+    expected = {
+        (html, html.parent), (models, models), (vendor, vendor),
+        (license_file, license_file.parent), (notice, notice.parent),
+    }
     actual = {(normalized_path(src), normalized_path(dest)) for src, dest in spec_lists["DATAS"]}
     assert actual == expected
 

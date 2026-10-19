@@ -346,7 +346,10 @@ The **Package** GitHub Actions workflow builds with `ai-companion.spec` on macOS
 Windows, and Linux for every pull request and push to `master`/`agent-dev`, runs
 the self-test on each frozen build, and uploads `AI-Companion-macOS.zip`,
 `AI-Companion-Windows.zip`, and `AI-Companion-Linux.tar.gz` as workflow artifacts
-(kept 14 days). Builds are unsigned.
+(kept 14 days). Builds are unsigned. Each build bundles the default whale-girl
+character, which is licensed under CC BY-NC-SA 4.0: **the builds must not be used
+commercially** (see [NOTICE.md](NOTICE.md)). `LICENSE` and `NOTICE.md` are included
+inside every bundle and at the top level of every archive.
 
 User data still lives in the platform data directory described above (or the
 `COMPANION_DATA_DIR` override). `.env` is never bundled. To use it, place it next

@@ -7,6 +7,10 @@ import sys
 # Destinations are relative to sys._MEIPASS, as used by companion/paths.py.
 DATAS = [
     ("live2d_renderer.html", "."),
+    # The bundled whale-girl model (CC BY-NC-SA 4.0) and Cubism Core require their
+    # license and attribution notices to travel with the build.
+    ("LICENSE", "."),
+    ("NOTICE.md", "."),
     ("models", "models"),
     ("vendor", "vendor"),
 ]
