@@ -206,6 +206,8 @@ Run the repeatable offline evaluation of the extraction gate and lexical recall 
 python -m companion.core.memory.evaluation
 ```
 
+The extraction harness uses labelled Chinese cases in `evals/extraction_cases.json` and can score injected extractors fully offline. Run `python -m companion.core.memory.extraction_eval` for usage without making requests. A maintainer can explicitly run `python -m companion.core.memory.extraction_eval --live` with a configured API key; **`--live` sends the case messages to the configured LLM endpoint**. It reports store-decision accuracy, false stores, missed stores, keyword hit rate (all expected substrings found per positive case), and per-case errors. Live runs reuse the existing extractor, including its heuristic fallback on request or parse failures.
+
 ### Inspect stored memories
 
 Use the read-only CLI without installing the GUI dependencies:
@@ -227,7 +229,7 @@ case-insensitive substrings. These commands never save or migrate data.
 
 Conflict-aware consolidation already supports ADD, UPDATE, and NOOP; DELETE decisions are ignored.
 
-- Evaluate the extraction LLM itself; the offline evaluation currently covers only the gate and lexical recall.
+- Collect live extraction evaluation numbers; a labelled extraction harness exists, and live numbers are pending.
 - Add semantic or embedding-based retrieval.
 - Add a UI or CLI for editing and removing stored memories; read-only inspection is already available.
 - Validate platforms beyond Windows.
