@@ -26,10 +26,14 @@ from companion.core.settings_form import SettingsForm
 class SettingsDialog(QDialog):
     def __init__(
         self, form: SettingsForm, parent: QWidget | None = None, *, api_keys: ApiKeyStore | None = None,
+        extra_keys: list[tuple[str, ApiKeyStore]] | None = None,
     ) -> None:
         super().__init__(parent)
         self.form = form
         self.api_keys = api_keys
+        # Other services' keys (pictures, voice), each in its own keychain entry.
+        self.extra_keys = extra_keys or []
+        self.changed_accounts: set[str] = set()
         # Set when the keychain entry was saved or removed, even if the dialog is cancelled.
         self.api_key_changed = False
         self.editors: dict[str, QCheckBox | QComboBox | QLineEdit] = {}
@@ -108,60 +112,28 @@ class SettingsDialog(QDialog):
         layout.addWidget(buttons)
 
     def _build_api_key_box(self) -> QGroupBox:
-        box = QGroupBox("API key")
+        box = QGroupBox("API keys")
         rows = QVBoxLayout(box)
-        self.api_key_status = self._label("")
-        rows.addWidget(self.api_key_status)
-        line = QHBoxLayout()
-        # Never prefilled: the stored key is not read back into the UI.
-        self.api_key_input = QLineEdit()
-        self.api_key_input.setObjectName("API_KEY_INPUT")
-        self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.api_key_input.setPlaceholderText("Paste a new key to store it in the system keychain")
-        self.api_key_input.setAccessibleName("New API key")
-        self.api_key_save = QPushButton("Save to keychain")
-        self.api_key_save.clicked.connect(self.save_api_key)
-        self.api_key_clear = QPushButton("Remove from keychain")
-        self.api_key_clear.clicked.connect(self.clear_api_key)
-        line.addWidget(self.api_key_input, 1)
-        line.addWidget(self.api_key_save)
-        line.addWidget(self.api_key_clear)
-        rows.addLayout(line)
-        self.api_key_message = self._label("")
-        self.api_key_message.setWordWrap(True)
-        rows.addWidget(self.api_key_message)
-        self._refresh_api_key_status()
+        self.key_rows: list[_KeyRow] = []
+        for title, store in [("Chat", self.api_keys), *self.extra_keys]:
+            row = _KeyRow(title, store, self._key_changed)
+            self.key_rows.append(row)
+            rows.addLayout(row.layout)
+        # The chat row's widgets, as before.
+        chat = self.key_rows[0]
+        self.api_key_status, self.api_key_input = chat.status, chat.input
+        self.api_key_save, self.api_key_clear, self.api_key_message = chat.save_button, chat.clear_button, chat.message
         return box
 
-    def _refresh_api_key_status(self, message: str = "") -> None:
-        resolved = self.api_keys.resolve()
-        available = self.api_keys.available
-        self.api_key_status.setText(f"Status: {describe_status(resolved, available)}")
-        self.api_key_input.setEnabled(available)
-        self.api_key_save.setEnabled(available)
-        self.api_key_clear.setEnabled(available and resolved.source == "keychain")
-        self.api_key_message.setText(message)
-        self.api_key_message.setVisible(bool(message))
+    def _key_changed(self, account: str) -> None:
+        self.api_key_changed = True
+        self.changed_accounts.add(account)
 
     def save_api_key(self) -> None:
-        try:
-            self.api_keys.save(self.api_key_input.text())
-        except (ValueError, KeychainUnavailable) as exc:
-            self._refresh_api_key_status(str(exc))
-            return
-        finally:
-            self.api_key_input.clear()
-        self.api_key_changed = True
-        self._refresh_api_key_status("Saved. Chat uses the new key right away.")
+        self.key_rows[0].save()
 
     def clear_api_key(self) -> None:
-        try:
-            self.api_keys.clear()
-        except KeychainUnavailable as exc:
-            self._refresh_api_key_status(str(exc))
-            return
-        self.api_key_changed = True
-        self._refresh_api_key_status("Removed from the keychain.")
+        self.key_rows[0].clear()
 
     @staticmethod
     def _label(text: str) -> QLabel:
@@ -198,3 +170,63 @@ class SettingsDialog(QDialog):
         self.errors.setText(text)
         self.errors.show()
         self._scroll.ensureWidgetVisible(self.errors)
+
+
+class _KeyRow:
+    """Status, a password field that is never prefilled, Save and Remove for one keychain entry."""
+
+    def __init__(self, title: str, store: ApiKeyStore, changed) -> None:
+        self.title = title
+        self.store = store
+        self.changed = changed
+        self.layout = QVBoxLayout()
+        self.status = SettingsDialog._label("")
+        self.layout.addWidget(self.status)
+        line = QHBoxLayout()
+        self.input = QLineEdit()
+        self.input.setObjectName("API_KEY_INPUT" if store.account == "OPENAI_API_KEY" else f"{store.account}_INPUT")
+        self.input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.input.setPlaceholderText(f"Paste a new {title.lower()} key to store it in the system keychain")
+        self.input.setAccessibleName(f"New {title.lower()} API key")
+        self.save_button = QPushButton("Save to keychain")
+        self.save_button.clicked.connect(self.save)
+        self.clear_button = QPushButton("Remove from keychain")
+        self.clear_button.clicked.connect(self.clear)
+        line.addWidget(self.input, 1)
+        line.addWidget(self.save_button)
+        line.addWidget(self.clear_button)
+        self.layout.addLayout(line)
+        self.message = SettingsDialog._label("")
+        self.message.setWordWrap(True)
+        self.layout.addWidget(self.message)
+        self.refresh()
+
+    def refresh(self, message: str = "") -> None:
+        resolved = self.store.resolve()
+        available = self.store.available
+        self.status.setText(f"{self.title} key: {describe_status(resolved, available)}")
+        self.input.setEnabled(available)
+        self.save_button.setEnabled(available)
+        self.clear_button.setEnabled(available and resolved.source == "keychain")
+        self.message.setText(message)
+        self.message.setVisible(bool(message))
+
+    def save(self) -> None:
+        try:
+            self.store.save(self.input.text())
+        except (ValueError, KeychainUnavailable) as exc:
+            self.refresh(str(exc))
+            return
+        finally:
+            self.input.clear()
+        self.changed(self.store.account)
+        self.refresh("Saved. It is used right away.")
+
+    def clear(self) -> None:
+        try:
+            self.store.clear()
+        except KeychainUnavailable as exc:
+            self.refresh(str(exc))
+            return
+        self.changed(self.store.account)
+        self.refresh("Removed from the keychain.")

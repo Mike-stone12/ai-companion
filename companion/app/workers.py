@@ -13,7 +13,7 @@ from companion.core.chat.history import ConversationSummary
 from companion.core.chat.summary import request_summary, update_conversation_summary
 from companion.core.config import AppConfig
 from companion.core.diary import clean_diary_text
-from companion.core.llm.client import OpenAICompatibleClient
+from companion.core.llm.client import OpenAICompatibleClient, chat_request_options
 from companion.core.llm.transcription import transcribe
 from companion.core.memory.consolidate_pipeline import consolidate_store
 from companion.core.memory.consolidator import ConsolidationDecision, build_consolidation_messages
@@ -28,6 +28,7 @@ from companion.core.state import appraise
 from companion.core.text import SentenceSplitter
 from companion.core.tools.loop import run_tool_rounds
 from companion.core.tools.registry import ToolRegistry
+from companion.core.vision import describe_image
 from companion.core.voice_input_controller import VoiceInputController
 from companion.paths import MEMORY_PATH, SELF_MEMORY_PATH
 
@@ -143,6 +144,25 @@ class TranscriptionWorker(QObject):
             self.failed.emit(str(exc) or type(exc).__name__)
             return
         self.finished.emit(text)
+
+
+class VisionWorker(QObject):
+    """Describe one picture with the vision model; emits the description or ""."""
+
+    finished = pyqtSignal(str)
+
+    def __init__(self, client: OpenAICompatibleClient, data_url: str, caption: str) -> None:
+        super().__init__()
+        self.client = client
+        self.data_url = data_url
+        self.caption = caption
+
+    def complete(self, messages: list[dict]) -> str:
+        return self.client.complete(messages, extra=chat_request_options(self.client.config))
+
+    @pyqtSlot()
+    def run(self) -> None:
+        self.finished.emit(describe_image(self.complete, self.data_url, self.caption) or "")
 
 
 class TTSWorker(QObject):

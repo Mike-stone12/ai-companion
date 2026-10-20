@@ -12,13 +12,27 @@ from datetime import timedelta
 from functools import partial
 from pathlib import Path
 
-from PyQt6.QtCore import PYQT_VERSION_STR, QPoint, QRect, Qt, QThread, QTimer, QUrl, QUrlQuery, pyqtSignal
-from PyQt6.QtGui import QAction, QActionGroup, QColor
+from PyQt6.QtCore import (
+    PYQT_VERSION_STR,
+    QBuffer,
+    QEvent,
+    QIODevice,
+    QPoint,
+    QRect,
+    Qt,
+    QThread,
+    QTimer,
+    QUrl,
+    QUrlQuery,
+    pyqtSignal,
+)
+from PyQt6.QtGui import QAction, QActionGroup, QColor, QImage, QKeySequence
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineCore import QWebEngineSettings
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import (
     QApplication,
+    QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -41,8 +55,9 @@ from companion.app.workers import (
     SummaryWorker,
     TranscriptionWorker,
     TTSWorker,
+    VisionWorker,
 )
-from companion.core.api_key import ApiKeyStore
+from companion.core.api_key import VISION_ACCOUNT, ApiKeyStore, service_api_key
 from companion.core.chat.emotion import EMOTION_INSTRUCTION
 from companion.core.chat.history import ConversationHistory, ConversationSummary, display_text
 from companion.core.chat.pacing import (
@@ -96,6 +111,13 @@ from companion.core.state import (
 from companion.core.text import SentenceSplitter, sanitize_reply_text, sanitize_tts_text
 from companion.core.tools.builtin import build_builtin_registry
 from companion.core.tools.reminders import ReminderStore, local_now
+from companion.core.vision import (
+    ImageError,
+    image_data_url,
+    image_turn_display,
+    image_turn_text,
+    resolve_vision_model,
+)
 from companion.core.voice_input_actions import can_start_voice_input, deliver_voice_input_result
 from companion.core.voice_input_controller import VoiceInputController, VoiceInputResult
 from companion.core.wake_word_actions import wake_word_enabled
@@ -147,6 +169,10 @@ AUDIO_WATCHDOG_MS = 120_000
 WAKE_CAPTURE_MS = 5_000
 # Her diary plus self memories in one system message.
 OWN_CONTEXT_CHARS = 600
+# Pictures: larger files or sides are re-encoded before upload.
+MAX_IMAGE_SIDE = 1568
+SMALL_IMAGE_BYTES = 2 * 1024 * 1024
+PICTURE_TIP = "Send a picture (or paste / drop one). It is uploaded only when you send it."
 
 
 def to_file_url(path: Path | None, *, directory: bool = False) -> str:
@@ -561,6 +587,7 @@ class CompanionWindow(QWidget):
         send_button.clicked.connect(self.send_message)
         controls_layout.addWidget(send_button)
         self.send_button = send_button
+        self.setup_vision_input(controls_layout)
         self.setup_voice_input(controls_layout)
 
         root_layout.addWidget(controls)
@@ -672,6 +699,144 @@ class CompanionWindow(QWidget):
             }
             """
         )
+
+    def setup_vision_input(self, layout: QHBoxLayout) -> None:
+        """Pictures by button, paste, or drop; only when a vision model is available."""
+        self.pending_image: str | None = None
+        self.picture_button = None
+        self.vision_thread: QThread | None = None
+        self.vision_worker: VisionWorker | None = None
+        self.vision_model = resolve_vision_model(
+            self.config.vision_model, self.config.vision_base_url, self.config.base_url,
+        )
+        self.vision_api_key: str | None = None
+        if not self.vision_model:
+            return
+        self.picture_button = QPushButton("Picture")
+        # Room for the "Picture ✕" state with the stylesheet's 16 px padding on each side.
+        self.picture_button.setMinimumWidth(self.picture_button.fontMetrics().horizontalAdvance("Picture ✕") + 40)
+        self.picture_button.setToolTip(PICTURE_TIP)
+        self.picture_button.clicked.connect(self.on_picture_button)
+        layout.insertWidget(1, self.picture_button)
+        self.chat_input.installEventFilter(self)
+        self.refresh_vision_access()
+
+    def vision_url(self) -> str:
+        return self.config.vision_base_url or self.config.base_url
+
+    def refresh_vision_access(self, own_key: str | None = None) -> None:
+        """Pictures need a key that may go to the vision host: never the chat key for another provider."""
+        if own_key is None:
+            own_key = ApiKeyStore(account=VISION_ACCOUNT).resolve().value
+        self.vision_api_key = service_api_key(self.vision_url(), self.config.base_url, own_key, self.config.api_key)
+        usable = self.vision_api_key is not None
+        if not usable:
+            logger.info("Pictures are off: the vision host differs from the chat host and has no key of its own")
+        self.picture_button.setVisible(usable)
+        self.setAcceptDrops(usable)
+
+    def eventFilter(self, watched, event) -> bool:  # type: ignore[override]
+        if (
+            watched is self.chat_input and event.type() == QEvent.Type.KeyPress
+            and event.matches(QKeySequence.StandardKey.Paste)
+        ):
+            image = QApplication.clipboard().image()
+            if not image.isNull() and self.vision_api_key is not None:
+                self.attach_image(image_bytes(image))
+                return True
+        return super().eventFilter(watched, event)
+
+    def dragEnterEvent(self, event) -> None:  # type: ignore[override]
+        mime = event.mimeData()
+        if self.picture_button is not None and (mime.hasImage() or mime.hasUrls()):
+            event.acceptProposedAction()
+
+    def dropEvent(self, event) -> None:  # type: ignore[override]
+        mime = event.mimeData()
+        if self.vision_api_key is None:
+            return
+        if mime.hasImage():
+            self.attach_image(image_bytes(QImage(mime.imageData())))
+        elif mime.hasUrls() and mime.urls()[0].isLocalFile():
+            self.attach_file(mime.urls()[0].toLocalFile())
+        event.acceptProposedAction()
+
+    def on_picture_button(self) -> None:
+        if self.pending_image is not None:
+            self.clear_image()
+            return
+        path, _ = QFileDialog.getOpenFileName(self, "Send a picture", "", "Pictures (*.png *.jpg *.jpeg *.gif *.webp)")
+        if path:
+            self.attach_file(path)
+
+    def attach_file(self, path: str) -> None:
+        image = QImage(path)
+        if image.isNull():
+            self.chat_panel.add_notice("That file is not a picture I can open.")
+            return
+        data = Path(path).read_bytes()
+        # Keep small GIF/WebP/PNG/JPEG files as they are; re-encode large ones.
+        self.attach_image(data if len(data) <= SMALL_IMAGE_BYTES and max(image.width(), image.height())
+                          <= MAX_IMAGE_SIDE else image_bytes(image))
+
+    def attach_image(self, data: bytes) -> None:
+        try:
+            self.pending_image = image_data_url(data)
+        except ImageError as exc:
+            self.chat_panel.add_notice(str(exc))
+            return
+        self.picture_button.setText("Picture ✕")
+        self.picture_button.setToolTip("A picture is attached; click to remove it.")
+        self.chat_input.setPlaceholderText("Say something about the picture (optional)...")
+        self.chat_input.setFocus()
+
+    def clear_image(self) -> None:
+        self.pending_image = None
+        if self.picture_button is not None:
+            self.picture_button.setText("Picture")
+            self.picture_button.setToolTip(PICTURE_TIP)
+        self.chat_input.setPlaceholderText("Say something...")
+
+    def send_picture(self, caption: str) -> None:
+        """Describe the picture first, then send the description as the user's turn."""
+        data_url, self.pending_image = self.pending_image, None
+        self.clear_image()
+        self.busy = True
+        self.pause_wake_word()
+        self.chat_input.clear()
+        self.chat_input.setEnabled(False)
+        self.send_button.setEnabled(False)
+        self.set_status("Looking at the picture…")
+        self.chat_panel.add_user(image_turn_display(caption))
+        self.pending_caption = caption
+        vision_config = replace(
+            self.config, base_url=self.vision_url(), model=self.vision_model, api_key=self.vision_api_key or "",
+        )
+        self.vision_thread = QThread(self)
+        self.vision_worker = VisionWorker(OpenAICompatibleClient(vision_config), data_url, caption)
+        self.vision_worker.moveToThread(self.vision_thread)
+        self.vision_thread.started.connect(self.vision_worker.run)
+        self.vision_worker.finished.connect(self.on_picture_described)
+        self.vision_worker.finished.connect(self.vision_worker.deleteLater)
+        self.vision_worker.finished.connect(self.vision_thread.quit)
+        self.vision_thread.finished.connect(self.on_vision_thread_finished)
+        self.vision_thread.finished.connect(self.vision_thread.deleteLater)
+        self.vision_thread.start()
+
+    def on_picture_described(self, description: str) -> None:
+        if self.closing:
+            return
+        self.busy = False
+        if not description:
+            self.chat_panel.add_notice("I couldn't look at that picture. Check VISION_MODEL in Settings.")
+            self.set_status("Error")
+            self.finish_interaction()
+            return
+        self.submit_message(image_turn_text(description, self.pending_caption), display="")
+
+    def on_vision_thread_finished(self) -> None:
+        self.vision_thread = None
+        self.vision_worker = None
 
     def setup_voice_input(self, layout: QHBoxLayout) -> None:
         if not self.config.voice_input_usable:
@@ -847,13 +1012,19 @@ class CompanionWindow(QWidget):
 
     def show_settings(self) -> None:
         api_keys = ApiKeyStore()
-        dialog = SettingsDialog(SettingsForm(CONFIG_PATH), self, api_keys=api_keys)
+        extra = []
+        vision_keys = ApiKeyStore(account=VISION_ACCOUNT)
+        if getattr(self, "picture_button", None) is not None:
+            extra.append(("Pictures", vision_keys))
+        dialog = SettingsDialog(SettingsForm(CONFIG_PATH), self, api_keys=api_keys, extra_keys=extra)
         if dialog.exec() == SettingsDialog.DialogCode.Accepted:
             self.chat_panel.add_notice("Settings saved. Changes apply on the next start.")
         if dialog.api_key_changed:
             # The chat client reads config.api_key on every request.
             self.config.api_key = api_keys.resolve().value
-            self.chat_panel.add_notice("API key updated." if self.config.api_key else "No API key is set now.")
+            self.chat_panel.add_notice("API keys updated." if self.config.api_key else "No chat API key is set now.")
+            if getattr(self, "picture_button", None) is not None:
+                self.refresh_vision_access(vision_keys.resolve().value)
         dialog.deleteLater()
 
     def system_message(self) -> str:
@@ -1188,9 +1359,12 @@ class CompanionWindow(QWidget):
         return build_context if defer else build_context()
 
     def send_message(self) -> None:
+        if getattr(self, "pending_image", None) is not None and not self.busy and self.vision_api_key is not None:
+            self.send_picture(self.chat_input.text().strip())
+            return
         self.submit_message(self.chat_input.text().strip())
 
-    def submit_message(self, user_text: str) -> None:
+    def submit_message(self, user_text: str, display: str | None = None) -> None:
         if not user_text or self.busy:
             return
 
@@ -1202,7 +1376,10 @@ class CompanionWindow(QWidget):
         self.chat_input.setEnabled(False)
         self.send_button.setEnabled(False)
         self.set_status("Thinking")
-        self.chat_panel.add_user(user_text)
+        if display is None:
+            self.chat_panel.add_user(user_text)
+        elif display:
+            self.chat_panel.add_user(display)
         self.pending_user_text = user_text
         self.messages.append({"role": "user", "content": user_text})
         self.history.append("user", user_text)
@@ -1634,6 +1811,11 @@ class CompanionWindow(QWidget):
                 event.ignore()
                 self.hide()
                 return
+        vision_thread = getattr(self, "vision_thread", None)
+        if vision_thread is not None and vision_thread.isRunning():
+            # A late description is ignored once closing; the request has its own timeout.
+            vision_thread.quit()
+            vision_thread.wait(2000)
         if self.proactive_timer is not None:
             self.proactive_timer.stop()
         self.proactive = None
@@ -1656,6 +1838,17 @@ class CompanionWindow(QWidget):
         self.tts_queue.clear()
         self.discard_pending_clips()
         super().closeEvent(event)
+
+
+def image_bytes(image: QImage) -> bytes:
+    """Encode a pasted or large picture as JPEG, at most MAX_IMAGE_SIDE pixels on its longer side."""
+    if max(image.width(), image.height()) > MAX_IMAGE_SIDE:
+        image = image.scaled(MAX_IMAGE_SIDE, MAX_IMAGE_SIDE, Qt.AspectRatioMode.KeepAspectRatio,
+                             Qt.TransformationMode.SmoothTransformation)
+    buffer = QBuffer()
+    buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+    image.convertToFormat(QImage.Format.Format_RGB888).save(buffer, "JPEG", 88)
+    return bytes(buffer.data())
 
 
 def delete_file(path: str) -> None:

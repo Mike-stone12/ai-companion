@@ -162,10 +162,10 @@ class OpenAICompatibleClient:
 
         endpoint = self.config.base_url.rstrip("/") + "/chat/completions"
         body = json.dumps(payload).encode("utf-8")
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.config.api_key}",
-        }
+        headers = {"Content-Type": "application/json"}
+        # A keyless local server (loopback) gets no Authorization header at all.
+        if self.config.api_key:
+            headers["Authorization"] = f"Bearer {self.config.api_key}"
 
         attempt_count = len(retry_delays) + 1
         for attempt in range(1, attempt_count + 1):

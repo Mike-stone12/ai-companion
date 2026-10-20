@@ -22,6 +22,7 @@ It runs on macOS, Windows, and Linux, and works with any OpenAI-compatible chat 
 - **Remembers you.** Short facts ("you like coffee", "your exam is on Friday") are extracted in the background, merged with what it already knows, and brought back when relevant. Older conversation is folded into a running summary.
 - **A personality you choose.** Pick or write the companion's name, relationship to you, personality, and speaking style. See [Persona](#persona).
 - **Your key stays in the keychain.** The API key is stored in the operating system's keychain from the Settings dialog, never in a settings file or the logs.
+- **Sees your pictures.** Send one with the **Picture** button, paste, or drag-and-drop; a vision model describes it and the companion answers in its own voice. On a DeepSeek endpoint this needs no setup.
 - **Optional extras**, all off by default: hold-to-talk voice input, an offline wake word, proactive chat (greetings, check-ins, reminders), and a gentle nudge after long sessions in the same app, such as 40 minutes of gaming.
 
 ## Quick start
@@ -100,6 +101,7 @@ Most things can be changed from **Settings…** in the right-click menu; changes
 | --- | --- | --- |
 | `OPENAI_BASE_URL` | `https://api.moonshot.ai/v1` | Chat endpoint (OpenAI-compatible) |
 | `OPENAI_MODEL` | `kimi-k2.6` | Chat model |
+| `VISION_MODEL` / `VISION_BASE_URL` | automatic on DeepSeek | Picture model and endpoint; another provider needs its own key (Settings… > Pictures key) |
 | `OPENAI_API_KEY` | | Fallback when no key is in the keychain |
 | `LIVE2D_MODEL` | `whale-girl` | Character: `whale-girl` or `hiyori` |
 | `EDGE_TTS_VOICE_ZH` / `EDGE_TTS_VOICE_EN` | Xiaoyi / Aria | Voices for Chinese and English replies |
@@ -118,7 +120,7 @@ The full list, the wake word setup, and command-line tools for memories and sett
 
 ## Privacy
 
-- Your messages, recalled memories, and the persona are sent to the chat API you configure. Replies are sent to Microsoft Edge's text-to-speech service to be spoken. Voice input, when enabled, is sent to your provider's transcription endpoint.
+- Your messages, recalled memories, and the persona are sent to the chat API you configure. Replies are sent to Microsoft Edge's text-to-speech service to be spoken. Voice input, when enabled, is sent to your provider's transcription endpoint. A picture is uploaded to the vision endpoint only when you send it, and your chat key is never sent to a different provider.
 - The long-session nudge sends only the foreground app's name and how long it has been in front, nothing else.
 - Memories, chat history, settings, the persona, its feelings, and its diary are stored locally as plain JSON in your data directory: `~/Library/Application Support/AICompanion/` on macOS, `%APPDATA%\AICompanion\` on Windows, `~/.local/share/ai-companion/` on Linux. **Memories…** in the right-click menu lets you review and edit what it remembers.
 - The API key lives in the system keychain (or your own `.env`), never in those files or the logs.
