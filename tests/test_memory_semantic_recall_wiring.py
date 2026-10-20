@@ -132,7 +132,7 @@ def test_context_is_snapshotted_and_embeddings_run_only_in_worker(tmp_path, memo
     window_class = load_class("companion/ui/main_window.py", "CompanionWindow", {
         "build_chat_messages": build_chat_messages, "CONVERSATION_WINDOW": 11, "copy": copy,
         "Callable": Callable,
-    }, {"conversation_window", "state_context"})
+    }, {"conversation_window", "state_context", "own_context"})
     worker_class = load_class("companion/app/workers.py", "ChatStreamWorker", {
         "QObject": object, "pyqtSignal": lambda *_: Mock(), "pyqtSlot": lambda: lambda fn: fn,
         "EmotionTagParser": EmotionTagParser, "SentenceSplitter": SentenceSplitter,

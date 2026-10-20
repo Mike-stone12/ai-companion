@@ -12,6 +12,7 @@ from companion.core.chat.emotion import EmotionTagParser
 from companion.core.chat.history import ConversationSummary
 from companion.core.chat.summary import request_summary, update_conversation_summary
 from companion.core.config import AppConfig
+from companion.core.diary import clean_diary_text
 from companion.core.llm.client import OpenAICompatibleClient
 from companion.core.llm.transcription import transcribe
 from companion.core.memory.consolidate_pipeline import consolidate_store
@@ -21,13 +22,14 @@ from companion.core.memory.extractor import (
     extract_memories_with_llm,
     extraction_request_options,
 )
+from companion.core.memory.self_memory import SELF_MEMORY_LIMIT, extract_self_memories
 from companion.core.memory.store import MemoryStore
 from companion.core.state import appraise
 from companion.core.text import SentenceSplitter
 from companion.core.tools.loop import run_tool_rounds
 from companion.core.tools.registry import ToolRegistry
 from companion.core.voice_input_controller import VoiceInputController
-from companion.paths import MEMORY_PATH
+from companion.paths import MEMORY_PATH, SELF_MEMORY_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +166,66 @@ class TTSWorker(QObject):
             self.error.emit(str(exc))
             return
         self.finished.emit(audio_path)
+
+
+class SelfMemoryWorker(QObject):
+    """Extract what the companion said about itself and merge it into self_memory.json."""
+
+    finished = pyqtSignal(list)
+
+    def __init__(self, client: OpenAICompatibleClient, user_text: str, assistant_text: str) -> None:
+        super().__init__()
+        self.client = client
+        self.user_text = user_text
+        self.assistant_text = assistant_text
+
+    def complete(self, messages: list[dict[str, str]]) -> str:
+        return self.client.complete(
+            messages, extra=extraction_request_options(self.client.config.base_url), retry_delays=MEMORY_RETRY_DELAYS,
+        )
+
+    def request_consolidation(self, candidate: str, existing: list[str]) -> ConsolidationDecision | str | None:
+        if not existing:
+            return ConsolidationDecision("ADD", None, candidate)
+        return self.complete(build_consolidation_messages(candidate, existing))
+
+    @pyqtSlot()
+    def run(self) -> None:
+        memories: list[dict[str, str]] = []
+        try:
+            memories = extract_self_memories(self.complete, self.user_text, self.assistant_text)
+            if memories:
+                store = MemoryStore(SELF_MEMORY_PATH, SELF_MEMORY_LIMIT)
+                if self.client.config.memory_consolidation:
+                    consolidate_store(store, memories, self.request_consolidation)
+                else:
+                    store.upsert_many(memories)
+        except Exception as exc:  # noqa: BLE001 - an optional background step must not crash the app
+            logger.info("Self-memory update failed (%s)", type(exc).__name__)
+        self.finished.emit(memories)
+
+
+class DiaryWorker(QObject):
+    """Write one diary entry in the persona's voice; emits the cleaned text or ""."""
+
+    finished = pyqtSignal(str)
+
+    def __init__(self, client: OpenAICompatibleClient, messages: list[dict[str, str]]) -> None:
+        super().__init__()
+        self.client = client
+        self.messages = messages
+
+    @pyqtSlot()
+    def run(self) -> None:
+        try:
+            options = extraction_request_options(self.client.config.base_url)
+            options.pop("response_format", None)  # prose, not JSON
+            options.pop("temperature", None)  # let the persona's voice vary
+            text = clean_diary_text(self.client.complete(self.messages, extra=options))
+        except Exception as exc:  # noqa: BLE001
+            logger.info("Diary request failed (%s)", type(exc).__name__)
+            text = ""
+        self.finished.emit(text)
 
 
 class AppraisalWorker(QObject):

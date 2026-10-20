@@ -61,6 +61,8 @@ HISTORY_PATH = DATA_DIR / "history.json"
 CONFIG_PATH = DATA_DIR / "config.json"
 PERSONA_PATH = DATA_DIR / "persona.json"
 STATE_PATH = DATA_DIR / "state.json"
+DIARY_PATH = DATA_DIR / "diary.json"
+SELF_MEMORY_PATH = DATA_DIR / "self_memory.json"
 LOG_DIR = DATA_DIR / "logs"
 
 LEGACY_MEMORY_PATH = APP_DIR / "memory.json"

@@ -16,6 +16,8 @@ It runs on macOS, Windows, and Linux, and works with any OpenAI-compatible chat 
 - **A character, not a chat box.** A frameless, draggable Live2D avatar with idle motions, emotion expressions picked by the model (happy, shy, surprised, …), and mouth movement that follows its voice.
 - **Texts like a friend.** A reply arrives as one to four short messages with a "typing…" pause between them, a little later when it is busy or asleep; the first one is spoken as soon as it is complete.
 - **Speaks as it thinks.** Replies stream in and the first sentence is spoken while the rest is still being written; median time to the first spoken word is about 1.7 s. Chinese and English voices are chosen automatically (Edge TTS), with a lively, slightly raised Chinese voice by default.
+- **Real feelings, with a personality you set.** It can be happy, annoyed, hurt, jealous, or miss you, each for a reason it remembers; how strongly it reacts depends on personality sliders (quick to anger, jealous, easily hurt, gets over things quickly, candid or tsundere). A sincere apology for the actual thing works better than a quick "sorry", and when you are genuinely upset it sets its own feelings aside to look after you. It never guilt-trips you or threatens to leave.
+- **Keeps a diary.** The day after you talk it writes a short diary entry in its own voice, and it remembers what it has said about itself (favourite things, promises) so it stays consistent. You can read both under **Memories…**.
 - **A life of its own.** Its mood carries over from one reply to the next and fades over a couple of hours; after a day without hearing from you it misses you, and the idle face shows how it feels. It also keeps a daily routine: in class in the morning, free in the evening, sleepy late at night, asleep after half past midnight. It still answers when asleep (groggily), and while asleep it starts nothing but your reminders.
 - **Remembers you.** Short facts ("you like coffee", "your exam is on Friday") are extracted in the background, merged with what it already knows, and brought back when relevant. Older conversation is folded into a running summary.
 - **A personality you choose.** Pick or write the companion's name, relationship to you, personality, and speaking style. See [Persona](#persona).
@@ -83,6 +85,7 @@ The persona is who the companion is. It becomes the model's instructions, so it 
 | Personality | Temperament and attitude. |
 | Speaking style | How it talks: casual or polite, teasing, short sentences, … |
 | Background | Anything else it should know about its situation. |
+| Personality sliders | How quickly it gets annoyed, jealous, or hurt, how fast it gets over things, how candid it is, and how it shows being upset (says it straight, sarcastic, goes cold, sulks cutely). |
 | Daily routine | One time block per line, e.g. `08:30-12:00 [busy] in class`; kinds are `busy`, `drowsy`, `asleep`, or free time. The top bar shows what it is doing. |
 
 The default persona is a **childhood friend** who grew up next door: warm, a little teasing, honest rather than flattering, and quick to notice when you are tired. Whatever persona you choose, the companion talks directly to you, replies in the language you write in, and does not invent shared memories you never mentioned.
@@ -101,8 +104,9 @@ Most things can be changed from **Settings…** in the right-click menu; changes
 | `LIVE2D_MODEL` | `whale-girl` | Character: `whale-girl` or `hiyori` |
 | `EDGE_TTS_VOICE_ZH` / `EDGE_TTS_VOICE_EN` | Xiaoyi / Aria | Voices for Chinese and English replies |
 | `TTS_PITCH` / `TTS_RATE` | `+10Hz` / `+6%` | Pitch and speed offsets for the Chinese voice |
-| `COMPANION_STATE` | on | Mood that carries over between replies (`MOOD_HALF_LIFE_MINUTES`, default 120) |
+| `COMPANION_STATE` | on | Feelings that carry over between replies and colour the voice (`MOOD_HALF_LIFE_MINUTES`, default 120); right-click > **Companion state…** shows them. `EMOTION_APPRAISAL` (on) spends one extra small request on emotional turns only |
 | `DAILY_SCHEDULE` | on | The daily routine from the persona: sleeping, busy, and drowsy times |
+| `COMPANION_DIARY` | on | A diary entry for each day you talked, and its own memories about itself |
 | `REPLY_PACING` | on | Replies arrive as a few short messages with "typing…" pauses, like texting |
 | `VOICE_INPUT` + `TRANSCRIPTION_MODEL` | off | Hold-to-talk button (needs a transcription model from your provider) |
 | `PROACTIVE_CHAT` | off | Greetings, idle check-ins, and spoken reminders |
@@ -116,7 +120,7 @@ The full list, the wake word setup, and command-line tools for memories and sett
 
 - Your messages, recalled memories, and the persona are sent to the chat API you configure. Replies are sent to Microsoft Edge's text-to-speech service to be spoken. Voice input, when enabled, is sent to your provider's transcription endpoint.
 - The long-session nudge sends only the foreground app's name and how long it has been in front, nothing else.
-- Memories, chat history, settings, and the persona are stored locally as plain JSON in your data directory: `~/Library/Application Support/AICompanion/` on macOS, `%APPDATA%\AICompanion\` on Windows, `~/.local/share/ai-companion/` on Linux. **Memories…** in the right-click menu lets you review and edit what it remembers.
+- Memories, chat history, settings, the persona, its feelings, and its diary are stored locally as plain JSON in your data directory: `~/Library/Application Support/AICompanion/` on macOS, `%APPDATA%\AICompanion\` on Windows, `~/.local/share/ai-companion/` on Linux. **Memories…** in the right-click menu lets you review and edit what it remembers.
 - The API key lives in the system keychain (or your own `.env`), never in those files or the logs.
 
 ## Troubleshooting

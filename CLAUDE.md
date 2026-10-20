@@ -48,6 +48,8 @@ companion/core/state/      the companion's feelings: traits.py (persona personal
                            decay, caps, reasons, relationship, care-first), appraisal.py (keyword
                            gate + JSON appraisal request), render.py (prompt + viewer), store.py
                            (state.json v2, migrates v1); COMPANION_STATE, EMOTION_APPRAISAL
+companion/core/diary.py    her diary: one entry per finished day, written in the persona's voice;
+                           diary.json; memory/self_memory.py: her own memories (self_memory.json)
 companion/core/schedule.py daily routine blocks (free/busy/drowsy/asleep), text format edited in
                            the persona dialog; feeds state activity, presence label, proactive gating
 companion/core/proactive/  events, policy, triggers (including active-app trigger active_app.py),

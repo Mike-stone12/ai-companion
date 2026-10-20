@@ -31,7 +31,9 @@ character, and **Memories…** views, searches, and edits stored memory summarie
 | `TTS_PITCH` | Pitch offset for the Chinese voice, e.g. `+10Hz` (±100 Hz); English is unchanged | `+10Hz` |
 | `TTS_RATE` | Speed offset for the Chinese voice, e.g. `+6%` (±99 %) | `+6%` |
 | `COMPANION_STATE` | The companion's mood carries over between replies, fades toward calm, turns into missing you after a day without a message, and sets the idle face. Stored in `state.json`. | `1` |
+| `EMOTION_APPRAISAL` | Judge emotional turns (praise, another person, apology, criticism, care, the user's own news, brushing it off) with one extra JSON request in the background; a keyword gate skips small talk, so ordinary turns cost nothing extra. `0` leaves feelings to the reply tags only. | `1` |
 | `MOOD_HALF_LIFE_MINUTES` | How fast the mood fades (minimum 5) | `120` |
+| `COMPANION_DIARY` | For each day with conversation, once it is over (checked at start and every 10 minutes, at most 3 days back), one request writes a short diary entry in the persona's voice (`diary.json`, 60 entries). Replies with a first-person preference, backstory, or promise are mined for the companion's own memories (`self_memory.json`, separate from the user's `memory.json`). Recent diary entries and relevant self memories go into one bounded system message. | `1` |
 | `REPLY_PACING` | Reply in one to four short messages, one per line from the model, each after a "typing…" pause based on its length (0.6–4 s, slower when annoyed or hurt); a busy or sleeping companion picks up 4–15 s or 3–8 s later (never over 30 s). Speech follows the messages. `0` restores one streaming bubble. | `1` |
 | `DAILY_SCHEDULE` | Follow the persona's daily routine: what it is doing goes into the prompt and the top bar, and while asleep it starts nothing but reminders (it still answers) | `1` |
 | `EDGE_TTS_VOICE_EN` | English voice | `en-US-AriaNeural` |
