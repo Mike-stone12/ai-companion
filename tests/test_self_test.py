@@ -178,4 +178,8 @@ def test_watchdog_is_cancelled_after_a_normal_run(tmp_path, monkeypatch):
 
     self_test.run(self_test.SelfTestRequest(tmp_path / "data", None), gui=lambda: [])
 
-    assert started and not started[0].is_alive()
+    assert started
+    # cancel() only sets the event; the timer thread may need a moment to wake up and exit.
+    started[0].join(1)
+    assert started[0].finished.is_set()
+    assert not started[0].is_alive()
