@@ -80,6 +80,10 @@ Feelings follow a split between judgement and arithmetic. After an emotional tur
 ## Pictures
 
 `companion/core/vision.py` checks the picture's format from its content (JPEG, PNG, GIF, WebP; 8 MB; large or pasted pictures are re-encoded as JPEG at most 1568 px), sends it with the user's note as an `image_url` part in one request to the vision model, and turns the description into the user's turn, `[你发来一张图片：…]` followed by the note. History therefore stays text-only and the chat model need not read images. `service_api_key` in `companion/core/api_key.py` decides which key a separate service may receive, so the chat key never reaches another provider.
+## Voices
+
+Edge TTS is the default and the fallback. `companion/core/tts_provider.py` resolves an optional custom voice (`TTS_PROVIDER=openai`) and its key with the same `service_api_key` rule as pictures; `companion/adapters/tts_openai.py` posts each sentence to `/audio/speech` with a 20 s bound, and the TTS worker falls back to Edge for any sentence that fails.
+
 ## Reply pacing
 
 With `REPLY_PACING` on, the system message asks for one to four short chat messages, one per line. `companion/core/chat/pacing.py` splits the stream into messages as line breaks arrive; the first message also goes out at its first complete sentence or at a comma past ten characters, so a reply written as one line is spoken as early as the unpaced path. Later messages wait behind a "typing…" row for a length-based pause, and speech follows each message as it appears. History keeps one assistant message per reply. The companion's dominant feeling also shifts the Chinese voice slightly (annoyed: quicker and lower; sad: slower; happy: brighter).

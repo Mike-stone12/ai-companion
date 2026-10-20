@@ -106,6 +106,7 @@ Most things can be changed from **Settings…** in the right-click menu; changes
 | `LIVE2D_MODEL` | `whale-girl` | Character: `whale-girl` or `hiyori` |
 | `EDGE_TTS_VOICE_ZH` / `EDGE_TTS_VOICE_EN` | Xiaoyi / Aria | Voices for Chinese and English replies |
 | `TTS_PITCH` / `TTS_RATE` | `+10Hz` / `+6%` | Pitch and speed offsets for the Chinese voice |
+| `TTS_PROVIDER` + `TTS_MODEL` / `TTS_VOICE` | Edge | A custom voice from any OpenAI-compatible `/audio/speech` service (or a local server); falls back to Edge TTS. Another provider needs its own key (Settings… > Voice key). Use AI-generated or licensed voices only |
 | `COMPANION_STATE` | on | Feelings that carry over between replies and colour the voice (`MOOD_HALF_LIFE_MINUTES`, default 120); right-click > **Companion state…** shows them. `EMOTION_APPRAISAL` (on) spends one extra small request on emotional turns only |
 | `DAILY_SCHEDULE` | on | The daily routine from the persona: sleeping, busy, and drowsy times |
 | `COMPANION_DIARY` | on | A diary entry for each day you talked, and its own memories about itself |
@@ -155,7 +156,8 @@ The core (`companion/core`) is pure Python and tested without Qt on Ubuntu, Wind
 - [x] Opt-in voice input, wake word, proactive chat, reminders, and long-session nudges
 - [x] Packaged builds for macOS, Windows, and Linux, built and smoke-tested in CI
 - [x] A mood that carries over and a daily routine; a livelier default voice
-- [ ] Personality-driven emotions, texting-style replies, a diary, pictures, and a custom voice (in review)
+- [x] Personality-driven emotions, texting-style replies, a diary, pictures, and a custom voice provider
+- [ ] An AI-designed voice of its own (Qwen voice design or a local voice-design model)
 - [ ] First tagged release with downloadable builds
 - [ ] Persona presets library and import/export
 - [ ] Hands-on testing of the packaged builds on Windows and Linux desktops
