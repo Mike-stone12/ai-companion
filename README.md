@@ -111,7 +111,7 @@ Most things can be changed from **Settings…** in the right-click menu; changes
 | `COMPANION_DIARY` | on | A diary entry for each day you talked, and its own memories about itself |
 | `REPLY_PACING` | on | Replies arrive as a few short messages with "typing…" pauses, like texting |
 | `VOICE_INPUT` + `TRANSCRIPTION_MODEL` | off | Hold-to-talk button (needs a transcription model from your provider) |
-| `PROACTIVE_CHAT` | off | Greetings, idle check-ins, and spoken reminders |
+| `PROACTIVE_CHAT` | off | Greetings, idle check-ins, and spoken reminders; with its feelings on, it also reaches out when it misses you or is happy, and waits to be coaxed when annoyed |
 | `ACTIVE_APP_MONITOR` | off | One caring remark after about 40 minutes in the same app (needs `PROACTIVE_CHAT`; Windows and macOS) |
 | `CHAT_TOOLS` | off | Lets the model tell the time and set reminders |
 | `WAKE_WORD` | off | Offline wake phrase (source install with Vosk; see the guide) |

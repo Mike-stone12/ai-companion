@@ -1,6 +1,6 @@
 """Compose short LLM instructions from proactive events without checking policy."""
 
-from .events import ACTIVE_APP, GREETING, IDLE, REMINDER, Event
+from .events import ACTIVE_APP, GREETING, IDLE, MOOD, REMINDER, Event
 
 MAX_REMINDER_TEXT_LENGTH = 200
 MAX_APP_NAME_LENGTH = 60
@@ -71,6 +71,16 @@ def _instruction(event: Event) -> str:
             f"The user has had {app_name} in the foreground for about {minutes} minutes; "
             "offer them one brief, caring, non-nagging remark."
         )
+    if event.kind == MOOD:
+        feeling = event.payload.get("feeling")
+        if feeling == "longing":
+            return (
+                "You have been missing the user; reach out with one short, warm message that lets it show, "
+                "without guilt-tripping them or pressing them to reply."
+            )
+        if feeling == "joy":
+            return "You are in a really good mood; share something small and happy from your day with the user."
+        raise ValueError("mood event payload field 'feeling' must be longing or joy")
     raise ValueError(f"Unknown event kind: {event.kind!r}")
 
 

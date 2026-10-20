@@ -7,6 +7,8 @@ IDLE = "idle"
 GREETING = "greeting"
 REMINDER = "reminder"
 ACTIVE_APP = "active_app"
+# The companion reaches out because of how it feels (missing the user, wanting to share).
+MOOD = "mood"
 
 
 @dataclass(frozen=True)

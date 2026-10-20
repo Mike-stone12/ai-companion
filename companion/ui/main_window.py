@@ -100,6 +100,7 @@ from companion.core.state import (
     apply_events,
     apply_reply_tag,
     current_mood,
+    dominant,
     enter_care_mode,
     idle_emotion,
     looks_distressed,
@@ -454,6 +455,8 @@ class CompanionWindow(QWidget):
                 active_app_monitor=self.config.active_app_monitor,
                 # Asleep per the daily routine: only reminders may wake the companion up.
                 awake=self.is_awake if self.config.daily_schedule else None,
+                # Feelings steer it: waits to be coaxed when annoyed, reaches out when missing you.
+                feeling=self.dominant_feeling if getattr(self, "companion_state", None) is not None else None,
             )
             self.proactive_timer = QTimer(self)
             self.proactive_timer.setInterval(30_000)
@@ -1079,6 +1082,12 @@ class CompanionWindow(QWidget):
         self.presence_label.setVisible(enabled)
         if enabled:
             self.presence_label.setText(f"● {presence_label(self.current_block())}")
+
+    def dominant_feeling(self, now):
+        state = getattr(self, "companion_state", None)
+        if state is None:
+            return None, 0.0
+        return dominant(state, now, self.persona.traits, self.mood_half_life())
 
     def mood_half_life(self) -> timedelta:
         return timedelta(minutes=max(self.config.mood_half_life_minutes, 5))
