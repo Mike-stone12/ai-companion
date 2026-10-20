@@ -33,6 +33,10 @@ character, and **Memories…** views, searches, and edits stored memory summarie
 | `EDGE_TTS_VOICE_ZH` | Chinese voice | `zh-CN-XiaoyiNeural` |
 | `TTS_PITCH` | Pitch offset for the Chinese voice, e.g. `+10Hz` (±100 Hz); English is unchanged | `+10Hz` |
 | `TTS_RATE` | Speed offset for the Chinese voice, e.g. `+6%` (±99 %) | `+6%` |
+| `TTS_PROVIDER` | `EDGE` (default) or `OPENAI` for a custom voice from an OpenAI-compatible `/audio/speech` endpoint. Each sentence is sent there; if it fails, Edge TTS speaks it instead and a notice says so once. Use AI-generated or licensed voices only, never a cloned real person. | `EDGE` |
+| `TTS_BASE_URL` | Custom voice API base URL; empty uses the chat URL. Same https rule as the chat URL. | Empty |
+| `TTS_MODEL` / `TTS_VOICE` | Custom voice model and voice name or ID; both are required for the custom voice. | Empty |
+| `TTS_API_KEY` | Key for a voice provider other than the chat provider (environment or `.env`; or Settings… > Voice key). The chat key is reused only on the chat provider's host, a loopback server gets no key, and otherwise Edge TTS is used. Never read from `config.json`. | Empty |
 | `COMPANION_STATE` | The companion's mood carries over between replies, fades toward calm, turns into missing you after a day without a message, and sets the idle face. Stored in `state.json`. | `1` |
 | `EMOTION_APPRAISAL` | Judge emotional turns (praise, another person, apology, criticism, care, the user's own news, brushing it off) with one extra JSON request in the background; a keyword gate skips small talk, so ordinary turns cost nothing extra. `0` leaves feelings to the reply tags only. | `1` |
 | `MOOD_HALF_LIFE_MINUTES` | How fast the mood fades (minimum 5) | `120` |

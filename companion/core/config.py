@@ -33,6 +33,11 @@ class AppConfig:
     # Applied to the Chinese voice only, as Edge TTS offsets ("+10Hz", "+6%").
     tts_pitch: str = _values.get("TTS_PITCH", "+10Hz").strip()
     tts_rate: str = _values.get("TTS_RATE", "+6%").strip()
+    # A custom voice (companion/core/tts_provider.py); "edge" keeps Edge TTS.
+    tts_provider: str = _values.get("TTS_PROVIDER", "edge").strip().lower()
+    tts_base_url: str = _values.get("TTS_BASE_URL", "").strip()
+    tts_model: str = _values.get("TTS_MODEL", "").strip()
+    tts_voice: str = _values.get("TTS_VOICE", "").strip()
     # Optional expert override; empty uses the active persona (companion/core/persona.py).
     system_prompt: str = _values.get("COMPANION_SYSTEM_PROMPT", "").strip()
     request_timeout: int = int(_values.get("OPENAI_TIMEOUT", "60"))

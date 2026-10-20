@@ -57,7 +57,7 @@ from companion.app.workers import (
     TTSWorker,
     VisionWorker,
 )
-from companion.core.api_key import VISION_ACCOUNT, ApiKeyStore, service_api_key
+from companion.core.api_key import TTS_ACCOUNT, VISION_ACCOUNT, ApiKeyStore, service_api_key
 from companion.core.chat.emotion import EMOTION_INSTRUCTION
 from companion.core.chat.history import ConversationHistory, ConversationSummary, display_text
 from companion.core.chat.pacing import (
@@ -112,6 +112,7 @@ from companion.core.state import (
 from companion.core.text import SentenceSplitter, sanitize_reply_text, sanitize_tts_text
 from companion.core.tools.builtin import build_builtin_registry
 from companion.core.tools.reminders import ReminderStore, local_now
+from companion.core.tts_provider import custom_voice
 from companion.core.vision import (
     ImageError,
     image_data_url,
@@ -1019,6 +1020,9 @@ class CompanionWindow(QWidget):
         vision_keys = ApiKeyStore(account=VISION_ACCOUNT)
         if getattr(self, "picture_button", None) is not None:
             extra.append(("Pictures", vision_keys))
+        voice_keys = ApiKeyStore(account=TTS_ACCOUNT)
+        if self.config.tts_provider == "openai":
+            extra.append(("Voice", voice_keys))
         dialog = SettingsDialog(SettingsForm(CONFIG_PATH), self, api_keys=api_keys, extra_keys=extra)
         if dialog.exec() == SettingsDialog.DialogCode.Accepted:
             self.chat_panel.add_notice("Settings saved. Changes apply on the next start.")
@@ -1028,6 +1032,9 @@ class CompanionWindow(QWidget):
             self.chat_panel.add_notice("API keys updated." if self.config.api_key else "No chat API key is set now.")
             if getattr(self, "picture_button", None) is not None:
                 self.refresh_vision_access(vision_keys.resolve().value)
+            if self.config.tts_provider == "openai":
+                self.voice_fallback_noted = False
+                self.custom_voice_for_tts(voice_keys.resolve().value)
         dialog.deleteLater()
 
     def system_message(self) -> str:
@@ -1679,7 +1686,8 @@ class CompanionWindow(QWidget):
         logger.debug("TTS voice=%s rate=%s pitch=%s text=%s", voice, rate, pitch, text)
 
         self.tts_thread = QThread(self)
-        self.tts_worker = TTSWorker(text, voice, rate, pitch)
+        self.tts_worker = TTSWorker(text, voice, rate, pitch, self.custom_voice_for_tts())
+        self.tts_worker.fellBack.connect(self.on_voice_fallback)
         self.tts_worker.moveToThread(self.tts_thread)
 
         self.tts_thread.started.connect(self.tts_worker.run)
@@ -1707,6 +1715,26 @@ class CompanionWindow(QWidget):
         self.pending_clips[url] = audio_path
         self.audio_watchdog.start(AUDIO_WATCHDOG_MS)
         self.bridge.playAudio.emit(url)
+
+    def custom_voice_for_tts(self, own_key: str | None = None):
+        """The custom voice, if configured and allowed a key; otherwise None (Edge) with one notice."""
+        if getattr(self, "voice_settings", None) is None or own_key is not None:
+            if own_key is None:
+                own_key = ApiKeyStore(account=TTS_ACCOUNT).resolve().value
+            self.voice_settings = custom_voice(
+                self.config.tts_provider, self.config.tts_base_url, self.config.tts_model, self.config.tts_voice,
+                self.config.base_url, self.config.api_key, own_key,
+            )
+        voice, reason = self.voice_settings
+        if reason:
+            self.on_voice_fallback(reason)
+        return voice
+
+    def on_voice_fallback(self, reason: str) -> None:
+        # Say it once per session; every sentence after this falls back the same way.
+        if not getattr(self, "voice_fallback_noted", False):
+            self.voice_fallback_noted = True
+            self.chat_panel.add_notice(f"Custom voice unavailable, using the default voice. ({reason[:120]})")
 
     def on_tts_error(self, error_text: str) -> None:
         logger.warning("TTS failed, not speaking the rest of this reply: %s", error_text)
