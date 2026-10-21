@@ -70,7 +70,7 @@ py -3.11 -m venv .venv
 3. **Pick a provider (optional).** In the same dialog, set *Chat API base URL* and *Chat model*, for example `https://api.deepseek.com/v1` and `deepseek-flash`, click **Save**, and restart the app.
 4. **Say hi.** Type in the box under the character and press Enter.
 
-Without a key the app runs in a demo mode that answers with a fixed message. Right-click the character any time for size, opacity, persona, settings, memories, and quit; drag the **Drag me** bar above it to move it.
+Without a key the app runs in a demo mode that answers with a fixed message. Right-click the character any time for size, opacity, always on top, persona, settings, memories, and quit; drag the **Drag me** bar above it to move it.
 
 To check an installation without using the network, run it with `--self-test` (for example `.venv/bin/python main.py --self-test`). It prints a PASS/FAIL report and exits.
 

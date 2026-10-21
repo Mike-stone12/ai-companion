@@ -496,7 +496,9 @@ class CompanionWindow(QWidget):
         self.start_chat_worker(proactive_request(self.conversation_window(defer=True), result))
 
     def setup_window(self) -> None:
-        flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool
+        flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool
+        if self.window_state.always_on_top:
+            flags |= Qt.WindowType.WindowStaysOnTopHint
         self.setWindowFlags(flags)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setObjectName("root")
@@ -991,6 +993,15 @@ class CompanionWindow(QWidget):
         self.setWindowOpacity(opacity)
         self.save_window_state()
 
+    def set_always_on_top(self, enabled: bool) -> None:
+        self.window_state.always_on_top = enabled
+        # Changing window flags hides the window; show it again where it was.
+        geometry = self.geometry()
+        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, enabled)
+        self.setGeometry(geometry)
+        self.show()
+        self.save_window_state()
+
     def reset_position(self) -> None:
         self.position_near_taskbar()
         self.save_window_state()
@@ -1004,6 +1015,10 @@ class CompanionWindow(QWidget):
         menu.aboutToHide.connect(menu.deleteLater)
         self.add_choices(menu.addMenu("Size"), SCALE_STEPS, self.window_state.scale, self.set_scale)
         self.add_choices(menu.addMenu("Opacity"), OPACITY_STEPS, self.window_state.opacity, self.set_opacity)
+        on_top = menu.addAction("Always on top")
+        on_top.setCheckable(True)
+        on_top.setChecked(self.window_state.always_on_top)
+        on_top.toggled.connect(self.set_always_on_top)
         menu.addSeparator()
         menu.addAction("Reset position", self.reset_position)
         menu.addAction("Persona…", self.show_persona_dialog)

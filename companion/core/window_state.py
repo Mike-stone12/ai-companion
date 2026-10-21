@@ -32,13 +32,15 @@ class WindowState:
     y: int | None = None
     scale: float = 1.0
     opacity: float = 1.0
+    # Stay above other windows (the original behaviour); the right-click menu can turn it off.
+    always_on_top: bool = True
 
     @property
     def has_position(self) -> bool:
         return self.x is not None and self.y is not None
 
     def to_dict(self) -> dict:
-        data: dict = {"scale": self.scale, "opacity": self.opacity}
+        data: dict = {"scale": self.scale, "opacity": self.opacity, "always_on_top": self.always_on_top}
         if self.has_position:
             data["x"] = self.x
             data["y"] = self.y
@@ -73,6 +75,7 @@ def parse_window_state(raw: object) -> WindowState:
         y=y,
         scale=parse_factor(raw.get("scale"), 1.0, MIN_SCALE, MAX_SCALE),
         opacity=parse_factor(raw.get("opacity"), 1.0, MIN_OPACITY, MAX_OPACITY),
+        always_on_top=raw.get("always_on_top") if isinstance(raw.get("always_on_top"), bool) else True,
     )
 
 
