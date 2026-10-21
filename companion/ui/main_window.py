@@ -4,6 +4,7 @@ import json
 import logging
 import random
 import sys
+import time
 from collections import deque
 from collections.abc import Callable
 from copy import copy
@@ -26,7 +27,7 @@ from PyQt6.QtCore import (
     QUrlQuery,
     pyqtSignal,
 )
-from PyQt6.QtGui import QAction, QActionGroup, QColor, QImage, QKeySequence
+from PyQt6.QtGui import QAction, QActionGroup, QColor, QCursor, QImage, QKeySequence
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineCore import QWebEngineSettings
 from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -91,6 +92,7 @@ from companion.core.model_profile import (
 )
 from companion.core.persona import BuiltinPersonas, Persona, PersonaStore, effective_system_prompt
 from companion.core.proactive.session import ProactiveSession, proactive_request
+from companion.core.reveal import RevealPolicy
 from companion.core.schedule import block_at, format_schedule, presence_label
 from companion.core.settings_form import SettingsForm
 from companion.core.state import (
@@ -338,6 +340,7 @@ class CompanionWindow(QWidget):
 
         self.setup_window()
         self.build_ui()
+        self.setup_chat_on_hover()
         self.load_live2d_scene()
         self.restore_position()
         self.refresh_presence()
@@ -579,7 +582,7 @@ class CompanionWindow(QWidget):
         else:
             self.chat_panel.add_notice("Type a message to wake your companion.")
 
-        controls = QFrame()
+        controls = self.controls = QFrame()
         controls.setObjectName("controls")
         controls_layout = QHBoxLayout(controls)
         controls_layout.setContentsMargins(8, 6, 8, 6)
@@ -1020,6 +1023,52 @@ class CompanionWindow(QWidget):
         self.show()
         self.save_window_state()
 
+    def setup_chat_on_hover(self) -> None:
+        self.reveal = RevealPolicy()
+        self.chrome = (self.top_bar, self.chat_panel, self.controls)
+        for widget in self.chrome:
+            # Hidden parts keep their space, so the avatar does not jump when the chat comes and goes.
+            policy = widget.sizePolicy()
+            policy.setRetainSizeWhenHidden(True)
+            widget.setSizePolicy(policy)
+        # Polling the pointer is simpler than enter/leave events, which the web view swallows and
+        # the transparent areas of the window may not deliver at all.
+        self.reveal_timer = QTimer(self)
+        self.reveal_timer.setInterval(150)
+        self.reveal_timer.timeout.connect(self.update_reveal)
+        self.chat_panel.bubble_added.connect(lambda: self.reveal.note_message(time.monotonic()))
+        self.apply_chat_on_hover()
+
+    def set_chat_on_hover(self, enabled: bool) -> None:
+        self.window_state.chat_on_hover = enabled
+        self.apply_chat_on_hover()
+        self.save_window_state()
+
+    def apply_chat_on_hover(self) -> None:
+        if self.window_state.chat_on_hover:
+            self.reveal_timer.start()
+            self.update_reveal()
+        else:
+            self.reveal_timer.stop()
+            self.set_chrome_visible(True)
+
+    def chat_engaged(self) -> bool:
+        """The user is in the middle of something the chat must stay up for."""
+        typing = bool(self.chat_input.text().strip()) or (self.chat_input.hasFocus() and self.isActiveWindow())
+        return (
+            typing or self.busy or bool(self.pending_messages) or self.message_timer.isActive()
+            or getattr(self, "pending_image", None) is not None
+        )
+
+    def update_reveal(self) -> None:
+        hovered = self.frameGeometry().contains(QCursor.pos())
+        self.set_chrome_visible(self.reveal.visible(time.monotonic(), hovered=hovered, engaged=self.chat_engaged()))
+
+    def set_chrome_visible(self, visible: bool) -> None:
+        for widget in self.chrome:
+            if widget.isVisibleTo(self) != visible:
+                widget.setVisible(visible)
+
     def reset_position(self) -> None:
         self.position_near_taskbar()
         self.save_window_state()
@@ -1037,6 +1086,10 @@ class CompanionWindow(QWidget):
         on_top.setCheckable(True)
         on_top.setChecked(self.window_state.always_on_top)
         on_top.toggled.connect(self.set_always_on_top)
+        on_hover = menu.addAction("Show chat only on hover")
+        on_hover.setCheckable(True)
+        on_hover.setChecked(self.window_state.chat_on_hover)
+        on_hover.toggled.connect(self.set_chat_on_hover)
         menu.addSeparator()
         menu.addAction("Reset position", self.reset_position)
         menu.addAction("Persona…", self.show_persona_dialog)
