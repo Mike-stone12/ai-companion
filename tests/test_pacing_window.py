@@ -10,6 +10,8 @@ import pytest
 from test_voice_input_qt_adapters import load_class
 
 from companion.core.chat import pacing
+from companion.core.chat.emotion import split_leading_tag
+from companion.core.chat.pacing import split_for_display
 from companion.core.persona import CHILDHOOD_FRIEND
 from companion.core.schedule import block_at, presence_label
 from companion.core.state import IDLE_THRESHOLD, current_mood, fresh_state
@@ -45,6 +47,7 @@ def window():
         QWidget=type("QWidget", (), {}), local_now=Mock(return_value=NOW), timedelta=timedelta, deque=deque,
         MessageSplitter=pacing.MessageSplitter, reply_delay=pacing.reply_delay, typing_delay=pacing.typing_delay,
         SentenceSplitter=SentenceSplitter, sanitize_reply_text=sanitize_reply_text,
+        split_leading_tag=split_leading_tag, split_for_display=split_for_display,
         sanitize_tts_text=sanitize_tts_text, block_at=block_at, presence_label=presence_label,
         current_mood=current_mood, IDLE_THRESHOLD=IDLE_THRESHOLD,
     )
@@ -66,6 +69,8 @@ def window():
     instance.reply_parts = []
     instance.busy = True
     instance.maybe_finish_reply = Mock()
+    instance.renderer_ready = True
+    instance.bridge = SimpleNamespace(setEmotion=Mock(emit=Mock()))
     return instance
 
 
@@ -142,3 +147,17 @@ def test_speech_waits_for_the_message_when_pacing(window):
     window.on_reply_sentence("你好。")
 
     assert not window.tts_queue
+
+
+def test_each_paced_message_loses_its_tag_and_sets_its_face(window):
+    window.on_reply_delta("[surprised] 哇，七连跪啊？\n[neutral] 亏了几百万。\n[happy] 先喘口气。\n")
+    for _ in range(3):
+        window.message_timer.fire(window)
+
+    assert shown(window) == ["哇，七连跪啊？", "亏了几百万。", "先喘口气。"]
+    assert [call.args[0] for call in window.bridge.setEmotion.emit.call_args_list] == ["surprised", "happy"]
+    assert all("neutral" not in text and "[" not in text for text in window.tts_queue)
+
+
+def test_stored_reply_keeps_one_line_per_message_without_tags(window):
+    assert window.paced_reply_text("哇？\n[neutral] 亏了。\n\n[happy] 喘口气 **好**。") == "哇？\n亏了。\n喘口气 好。"

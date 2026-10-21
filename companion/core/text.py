@@ -21,14 +21,17 @@ def contains_cjk(text: str) -> bool:
 
 
 def sanitize_reply_text(text: str) -> str:
-    cleaned = text.strip()
+    from companion.core.chat.emotion import strip_emotion_tags
+
+    cleaned = strip_emotion_tags(text.strip())
     cleaned = re.sub(r"```(?:[a-zA-Z0-9_+-]+)?", "", cleaned)
     cleaned = cleaned.replace("```", "")
     cleaned = re.sub(r"`([^`]*)`", r"\1", cleaned)
     cleaned = cleaned.replace("*", "")
     cleaned = EMOJI_RE.sub("", cleaned)
-    cleaned = re.sub(r"\s+", " ", cleaned)
-    return cleaned.strip()
+    # Collapse spaces but keep one line break per message: history restores them as bubbles.
+    lines = (re.sub(r"[^\S\n]+", " ", line).strip() for line in cleaned.split("\n"))
+    return "\n".join(line for line in lines if line)
 
 
 # Asides like （轻轻晃了晃脑袋） or (笑) are stage directions: shown on screen, never spoken.
@@ -37,7 +40,10 @@ STAGE_DIRECTION_RE = re.compile(r"[（(][^（）()A-Za-z0-9\n]{1,30}[）)]")
 
 
 def sanitize_tts_text(text: str) -> str:
-    cleaned = EMOJI_RE.sub("", text.strip())
+    from companion.core.chat.emotion import strip_emotion_tags
+
+    # A stray "[neutral]" would otherwise be read out as the word "neutral".
+    cleaned = EMOJI_RE.sub("", strip_emotion_tags(text.strip(), keep_leading=False))
     cleaned = STAGE_DIRECTION_RE.sub("", cleaned)
     cleaned = re.sub(r"https?://\S+", "", cleaned)
     cleaned = re.sub(r"`([^`]*)`", r"\1", cleaned)

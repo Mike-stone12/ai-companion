@@ -12,6 +12,46 @@ EMOTION_INSTRUCTION = (
 )
 
 OPENING_BRACKETS = "[【"
+# A known emotion word in brackets anywhere in the text: models sometimes tag every sentence
+# or every paced message even though the instruction asks for one tag at the very start.
+# Only spaces and tabs around a tag go with it: the line breaks between paced messages stay.
+_TAG = r"[\[【][ \t]*(" + "|".join(EMOTIONS) + r")[ \t]*[\]】]"
+ANY_TAG_RE = re.compile(r"[ \t]*" + _TAG + r"[ \t]*", re.IGNORECASE)
+LEADING_TAG_RE = re.compile(r"^\s*" + _TAG + r"[ \t]*", re.IGNORECASE)
+
+
+def split_leading_tag(text: str) -> tuple[str | None, str]:
+    """(emotion, rest) for one paced message; unknown bracketed words are not tags."""
+    match = LEADING_TAG_RE.match(text)
+    if not match:
+        return None, text
+    return match.group(1).lower(), text[match.end():]
+
+
+def _is_wide(char: str) -> bool:
+    # CJK characters and full-width punctuation: no space between them, unlike Latin words.
+    return ord(char) >= 0x2E80
+
+
+def _tag_gap(match: re.Match[str]) -> str:
+    text = match.string
+    before = text[match.start() - 1] if match.start() > 0 else ""
+    after = text[match.end()] if match.end() < len(text) else ""
+    if not before or not after or before.isspace() or after.isspace() or _is_wide(before) or _is_wide(after):
+        return ""
+    return " "
+
+
+def strip_emotion_tags(text: str, *, keep_leading: bool = True) -> str:
+    """Remove emotion tags, optionally keeping one at the very start (history needs it)."""
+    lead = ""
+    if keep_leading:
+        match = LEADING_TAG_RE.match(text)
+        if match:
+            lead, text = text[:match.end()].strip() + " ", text[match.end():]
+    return (lead + ANY_TAG_RE.sub(_tag_gap, text)).strip()
+
+
 TAG_RE = re.compile(r"\s*[\[【]\s*([A-Za-z_-]{1,16})\s*[\]】]\s*")
 PARTIAL_TAG_RE = re.compile(r"\s*[\[【]\s*[A-Za-z_-]*\s*")
 MAX_TAG_PREFIX = 24
