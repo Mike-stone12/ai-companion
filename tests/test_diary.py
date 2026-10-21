@@ -205,3 +205,24 @@ def test_self_context_drops_whole_lines_that_do_not_fit():
 
     assert text.count("\n- ") == 2
     assert render_self_context(items, max_chars=10) == ""
+
+
+def test_self_context_leaves_out_promises_she_cannot_keep():
+    items = [
+        {"summary": "我答应下课陪他打游戏", "category": "promise", "updated_at": "2026-10-21T00:00:00+00:00"},
+        {"summary": "我答应周末去他家找他", "category": "promise", "updated_at": "2026-10-21T00:00:00+00:00"},
+        {"summary": "我答应周末陪他复习", "category": "promise", "updated_at": "2026-10-20T00:00:00+00:00"},
+        {"summary": "我喜欢看人打游戏", "category": "preference", "updated_at": "2026-10-19T00:00:00+00:00"},
+    ]
+
+    text = render_self_context(items, "周末打游戏吗")
+
+    assert "陪他打游戏" not in text and "去他家" not in text
+    assert "我答应周末陪他复习" in text
+    assert "我喜欢看人打游戏" in text
+
+
+def test_self_memory_prompt_skips_promises_she_cannot_keep():
+    from companion.core.memory.self_memory import SELF_MEMORY_PROMPT
+
+    assert "做不到" in SELF_MEMORY_PROMPT

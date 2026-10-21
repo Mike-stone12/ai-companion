@@ -296,3 +296,11 @@ def test_the_companion_knows_it_lives_on_the_screen():
 
 def test_default_background_no_longer_asks_for_callbacks():
     assert "bring it up later" not in CHILDHOOD_FRIEND.background
+
+
+def test_feelings_and_promises_may_come_up_unprompted():
+    from companion.core.persona import VOICE_RULES
+
+    rule = next(line for line in VOICE_RULES.splitlines() if "Bring up something from earlier" in line)
+    for phrase in ("your feelings", "promises you made", "incidental details"):
+        assert phrase in rule
