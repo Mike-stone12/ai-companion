@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PyQt6.QtCore import QEvent, QObject, QRect, Qt
+from PyQt6.QtCore import QEvent, QObject, QRect, Qt, pyqtSignal
 from PyQt6.QtWidgets import QFrame, QLabel, QScrollArea, QVBoxLayout, QWidget
 
 MAX_BUBBLES = 60
@@ -20,6 +20,8 @@ TYPING_TEXT = "typing…"
 
 class ChatPanel(QScrollArea):
     """Scrollable chat bubbles: user on the right, companion on the left, notices centered."""
+
+    bubble_added = pyqtSignal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -96,6 +98,7 @@ class ChatPanel(QScrollArea):
         self.bubbles.append(label)
         self.fit(label)
         self.trim()
+        self.bubble_added.emit()
         return label
 
     # Size each bubble explicitly. Left to the layout, a word-wrapping QLabel shrinks to its

@@ -34,13 +34,20 @@ class WindowState:
     opacity: float = 1.0
     # Stay above other windows (the original behaviour); the right-click menu can turn it off.
     always_on_top: bool = True
+    # Show only the avatar until the pointer is over the window (companion/core/reveal.py).
+    chat_on_hover: bool = False
 
     @property
     def has_position(self) -> bool:
         return self.x is not None and self.y is not None
 
     def to_dict(self) -> dict:
-        data: dict = {"scale": self.scale, "opacity": self.opacity, "always_on_top": self.always_on_top}
+        data: dict = {
+            "scale": self.scale,
+            "opacity": self.opacity,
+            "always_on_top": self.always_on_top,
+            "chat_on_hover": self.chat_on_hover,
+        }
         if self.has_position:
             data["x"] = self.x
             data["y"] = self.y
@@ -76,6 +83,7 @@ def parse_window_state(raw: object) -> WindowState:
         scale=parse_factor(raw.get("scale"), 1.0, MIN_SCALE, MAX_SCALE),
         opacity=parse_factor(raw.get("opacity"), 1.0, MIN_OPACITY, MAX_OPACITY),
         always_on_top=raw.get("always_on_top") if isinstance(raw.get("always_on_top"), bool) else True,
+        chat_on_hover=raw.get("chat_on_hover") is True,
     )
 
 

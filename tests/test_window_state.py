@@ -55,7 +55,7 @@ def test_state_without_position_does_not_store_coordinates(tmp_path):
     path = tmp_path / "config.json"
     save_window_state(path, WindowState(scale=0.85))
     saved = json.loads(path.read_text(encoding="utf-8"))["window"]
-    assert saved == {"scale": 0.85, "opacity": 1.0, "always_on_top": True}
+    assert saved == {"scale": 0.85, "opacity": 1.0, "always_on_top": True, "chat_on_hover": False}
 
 
 def test_missing_and_broken_config_files_fall_back_to_defaults(tmp_path, caplog):
@@ -134,3 +134,15 @@ def test_always_on_top_defaults_on_and_round_trips(tmp_path):
     path = tmp_path / "config.json"
     save_window_state(path, WindowState(always_on_top=False))
     assert load_window_state(path).always_on_top is False
+
+
+def test_chat_on_hover_defaults_off_and_round_trips(tmp_path):
+    from companion.core.window_state import WindowState, load_window_state, parse_window_state, save_window_state
+
+    assert parse_window_state({}).chat_on_hover is False
+    assert parse_window_state({"chat_on_hover": True}).chat_on_hover is True
+    assert parse_window_state({"chat_on_hover": 1}).chat_on_hover is False
+
+    path = tmp_path / "config.json"
+    save_window_state(path, WindowState(chat_on_hover=True))
+    assert load_window_state(path).chat_on_hover is True
