@@ -22,8 +22,10 @@ MAX_TEXT_CHARS = 600
 
 # The user's own distress: checked before the reply (no request) so care-first covers it.
 DISTRESS_PATTERNS = re.compile(
-    r"难过|伤心|压力|好累|生病|发烧|想哭|哭了|焦虑|崩溃|失眠|失恋|挂科|被骂|好烦啊|撑不住|不想活"
-    r"|\b(?:sad|stressed|exhausted|sick|crying|anxious|depressed|overwhelmed)\b",
+    r"难过|伤心|压力|好累|生病|发烧|想哭|哭了|焦虑|崩溃|失眠|失恋|挂科|被.{0,6}骂|好烦啊|撑不住"
+    r"|紧张|害怕|好怕|不想活|活着没意思|想死|自杀|轻生"
+    r"|\b(?:sad|stressed|exhausted|sick|crying|anxious|depressed|overwhelmed|nervous|scared|afraid"
+    r"|suicidal)\b",
     re.IGNORECASE,
 )
 # Words that suggest a turn could move the companion's feelings, in Chinese and English.

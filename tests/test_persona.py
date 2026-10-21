@@ -244,3 +244,30 @@ def test_traits_from_files_are_validated_and_default_when_missing():
         Persona.from_dict({"id": "custom", "title": "X", "traits": {"style": "screams"}})
     with pytest.raises(ValueError):
         CHILDHOOD_FRIEND.with_fields(traits={"jealousy": 1})
+
+
+def test_every_persona_gets_the_texting_voice_rules():
+    from companion.core.persona import VOICE_RULES
+
+    custom = Persona.from_dict({"id": "custom", "title": "Custom", "personality": "Polite."})
+
+    for persona in (CHILDHOOD_FRIEND, custom):
+        prompt = persona.system_prompt()
+        assert VOICE_RULES in prompt
+    assert "do not end with a question" in VOICE_RULES
+    assert "有什么可以帮你" in VOICE_RULES and "我理解你的感受" in VOICE_RULES
+    assert "never repeat them word for word" in VOICE_RULES
+
+
+def test_default_voice_shows_tone_without_topic_lines():
+    assert "The tone, not lines to reuse" in CHILDHOOD_FRIEND.speaking_style
+    assert len(CHILDHOOD_FRIEND.speaking_style) <= 800
+
+
+def test_voice_rules_give_way_when_the_user_is_really_struggling():
+    from companion.core.persona import CHILDHOOD_FRIEND, VOICE_RULES
+
+    assert VOICE_RULES.splitlines()[-1].startswith("- Exception")
+    for phrase in ("upset", "scared", "ill", "unsafe", "comfort first", "no teasing", "crisis hotline"):
+        assert phrase in VOICE_RULES
+    assert CHILDHOOD_FRIEND.system_prompt().rstrip().endswith(VOICE_RULES.splitlines()[-1])

@@ -245,12 +245,23 @@ def test_care_first_on_the_distress_turn_replaces_the_strong_line():
     assert again.feelings["anger"].value == cared.feelings["anger"].value
 
 
-@pytest.mark.parametrize("text", ["我今天被老板骂了，好难过", "压力好大", "I'm so stressed"])
+@pytest.mark.parametrize("text", [
+    "我今天被老板骂了，好难过", "压力好大", "I'm so stressed",
+    "我今天被老板骂了", "被他狠狠骂了一顿", "明天面试，好紧张", "我有点害怕", "今天好累",
+    "感觉活着没意思", "我不想活了", "I'm so nervous", "I'm scared",
+])
 def test_distress_pre_check(text):
     from companion.core.state.appraisal import looks_distressed
 
     assert looks_distressed(text)
     assert should_appraise(text)
+
+
+@pytest.mark.parametrize("text", ["今天天气不错", "我骂了他一顿", "被子晒好了"])
+def test_distress_pre_check_ignores_ordinary_messages(text):
+    from companion.core.state.appraisal import looks_distressed
+
+    assert not looks_distressed(text)
 
 
 def test_templates_never_use_manipulative_phrasing():
