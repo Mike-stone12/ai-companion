@@ -12,6 +12,28 @@ EMOTION_INSTRUCTION = (
 )
 
 OPENING_BRACKETS = "[【"
+# A known emotion word in brackets anywhere in the text: models sometimes tag every sentence
+# or every paced message even though the instruction asks for one tag at the very start.
+ANY_TAG_RE = re.compile(r"\s*[\[【]\s*(" + "|".join(EMOTIONS) + r")\s*[\]】]\s*", re.IGNORECASE)
+LEADING_TAG_RE = re.compile(r"^\s*[\[【]\s*(" + "|".join(EMOTIONS) + r")\s*[\]】]\s*", re.IGNORECASE)
+
+
+def split_leading_tag(text: str) -> tuple[str | None, str]:
+    """(emotion, rest) for one paced message; unknown bracketed words are not tags."""
+    match = LEADING_TAG_RE.match(text)
+    if not match:
+        return None, text
+    return match.group(1).lower(), text[match.end():]
+
+
+def strip_emotion_tags(text: str, *, keep_leading: bool = True) -> str:
+    """Remove emotion tags, optionally keeping one at the very start (history needs it)."""
+    lead = ""
+    if keep_leading:
+        match = LEADING_TAG_RE.match(text)
+        if match:
+            lead, text = text[:match.end()], text[match.end():]
+    return lead + ANY_TAG_RE.sub(" ", text).strip() if lead else ANY_TAG_RE.sub(" ", text).strip()
 TAG_RE = re.compile(r"\s*[\[【]\s*([A-Za-z_-]{1,16})\s*[\]】]\s*")
 PARTIAL_TAG_RE = re.compile(r"\s*[\[【]\s*[A-Za-z_-]*\s*")
 MAX_TAG_PREFIX = 24

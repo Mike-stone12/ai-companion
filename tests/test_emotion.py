@@ -80,3 +80,44 @@ def test_profile_reads_expression_mapping(tmp_path):
 def test_profile_without_expressions(tmp_path):
     (tmp_path / "m.model3.json").write_text("{}", encoding="utf-8")
     assert load_model_profile(tmp_path).expressions == {}
+
+
+def test_tags_inside_a_reply_are_removed_from_display_and_speech():
+    from companion.core.text import sanitize_reply_text, sanitize_tts_text
+
+    reply = "[surprised] 哇，这是七连跪啊？ [neutral] 亏了几百万还一直往里冲。 【happy】 先喘口气。"
+
+    assert sanitize_reply_text(reply) == "[surprised] 哇，这是七连跪啊？ 亏了几百万还一直往里冲。 先喘口气。"
+    spoken = sanitize_tts_text("[neutral] 亏了几百万还一直往里冲。")
+    assert "neutral" not in spoken
+    assert spoken == "亏了几百万还一直往里冲。"
+
+
+def test_unknown_bracketed_words_are_kept():
+    from companion.core.text import sanitize_reply_text
+
+    assert sanitize_reply_text("第一步 [注意] 别忘了 [1] 和 [ok]") == "第一步 [注意] 别忘了 [1] 和 [ok]"
+
+
+def test_split_leading_tag_for_a_paced_message():
+    from companion.core.chat.emotion import split_leading_tag
+
+    assert split_leading_tag("[neutral] 直说呀。") == ("neutral", "直说呀。")
+    assert split_leading_tag(" 【Happy】好呀") == ("happy", "好呀")
+    assert split_leading_tag("没有标签") == (None, "没有标签")
+    assert split_leading_tag("[注意] 不是情绪") == (None, "[注意] 不是情绪")
+
+
+def test_strip_emotion_tags_keeps_the_first_when_asked():
+    from companion.core.chat.emotion import strip_emotion_tags
+
+    assert strip_emotion_tags("[happy] 好 [sad] 坏") == "[happy] 好 坏"
+    assert strip_emotion_tags("[happy] 好 [sad] 坏", keep_leading=False) == "好 坏"
+
+
+def test_restored_history_hides_every_tag():
+    from companion.core.chat.history import display_text
+
+    entry = {"role": "assistant", "content": "[surprised] 哇？ [neutral] 亏了。 [happy] 喘口气。"}
+
+    assert display_text(entry) == "哇？ 亏了。 喘口气。"

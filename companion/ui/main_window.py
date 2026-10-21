@@ -58,7 +58,7 @@ from companion.app.workers import (
     VisionWorker,
 )
 from companion.core.api_key import TTS_ACCOUNT, VISION_ACCOUNT, ApiKeyStore, service_api_key
-from companion.core.chat.emotion import EMOTION_INSTRUCTION
+from companion.core.chat.emotion import EMOTION_INSTRUCTION, split_leading_tag
 from companion.core.chat.history import ConversationHistory, ConversationSummary, display_text
 from companion.core.chat.pacing import (
     PACING_INSTRUCTION,
@@ -257,7 +257,8 @@ class CompanionWindow(QWidget):
         # Reply pacing (REPLY_PACING): complete messages wait here for their typing pause.
         self.pacing_rng = random.Random()
         self.message_splitter = MessageSplitter()
-        self.pending_messages: deque[str] = deque()
+        # (text, emotion tag the model put on that message, if any)
+        self.pending_messages: deque[tuple[str, str | None]] = deque()
         self.messages_shown = 0
         # Her diary and her memories about herself (COMPANION_DIARY).
         self.diary_store = DiaryStore(DIARY_PATH) if config.companion_diary else None
@@ -1516,9 +1517,11 @@ class CompanionWindow(QWidget):
 
     def queue_messages(self, messages: list[str]) -> None:
         for message in messages:
+            # Models often tag each paced message; the tag drives that bubble's face, not its text.
+            emotion, message = split_leading_tag(message)
             text = sanitize_reply_text(message)
             if text:
-                self.pending_messages.append(text)
+                self.pending_messages.append((text, emotion))
         self.schedule_next_message()
 
     def schedule_next_message(self) -> None:
@@ -1532,7 +1535,7 @@ class CompanionWindow(QWidget):
             if delay:
                 self.set_status("Waking up…" if block.kind == "asleep" else f"{presence_label(block)}…")
         else:
-            delay = typing_delay(self.pending_messages[0], self.pacing_rng, slow=self.typing_slowness())
+            delay = typing_delay(self.pending_messages[0][0], self.pacing_rng, slow=self.typing_slowness())
         if delay:
             self.chat_panel.show_typing()
         self.message_timer.start(int(delay * 1000))
@@ -1555,7 +1558,9 @@ class CompanionWindow(QWidget):
     def show_next_message(self) -> None:
         if not self.pending_messages:
             return
-        text = self.pending_messages.popleft()
+        text, emotion = self.pending_messages.popleft()
+        if emotion and emotion != "neutral" and self.renderer_ready:
+            self.bridge.setEmotion.emit(emotion)
         self.chat_panel.hide_typing()
         self.chat_panel.add_reply_message(text)
         self.messages_shown += 1
@@ -1616,8 +1621,14 @@ class CompanionWindow(QWidget):
             self.tts_queue.append(spoken)
             self.run_next_tts()
 
+    def paced_reply_text(self, raw_reply: str) -> str:
+        """The reply as stored: one line per paced message, without per-message tags, so the
+        model keeps seeing (and copying) its own message format and restore splits it again."""
+        lines = [sanitize_reply_text(split_leading_tag(part)[1]) for part in split_for_display(raw_reply)]
+        return "\n".join(line for line in lines if line)
+
     def on_reply_finished(self, raw_reply: str) -> None:
-        reply = sanitize_reply_text(raw_reply)
+        reply = self.paced_reply_text(raw_reply) if self.pacing_on() else sanitize_reply_text(raw_reply)
         if reply:
             self.record_reply(reply)
             self.record_reply_mood()

@@ -9,7 +9,7 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from companion.core.chat.emotion import EmotionTagParser
+from companion.core.chat.emotion import EmotionTagParser, strip_emotion_tags
 from companion.core.memory.store import utc_now_iso
 
 logger = logging.getLogger(__name__)
@@ -130,8 +130,9 @@ class ConversationHistory:
 
 
 def display_text(entry: dict[str, str]) -> str:
-    """Text to show for a stored turn: replies lose their leading emotion tag."""
+    """Text to show for a stored turn: replies lose their emotion tags (older replies may
+    carry one per paced message)."""
     if entry.get("role") != "assistant":
         return entry.get("content", "")
     parser = EmotionTagParser()
-    return (parser.feed(entry.get("content", "")) + parser.flush()).strip()
+    return strip_emotion_tags(parser.feed(entry.get("content", "")) + parser.flush(), keep_leading=False)
