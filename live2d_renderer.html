@@ -43,7 +43,7 @@
 </head>
 <body>
   <div id="stage"></div>
-  <div id="message">Loading Live2D...</div>
+  <div id="message" style="display: none">Loading Live2D...</div>
 
   <!-- Provided by Qt WebEngine; absent (and harmless) when the page is opened in a normal browser. -->
   <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
@@ -89,8 +89,12 @@
     let talking = false;
     let idlePhase = 0;
 
+    // The window shows its own status; only problems are worth a note over the avatar.
+    const ROUTINE_MESSAGES = new Set(["Ready", "Speaking...", "Loading Live2D..."]);
+
     function showMessage(text) {
       messageEl.textContent = text;
+      messageEl.style.display = ROUTINE_MESSAGES.has(text) ? "none" : "block";
     }
 
     function normalizePath(path) {

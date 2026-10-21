@@ -8,7 +8,7 @@ BUBBLE_WIDTH_RATIO = 0.8
 ROW_MARGIN = 4
 TEXT_SLACK = 4  # font rounding between measurement and rendering
 # (horizontal, vertical) padding + border per bubble kind; must match the window stylesheet.
-CHROME = {"userBubble": (24, 16), "assistantBubble": (24, 16), "noticeBubble": (20, 8), "typingBubble": (20, 8)}
+CHROME = {"userBubble": (26, 18), "assistantBubble": (26, 18), "noticeBubble": (16, 4), "typingBubble": (16, 4)}
 ALIGNMENT = {
     "user": Qt.AlignmentFlag.AlignRight,
     "assistant": Qt.AlignmentFlag.AlignLeft,

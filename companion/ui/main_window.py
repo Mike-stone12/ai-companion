@@ -359,7 +359,7 @@ class CompanionWindow(QWidget):
 
         self.wake_indicator = QLabel("Wake word on")
         self.wake_indicator.setTextFormat(Qt.TextFormat.PlainText)
-        self.wake_indicator.setStyleSheet("color: #b7f3cf; font-size: 11px;")
+        self.wake_indicator.setStyleSheet("color: #2f9e62; font-size: 11px;")
         self.wake_indicator.hide()
         self.top_bar.layout().insertWidget(1, self.wake_indicator)
         self.wake_capture_timer = QTimer(self)
@@ -517,7 +517,7 @@ class CompanionWindow(QWidget):
         self.top_bar.mouseReleaseEvent = self.handle_drag_release
 
         top_layout = QHBoxLayout(self.top_bar)
-        top_layout.setContentsMargins(12, 8, 8, 8)
+        top_layout.setContentsMargins(12, 4, 6, 4)
         top_layout.setSpacing(8)
 
         drag_label = QLabel("Drag me")
@@ -535,7 +535,7 @@ class CompanionWindow(QWidget):
         self.status_label.setObjectName("statusLabel")
         top_layout.addWidget(self.status_label)
 
-        close_button = QPushButton("x")
+        close_button = QPushButton("✕")
         close_button.setObjectName("closeButton")
         close_button.clicked.connect(self.close)
         top_layout.addWidget(close_button)
@@ -582,8 +582,8 @@ class CompanionWindow(QWidget):
         controls = QFrame()
         controls.setObjectName("controls")
         controls_layout = QHBoxLayout(controls)
-        controls_layout.setContentsMargins(10, 10, 10, 10)
-        controls_layout.setSpacing(8)
+        controls_layout.setContentsMargins(8, 6, 8, 6)
+        controls_layout.setSpacing(6)
 
         self.chat_input = QLineEdit()
         self.chat_input.setPlaceholderText("Say something...")
@@ -603,105 +603,122 @@ class CompanionWindow(QWidget):
             """
             QWidget#root {
                 background: transparent;
-                color: #f6f7fb;
-                font-family: "Segoe UI";
+                color: #1f2330;
+                font-family: "PingFang SC", "Microsoft YaHei UI", "Segoe UI", "Noto Sans CJK SC", sans-serif;
+                font-size: 13px;
             }
             QFrame#topBar, QFrame#controls {
-                background-color: rgba(15, 18, 28, 170);
-                border: 1px solid rgba(255, 255, 255, 28);
-                border-radius: 18px;
+                background-color: rgba(255, 255, 255, 0.72);
+                border: 1px solid rgba(255, 255, 255, 0.9);
+                border-radius: 16px;
             }
             QScrollArea#chatPanel, QWidget#chatContainer {
                 background: transparent;
             }
             QLabel#userBubble, QLabel#assistantBubble {
-                padding: 7px 11px;
-                border-radius: 12px;
+                padding: 8px 12px;
+                border-radius: 14px;
+                border: 1px solid transparent;
             }
             QLabel#userBubble {
-                background-color: rgba(97, 189, 255, 0.92);
-                color: #08131f;
+                background-color: rgba(108, 140, 255, 0.92);
+                color: white;
             }
             QLabel#assistantBubble {
-                background-color: rgba(15, 18, 28, 200);
-                border: 1px solid rgba(255, 255, 255, 28);
-                color: rgba(255, 255, 255, 0.94);
+                background-color: rgba(255, 255, 255, 0.92);
+                border: 1px solid rgba(31, 35, 48, 0.08);
+                color: #1f2330;
             }
-            QLabel#noticeBubble {
-                padding: 3px 9px;
+            QLabel#noticeBubble, QLabel#typingBubble {
+                padding: 2px 8px;
                 border-radius: 8px;
-                background-color: rgba(0, 0, 0, 0.35);
-                color: rgba(255, 255, 255, 0.7);
+                background-color: rgba(255, 255, 255, 0.55);
+                color: rgba(31, 35, 48, 0.55);
                 font-size: 11px;
             }
             QLabel#typingBubble {
-                padding: 3px 9px;
-                border-radius: 8px;
-                background-color: rgba(0, 0, 0, 0.25);
-                color: rgba(255, 255, 255, 0.6);
-                font-size: 11px;
                 font-style: italic;
             }
             QLabel#dragLabel {
-                color: rgba(255, 255, 255, 0.88);
-                font-weight: 600;
+                color: rgba(31, 35, 48, 0.45);
+                font-size: 12px;
             }
             QLabel#presenceLabel {
-                color: rgba(255, 255, 255, 0.7);
-                font-size: 11px;
+                color: rgba(31, 35, 48, 0.75);
+                font-size: 12px;
             }
             QLabel#statusLabel {
-                color: #b7f3cf;
-                font-size: 12px;
-                padding: 2px 10px;
-                background-color: rgba(76, 175, 80, 40);
-                border-radius: 10px;
+                color: rgba(31, 35, 48, 0.5);
+                font-size: 11px;
+                padding: 0 4px;
             }
             QLineEdit {
-                min-height: 40px;
-                padding: 0 14px;
-                border-radius: 14px;
-                background-color: rgba(255, 255, 255, 0.12);
-                border: 1px solid rgba(255, 255, 255, 0.16);
-                color: white;
+                min-height: 32px;
+                padding: 0 12px;
+                border-radius: 16px;
+                background-color: rgba(255, 255, 255, 0.95);
+                border: 1px solid rgba(31, 35, 48, 0.1);
+                color: #1f2330;
+                selection-background-color: rgba(108, 140, 255, 0.35);
+            }
+            QLineEdit:focus {
+                border: 1px solid rgba(108, 140, 255, 0.7);
             }
             QPushButton {
-                min-height: 40px;
-                padding: 0 16px;
-                border-radius: 14px;
+                min-height: 32px;
+                padding: 0 14px;
+                border-radius: 16px;
                 border: 0;
-                background-color: rgba(97, 189, 255, 0.92);
-                color: #08131f;
-                font-weight: 700;
+                background-color: rgba(108, 140, 255, 0.95);
+                color: white;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: rgba(88, 122, 245, 1);
+            }
+            QPushButton#secondaryButton {
+                background-color: rgba(255, 255, 255, 0.95);
+                border: 1px solid rgba(31, 35, 48, 0.1);
+                color: rgba(31, 35, 48, 0.8);
+                font-weight: 500;
             }
             QPushButton#closeButton {
-                min-width: 30px;
-                min-height: 30px;
+                min-width: 22px;
+                max-width: 22px;
+                min-height: 22px;
+                max-height: 22px;
                 padding: 0;
-                border-radius: 15px;
-                background-color: rgba(255, 99, 132, 0.92);
+                border-radius: 11px;
+                background-color: transparent;
+                color: rgba(31, 35, 48, 0.45);
+                font-size: 13px;
+                font-weight: 400;
+            }
+            QPushButton#closeButton:hover {
+                background-color: rgba(255, 99, 132, 0.85);
                 color: white;
             }
             QPushButton:disabled {
-                background-color: rgba(255, 255, 255, 0.28);
-                color: rgba(255, 255, 255, 0.65);
+                background-color: rgba(31, 35, 48, 0.12);
+                color: rgba(31, 35, 48, 0.4);
             }
             QMenu {
-                background-color: rgb(22, 26, 38);
-                border: 1px solid rgba(255, 255, 255, 40);
+                background-color: rgba(255, 255, 255, 0.98);
+                border: 1px solid rgba(31, 35, 48, 0.12);
+                border-radius: 10px;
                 padding: 6px;
-                color: #f6f7fb;
+                color: #1f2330;
             }
             QMenu::item {
                 padding: 6px 28px 6px 12px;
                 border-radius: 6px;
             }
             QMenu::item:selected {
-                background-color: rgba(97, 189, 255, 90);
+                background-color: rgba(108, 140, 255, 0.16);
             }
             QMenu::separator {
                 height: 1px;
-                background: rgba(255, 255, 255, 30);
+                background: rgba(31, 35, 48, 0.1);
                 margin: 4px 6px;
             }
             """
@@ -720,6 +737,7 @@ class CompanionWindow(QWidget):
         if not self.vision_model:
             return
         self.picture_button = QPushButton("Picture")
+        self.picture_button.setObjectName("secondaryButton")
         # Room for the "Picture ✕" state with the stylesheet's 16 px padding on each side.
         self.picture_button.setMinimumWidth(self.picture_button.fontMetrics().horizontalAdvance("Picture ✕") + 40)
         self.picture_button.setToolTip(PICTURE_TIP)
