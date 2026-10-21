@@ -54,7 +54,8 @@ def test_round_trip_keeps_other_settings(tmp_path):
 def test_state_without_position_does_not_store_coordinates(tmp_path):
     path = tmp_path / "config.json"
     save_window_state(path, WindowState(scale=0.85))
-    assert json.loads(path.read_text(encoding="utf-8"))["window"] == {"scale": 0.85, "opacity": 1.0, "always_on_top": True}
+    saved = json.loads(path.read_text(encoding="utf-8"))["window"]
+    assert saved == {"scale": 0.85, "opacity": 1.0, "always_on_top": True}
 
 
 def test_missing_and_broken_config_files_fall_back_to_defaults(tmp_path, caplog):
