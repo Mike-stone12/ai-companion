@@ -54,7 +54,7 @@ def test_round_trip_keeps_other_settings(tmp_path):
 def test_state_without_position_does_not_store_coordinates(tmp_path):
     path = tmp_path / "config.json"
     save_window_state(path, WindowState(scale=0.85))
-    assert json.loads(path.read_text(encoding="utf-8"))["window"] == {"scale": 0.85, "opacity": 1.0}
+    assert json.loads(path.read_text(encoding="utf-8"))["window"] == {"scale": 0.85, "opacity": 1.0, "always_on_top": True}
 
 
 def test_missing_and_broken_config_files_fall_back_to_defaults(tmp_path, caplog):
@@ -121,3 +121,15 @@ def test_resized_rect_grows_around_the_bottom_centre():
 
 def test_resized_rect_is_pulled_back_onto_the_screen():
     assert resized_rect((1472, 448, 430, 640), (645, 960), SCREEN) == (1275, 120, 645, 960)
+
+
+def test_always_on_top_defaults_on_and_round_trips(tmp_path):
+    from companion.core.window_state import WindowState, load_window_state, parse_window_state, save_window_state
+
+    assert parse_window_state({}).always_on_top is True
+    assert parse_window_state({"always_on_top": False}).always_on_top is False
+    assert parse_window_state({"always_on_top": "no"}).always_on_top is True
+
+    path = tmp_path / "config.json"
+    save_window_state(path, WindowState(always_on_top=False))
+    assert load_window_state(path).always_on_top is False
