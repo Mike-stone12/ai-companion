@@ -271,3 +271,28 @@ def test_voice_rules_give_way_when_the_user_is_really_struggling():
     for phrase in ("upset", "scared", "ill", "unsafe", "comfort first", "no teasing", "crisis hotline"):
         assert phrase in VOICE_RULES
     assert CHILDHOOD_FRIEND.system_prompt().rstrip().endswith(VOICE_RULES.splitlines()[-1])
+
+
+def test_voice_rules_ban_conceding_and_meta_lines():
+    from companion.core.persona import VOICE_RULES
+
+    # "这话我接不住" talks about the conversation instead of answering inside it: an AI tell.
+    for phrase in ("这话我接不住", "我无言以对", "comeback"):
+        assert phrase in VOICE_RULES
+
+
+def test_voice_rules_keep_old_topics_out_of_unrelated_replies():
+    from companion.core.persona import VOICE_RULES
+
+    assert "Bring up something from earlier only when" in VOICE_RULES
+
+
+def test_the_companion_knows_it_lives_on_the_screen():
+    from companion.core.persona import COMMON_RULES
+
+    assert "cannot do things in the physical world" in COMMON_RULES
+    assert "never promise" in COMMON_RULES
+
+
+def test_default_background_no_longer_asks_for_callbacks():
+    assert "bring it up later" not in CHILDHOOD_FRIEND.background
