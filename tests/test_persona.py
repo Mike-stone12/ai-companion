@@ -262,3 +262,12 @@ def test_every_persona_gets_the_texting_voice_rules():
 def test_default_voice_shows_tone_without_topic_lines():
     assert "The tone, not lines to reuse" in CHILDHOOD_FRIEND.speaking_style
     assert len(CHILDHOOD_FRIEND.speaking_style) <= 800
+
+
+def test_voice_rules_give_way_when_the_user_is_really_struggling():
+    from companion.core.persona import CHILDHOOD_FRIEND, VOICE_RULES
+
+    assert VOICE_RULES.splitlines()[-1].startswith("- Exception")
+    for phrase in ("upset", "scared", "ill", "unsafe", "comfort first", "no teasing", "crisis hotline"):
+        assert phrase in VOICE_RULES
+    assert CHILDHOOD_FRIEND.system_prompt().rstrip().endswith(VOICE_RULES.splitlines()[-1])

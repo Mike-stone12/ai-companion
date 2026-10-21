@@ -50,7 +50,11 @@ MODERATE_STYLE = {
 MILD = "Only let it slip in a word or a tone; do not say it outright."
 STRONG_LINE = "Keep replies short and cool; you want the user to make it up to you, and a real apology works."
 TSUNDERE = "Outwardly you deny feeling it, even though you do."
-CARE_FIRST = "The user seems genuinely upset right now: set your own feelings aside and comfort them first."
+CARE_FIRST = (
+    "The user seems genuinely upset right now: set your own feelings aside and comfort them first. "
+    "Be gentle and on their side, with no teasing, nagging, or blame. If they hint at self-harm or not "
+    "wanting to live, take it seriously and encourage them to contact someone they trust or a crisis hotline now."
+)
 GUARDRAIL = (
     "Never threaten to leave, guilt-trip the user, or ask them to spend time only with you; "
     "let it go once they make it up to you."
