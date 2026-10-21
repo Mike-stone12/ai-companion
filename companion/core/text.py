@@ -29,8 +29,9 @@ def sanitize_reply_text(text: str) -> str:
     cleaned = re.sub(r"`([^`]*)`", r"\1", cleaned)
     cleaned = cleaned.replace("*", "")
     cleaned = EMOJI_RE.sub("", cleaned)
-    cleaned = re.sub(r"\s+", " ", cleaned)
-    return cleaned.strip()
+    # Collapse spaces but keep one line break per message: history restores them as bubbles.
+    lines = (re.sub(r"[^\S\n]+", " ", line).strip() for line in cleaned.split("\n"))
+    return "\n".join(line for line in lines if line)
 
 
 # Asides like （轻轻晃了晃脑袋） or (笑) are stage directions: shown on screen, never spoken.
