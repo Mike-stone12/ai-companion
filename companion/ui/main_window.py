@@ -61,6 +61,7 @@ from companion.app.workers import (
 from companion.core.api_key import TTS_ACCOUNT, VISION_ACCOUNT, ApiKeyStore, service_api_key
 from companion.core.chat.emotion import EMOTION_INSTRUCTION, split_leading_tag
 from companion.core.chat.history import ConversationHistory, ConversationSummary, display_text
+from companion.core.chat.merge import MessageMerger, merged_text
 from companion.core.chat.pacing import (
     PACING_INSTRUCTION,
     MessageSplitter,
@@ -262,6 +263,13 @@ class CompanionWindow(QWidget):
         # (text, emotion tag the model put on that message, if any)
         self.pending_messages: deque[tuple[str, str | None]] = deque()
         self.messages_shown = 0
+        # Message merging (MESSAGE_MERGE): a burst of user messages waits here and is answered
+        # together. turn_user_texts are the lines already in the history that the request in
+        # flight answers; a superseded request leaves them for the next one.
+        self.merger = MessageMerger()
+        self.turn_user_texts: list[str] = []
+        self.reply_supersedable = False
+        self.activity_pending = False
         # Her diary and her memories about herself (COMPANION_DIARY).
         self.diary_store = DiaryStore(DIARY_PATH) if config.companion_diary else None
         self.diary_entries: list[DiaryEntry] = self.diary_store.load() if self.diary_store else []
@@ -321,6 +329,9 @@ class CompanionWindow(QWidget):
         self.message_timer = QTimer(self)
         self.message_timer.setSingleShot(True)
         self.message_timer.timeout.connect(self.show_next_message)
+        self.merge_timer = QTimer(self)
+        self.merge_timer.setSingleShot(True)
+        self.merge_timer.timeout.connect(self.flush_merged)
 
         self.audio_watchdog = QTimer(self)
         self.audio_watchdog.setSingleShot(True)
@@ -484,7 +495,7 @@ class CompanionWindow(QWidget):
                     self.proactive.active_app.record_sample(app_name, now)
         busy = bool(
             self.busy or not self.stream_done or self.tts_thread is not None
-            or self.tts_queue or self.pending_clips
+            or self.tts_queue or self.pending_clips or self.merge_waiting()
         )
         result = self.proactive.tick(now, busy=busy, input_has_text=bool(self.chat_input.text()))
         if result is None or busy:
@@ -1057,7 +1068,7 @@ class CompanionWindow(QWidget):
         typing = bool(self.chat_input.text().strip()) or (self.chat_input.hasFocus() and self.isActiveWindow())
         return (
             typing or self.busy or bool(self.pending_messages) or self.message_timer.isActive()
-            or getattr(self, "pending_image", None) is not None
+            or self.merge_waiting() or getattr(self, "pending_image", None) is not None
         )
 
     def update_reveal(self) -> None:
@@ -1465,7 +1476,87 @@ class CompanionWindow(QWidget):
         if getattr(self, "pending_image", None) is not None and not self.busy and self.vision_api_key is not None:
             self.send_picture(self.chat_input.text().strip())
             return
-        self.submit_message(self.chat_input.text().strip())
+        if self.merge_on():
+            self.collect_message(self.chat_input.text().strip())
+        else:
+            self.submit_message(self.chat_input.text().strip())
+
+    def merge_on(self) -> bool:
+        return bool(getattr(self.config, "message_merge", False))
+
+    def merge_waiting(self) -> bool:
+        merger = getattr(self, "merger", None)
+        return bool(merger) or (hasattr(self, "merge_timer") and self.merge_timer.isActive())
+
+    def collect_message(self, user_text: str) -> None:
+        """Typed messages wait for the rest of the burst; the input stays open meanwhile."""
+        if not user_text:
+            return
+        self.chat_input.clear()
+        self.chat_panel.add_user(user_text)
+        if self.proactive is not None:
+            self.proactive.record_activity(local_now())
+        self.merger.add(user_text, time.monotonic())
+        if self.busy and self.reply_supersedable:
+            self.supersede_reply()
+        self.schedule_merge()
+
+    def schedule_merge(self) -> None:
+        wait = self.merger.wait(time.monotonic())
+        # While a reply is under way the burst waits; finish_interaction comes back here.
+        if wait is None or self.busy:
+            return
+        self.merge_timer.start(round(wait * 1000))
+
+    def flush_merged(self) -> None:
+        if self.busy or not self.merger:
+            return
+        self.answer_messages(self.merger.take())
+
+    def supersede_reply(self) -> None:
+        """Drop a request that has produced nothing yet; the next one answers every line."""
+        worker = self.chat_worker
+        if worker is not None:
+            for signal, slot in (
+                (worker.emotion, self.on_reply_emotion), (worker.delta, self.on_reply_delta),
+                (worker.sentence, self.on_reply_sentence), (worker.finished, self.on_reply_finished),
+                (worker.error, self.on_reply_error),
+            ):
+                try:
+                    signal.disconnect(slot)
+                except (TypeError, RuntimeError):
+                    pass
+        logger.info("A new message arrived before the reply started; asking again with all of them")
+        self.reply_supersedable = False
+        self.stream_done = True
+        self.busy = False
+
+    def answer_messages(self, texts: list[str]) -> None:
+        """Reply to a burst: each message is its own user turn, answered by one request."""
+        self.busy = True
+        self.pause_wake_word()
+        self.set_status("Thinking")
+        for text in texts:
+            self.messages.append({"role": "user", "content": text})
+            self.history.append("user", text)
+        self.turn_user_texts.extend(texts)
+        user_text = merged_text(self.turn_user_texts)
+        self.pending_user_text = user_text
+        self.reset_reply_state()
+        self.precheck_distress(user_text)
+        self.reply_supersedable = True
+        # Recorded once the reply is under way, so a superseded request does not count the
+        # same messages twice or hide a long silence from the next request's context.
+        self.activity_pending = True
+        self.start_chat_worker(self.conversation_window(user_text, defer=True))
+
+    def reply_started(self) -> None:
+        """The request in flight produced something (or failed): it can no longer be replaced."""
+        self.reply_supersedable = False
+        self.turn_user_texts = []
+        if getattr(self, "activity_pending", False):
+            self.activity_pending = False
+            self.record_user_activity()
 
     def submit_message(self, user_text: str, display: str | None = None) -> None:
         if not user_text or self.busy:
@@ -1692,6 +1783,7 @@ class CompanionWindow(QWidget):
     def on_reply_delta(self, text: str) -> None:
         if not self.reply_parts:
             self.set_status("Replying")
+            self.reply_started()
         self.reply_parts.append(text)
         if self.pacing_on():
             self.queue_messages(self.message_splitter.feed(text))
@@ -1714,6 +1806,7 @@ class CompanionWindow(QWidget):
         return "\n".join(line for line in lines if line)
 
     def on_reply_finished(self, raw_reply: str) -> None:
+        self.reply_started()
         reply = self.paced_reply_text(raw_reply) if self.pacing_on() else sanitize_reply_text(raw_reply)
         if reply:
             self.record_reply(reply)
@@ -1735,6 +1828,7 @@ class CompanionWindow(QWidget):
 
     def on_reply_error(self, error_text: str) -> None:
         logger.error("Chat request failed: %s", error_text)
+        self.reply_started()
         partial = sanitize_reply_text("".join(self.reply_parts))
         if partial and self.pacing_on():
             # Show what arrived at once rather than pacing a broken reply.
@@ -1921,6 +2015,8 @@ class CompanionWindow(QWidget):
         self.chat_input.setFocus()
         self.set_talking(False)
         self.resume_wake_word()
+        if getattr(self, "merger", None):
+            self.schedule_merge()
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
         self.closing = True

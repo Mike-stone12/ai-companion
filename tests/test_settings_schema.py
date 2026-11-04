@@ -39,6 +39,7 @@ CONFIG_FIELDS = {
     "DAILY_SCHEDULE": "daily_schedule",
     "EMOTION_APPRAISAL": "emotion_appraisal",
     "REPLY_PACING": "reply_pacing",
+    "MESSAGE_MERGE": "message_merge",
     "COMPANION_DIARY": "companion_diary",
 }
 

@@ -42,7 +42,7 @@ def window(monkeypatch):
         ),
     )
     instance = cls.__new__(cls)
-    instance.config = AppConfig(voice_input=True, transcription_model="test-model")
+    instance.config = AppConfig(voice_input=True, transcription_model="test-model", message_merge=False)
     instance.voice_session = instance.microphone = instance.talk_button = None
     instance.transcription_thread = instance.transcription_worker = None
     instance.wake_thread = instance.wake_worker = instance.wake_microphone = None

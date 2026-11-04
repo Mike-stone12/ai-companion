@@ -49,6 +49,7 @@ EDITABLE_SETTINGS = (
     ),
     Setting("EMOTION_APPRAISAL", "bool", True, "Judge emotional turns with one extra LLM request"),
     Setting("REPLY_PACING", "bool", True, "Reply in a few short messages with typing pauses"),
+    Setting("MESSAGE_MERGE", "bool", True, "Wait until you finish a burst of messages, then answer them together"),
     Setting("COMPANION_DIARY", "bool", True, "Companion keeps a diary and remembers what it said about itself"),
     Setting("MOOD_HALF_LIFE_MINUTES", "int", 120, "Mood half-life (minutes)", minimum=5),
     Setting("DAILY_SCHEDULE", "bool", True, "Daily routine (sleeps, studies, has evenings off)"),
