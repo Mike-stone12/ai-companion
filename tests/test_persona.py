@@ -304,3 +304,16 @@ def test_feelings_and_promises_may_come_up_unprompted():
     rule = next(line for line in VOICE_RULES.splitlines() if "Bring up something from earlier" in line)
     for phrase in ("your feelings", "promises you made", "incidental details"):
         assert phrase in rule
+
+
+def test_voice_rules_ban_interviewing_guessing_and_listening_templates():
+    from companion.core.persona import VOICE_RULES
+
+    # The humanlike eval's judge flagged these most often (evals/humanlike/results/2026-11-04-*).
+    for phrase in (
+        "two questions in a row", "是A还是B", "still telling", "did not say", "repeat their words back",
+        "我在这听着呢", "正好闲着", "想说话再喊我", "silver lining", "stage directions",
+    ):
+        assert phrase in VOICE_RULES, phrase
+    # The safety exception still overrides everything above it.
+    assert VOICE_RULES.splitlines()[-1].startswith("- Exception")
