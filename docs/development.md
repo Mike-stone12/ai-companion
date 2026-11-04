@@ -44,6 +44,19 @@ Baseline (2026-10-14/15; LLM rows use `deepseek-flash` with thinking off, median
 
 The gate is the main loss: it is keyword-based and Chinese-only, so it drops every English fact, events phrased without a trigger word (拿到 offer, 入职, 搬到), and plain facts such as 我今年24岁 or 我对花生过敏, while seven chit-chat messages pass and cost a request. The store rows feed `MemoryStore` directly, without the consolidation pipeline, so they measure what consolidation has to clean up.
 
+### Human-likeness
+
+`evals/humanlike/` checks whether the companion sounds like a person texting rather than an assistant, end to end. It plays the scripted chats in `scenarios.json` (a burst after a bad day, one-word answers, jealousy, remembering an exam, assistant chores, questions about her own life, 1:30 a.m., "are you an AI") through the real `CompanionWindow`, offscreen, one fresh process and data directory per scenario, with the scenario's wall clock. Then it reports rule-based metrics (assistant phrases, questions at the end of replies, markdown, repeated openers, message length and count) and an LLM judge's 1-10 scores for human, character, emotion, and context.
+
+```bash
+python -m evals.humanlike run --label master                       # needs PyQt6-WebEngine and an API key
+python -m evals.humanlike run --label my-change --app-dir ../wt    # measure another checkout
+python -m evals.humanlike compare evals/humanlike/results/<before>.json evals/humanlike/results/<after>.json
+python -m evals.humanlike run --fake --no-judge                    # dry run against a local fake endpoint
+```
+
+`compare` asks the judge which run is more human for each scenario, twice with the order swapped, and counts wins. **A real run sends the scripted chats, and then the transcripts, to the configured endpoint.** `JUDGE_MODEL` selects the judge model; the default is the chat model. Run it before and after any change to prompts, pacing, or the persona, and put the comparison in the PR.
+
 ## Packaging
 
 Build on each target operating system from the repository root, using the app
