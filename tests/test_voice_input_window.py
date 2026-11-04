@@ -232,4 +232,4 @@ def test_close_retains_running_thread_and_ignores_late_results(window):
 def test_typed_input_and_voice_share_submission_path(window):
     window.ui.chat_input.text.return_value = " typed text "
     window.ui.send_message()
-    window.ui.submit_message.assert_called_once_with("typed text")
+    window.ui.submit_message.assert_called_once_with("typed text", None)

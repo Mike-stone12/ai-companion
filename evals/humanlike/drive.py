@@ -121,10 +121,24 @@ def main(argv: list[str] | None = None) -> int:
             while not window.chat_input.isEnabled() and time.monotonic() - blocked_at < TURN_TIMEOUT_S:
                 pump(0.05)
             waited.append(round(time.monotonic() - blocked_at, 2))
+            # "quote": [turn, message] quotes her message from an earlier turn of this run (apps
+            # without quote replies just send the text).
+            seen_as = text
+            if index == 0 and turn.get("quote"):
+                at_turn, at_message = turn["quote"]
+                earlier = turns[at_turn]["reply"]
+                if at_message < len(earlier):
+                    # The judge sees what the user meant either way, so an app that cannot quote
+                    # is marked down when she answers something else.
+                    seen_as = f"（回复她说的「{earlier[at_message]}」）{text}"
+                    if hasattr(window, "set_quote"):
+                        window.set_quote(earlier[at_message], False)
+                    else:
+                        seen_as += "　［这个版本没有引用功能，她只收到了后半句］"
             window.chat_input.setText(text)
             window.send_message()
             last_sent = time.monotonic()
-            sends.append((last_sent, text))
+            sends.append((last_sent, seen_as))
         pump(0.2)
         end = time.monotonic() + TURN_TIMEOUT_S
         while not idle() and time.monotonic() < end:

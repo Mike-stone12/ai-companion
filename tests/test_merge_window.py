@@ -10,6 +10,7 @@ from test_voice_input_qt_adapters import Signal, load_class
 
 from companion.core.chat.history import ConversationHistory
 from companion.core.chat.merge import QUIET_CLOSED, QUIET_OPEN, MessageMerger, merged_text
+from companion.core.chat.quote import MARKER, clip_quote, quote_display, quote_turn_text
 
 NOW = datetime(2026, 11, 4, 20, 0, tzinfo=UTC)
 
@@ -52,6 +53,7 @@ def window(tmp_path):
         "companion/ui/main_window.py", "CompanionWindow",
         QWidget=type("QWidget", (), {}), time=clock, local_now=Mock(return_value=NOW),
         MessageMerger=MessageMerger, merged_text=merged_text, sanitize_reply_text=lambda text: text.strip(),
+        MARKER=MARKER, clip_quote=clip_quote, quote_display=quote_display, quote_turn_text=quote_turn_text,
         tts_edge=SimpleNamespace(is_available=lambda: False), deque=deque,
     )
     instance = cls.__new__(cls)
@@ -69,12 +71,13 @@ def window(tmp_path):
     instance.renderer_ready = False
     instance.proactive = None
     instance.pending_image = None
+    instance.pending_quote = None
     instance.reply_parts, instance.reply_notes, instance.tts_queue = [], [], deque()
     instance.pending_user_text = ""
     for name in (
         "chat_input", "send_button", "chat_panel", "set_status", "pause_wake_word", "resume_wake_word",
         "set_talking", "precheck_distress", "record_user_activity", "record_reply", "record_reply_mood",
-        "start_memory_worker", "maybe_finish_reply", "render_reply",
+        "start_memory_worker", "maybe_finish_reply", "render_reply", "quote_bar", "quote_label",
     ):
         setattr(instance, name, Mock())
     instance.conversation_window = Mock(side_effect=lambda text, defer: [dict(m) for m in instance.messages])
@@ -211,5 +214,41 @@ def test_merging_off_sends_each_message_straight_away(window):
 
     send(window, "在吗")
 
-    window.submit_message.assert_called_once_with("在吗")
+    window.submit_message.assert_called_once_with("在吗", None)
     assert not window.merge_waiting()
+
+
+def test_a_quote_reply_shows_a_marker_and_gives_the_model_the_quoted_line(window):
+    window.set_quote("我最喜欢草莓", False)
+    window.quote_bar.show.assert_called_once_with()
+    window.quote_label.setText.assert_called_once_with("↪ 我最喜欢草莓")
+
+    send(window, "那你上次说芒果")
+    fire(window)
+
+    window.chat_panel.add_user.assert_called_once_with("↪ 我最喜欢草莓\n那你上次说芒果")
+    assert user_turns(window) == ["[引用你说的：「我最喜欢草莓」]\n那你上次说芒果"]
+    assert window.pending_quote is None
+    window.quote_bar.hide.assert_called()
+
+
+def test_the_quote_is_kept_until_there_is_text_to_send(window):
+    window.set_quote("晚安", False)
+    send(window, "   ")
+    assert window.pending_quote == ("晚安", False)
+    window.clear_quote()
+    send(window, "好")
+    fire(window)
+    assert user_turns(window) == ["好"]
+
+
+def test_quoting_with_merging_off_goes_through_submit(window):
+    window.config.message_merge = False
+    window.submit_message = Mock()
+    window.set_quote("我下周五考六级", True)
+
+    send(window, "记住了吗")
+
+    window.submit_message.assert_called_once_with(
+        "[引用我自己说的：「我下周五考六级」]\n记住了吗", "↪ 我下周五考六级\n记住了吗",
+    )

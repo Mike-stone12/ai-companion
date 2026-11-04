@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from PyQt6.QtCore import QEvent, QObject, QRect, Qt, pyqtSignal
-from PyQt6.QtWidgets import QFrame, QLabel, QScrollArea, QVBoxLayout, QWidget
+from functools import partial
+
+from PyQt6.QtCore import QEvent, QObject, QPoint, QRect, Qt, pyqtSignal
+from PyQt6.QtWidgets import QApplication, QFrame, QLabel, QMenu, QScrollArea, QVBoxLayout, QWidget
+
+from companion.core.chat.quote import MARKER
 
 MAX_BUBBLES = 60
 BUBBLE_WIDTH_RATIO = 0.8
@@ -22,6 +26,8 @@ class ChatPanel(QScrollArea):
     """Scrollable chat bubbles: user on the right, companion on the left, notices centered."""
 
     bubble_added = pyqtSignal()
+    # (text of the bubble, whether it is the user's own) when "Quote" is chosen on a bubble.
+    quote_requested = pyqtSignal(str, bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -94,12 +100,23 @@ class ChatPanel(QScrollArea):
         label.setWordWrap(True)
         label.setObjectName(f"{kind}Bubble")
         label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        if kind in ("user", "assistant"):
+            label.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            label.customContextMenuRequested.connect(partial(self.show_bubble_menu, label))
         self.rows.addWidget(label, 0, ALIGNMENT[kind])
         self.bubbles.append(label)
         self.fit(label)
         self.trim()
         self.bubble_added.emit()
         return label
+
+    def show_bubble_menu(self, label: QLabel, pos: QPoint) -> None:
+        menu = QMenu(label)
+        text, own = label.text(), label.objectName() == "userBubble"
+        menu.addAction("Quote").triggered.connect(lambda: self.quote_requested.emit(quoted_text(text), own))
+        selected = label.selectedText() or text
+        menu.addAction("Copy").triggered.connect(lambda: QApplication.clipboard().setText(selected))
+        menu.exec(label.mapToGlobal(pos))
 
     # Size each bubble explicitly. Left to the layout, a word-wrapping QLabel shrinks to its
     # narrowest wrap, and QLabel.heightForWidth ignores the stylesheet padding.
@@ -134,3 +151,10 @@ class ChatPanel(QScrollArea):
 
     def scroll_to_bottom(self, _minimum: int = 0, maximum: int = 0) -> None:
         self.verticalScrollBar().setValue(maximum or self.verticalScrollBar().maximum())
+
+
+def quoted_text(bubble_text: str) -> str:
+    """The words to quote from a bubble: a bubble that is itself a quote reply drops its marker line."""
+    if bubble_text.startswith(MARKER) and "\n" in bubble_text:
+        return bubble_text.split("\n", 1)[1]
+    return bubble_text

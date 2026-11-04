@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from companion.core.chat.emotion import EmotionTagParser, strip_emotion_tags
+from companion.core.chat.quote import quote_display, split_quote
 from companion.core.memory.store import utc_now_iso
 
 logger = logging.getLogger(__name__)
@@ -133,6 +134,8 @@ def display_text(entry: dict[str, str]) -> str:
     """Text to show for a stored turn: replies lose their emotion tags (older replies may
     carry one per paced message)."""
     if entry.get("role") != "assistant":
-        return entry.get("content", "")
+        content = entry.get("content", "")
+        quote = split_quote(content) if entry.get("role") == "user" else None
+        return quote_display(quote[0], quote[2]) if quote else content
     parser = EmotionTagParser()
     return strip_emotion_tags(parser.feed(entry.get("content", "")) + parser.flush(), keep_leading=False)
