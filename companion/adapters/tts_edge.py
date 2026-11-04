@@ -24,13 +24,47 @@ def is_available() -> bool:
     return edge_tts is not None
 
 
+NEUTRAL_PROSODY = ("+0%", "+0Hz")
+
+
 def choose_tts_voice(config: AppConfig, text: str) -> str:
     if contains_cjk(text):
         return config.voice_zh
     return config.voice_en
 
 
-async def synthesize_to_file(text: str, voice: str, timeout: float = TTS_TOTAL_TIMEOUT_S) -> str:
+def choose_tts_prosody(config: AppConfig, text: str) -> tuple[str, str]:
+    """(rate, pitch) for this sentence: the configured offsets for Chinese, neutral for English.
+
+    Malformed values (e.g. from the environment, which bypasses the settings schema)
+    fall back to neutral rather than failing every sentence.
+    """
+    from companion.core.settings_schema import valid_prosody
+
+    if not contains_cjk(text):
+        return NEUTRAL_PROSODY
+    if not (valid_prosody("TTS_RATE", config.tts_rate) and valid_prosody("TTS_PITCH", config.tts_pitch)):
+        return NEUTRAL_PROSODY
+    return config.tts_rate, config.tts_pitch
+
+
+# How the companion's current mood colours its voice: (rate %, pitch Hz) added to the base.
+MOOD_SHIFTS = {"angry": (4, -6), "sad": (-6, -4), "happy": (2, 4)}
+
+
+def mood_prosody(prosody: tuple[str, str], emotion: str | None) -> tuple[str, str]:
+    """Shift a (rate, pitch) pair for the mood: annoyed is quicker and lower, sad slower, happy brighter."""
+    shift = MOOD_SHIFTS.get(emotion or "")
+    if shift is None:
+        return prosody
+    rate = min(max(int(prosody[0].rstrip("%")) + shift[0], -99), 99)
+    pitch = min(max(int(prosody[1].rstrip("Hz")) + shift[1], -100), 100)
+    return f"{rate:+d}%", f"{pitch:+d}Hz"
+
+
+async def synthesize_to_file(
+    text: str, voice: str, timeout: float = TTS_TOTAL_TIMEOUT_S, *, rate: str = "+0%", pitch: str = "+0Hz",
+) -> str:
     if edge_tts is None:
         raise RuntimeError("edge-tts is not installed. Run pip install edge-tts.")
 
@@ -40,6 +74,8 @@ async def synthesize_to_file(text: str, voice: str, timeout: float = TTS_TOTAL_T
     communicate = edge_tts.Communicate(
         text=text,
         voice=voice,
+        rate=rate,
+        pitch=pitch,
         connect_timeout=TTS_CONNECT_TIMEOUT_S,
         receive_timeout=TTS_RECEIVE_TIMEOUT_S,
     )

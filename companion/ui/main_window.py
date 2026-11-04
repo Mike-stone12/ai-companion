@@ -2,42 +2,129 @@ from __future__ import annotations
 
 import json
 import logging
-import os
+import random
 import sys
+import time
 from collections import deque
+from collections.abc import Callable
+from copy import copy
+from dataclasses import replace
+from datetime import timedelta
+from functools import partial
 from pathlib import Path
 
-from PyQt6.QtCore import PYQT_VERSION_STR, QPoint, QRect, Qt, QThread, QTimer, QUrl, QUrlQuery
-from PyQt6.QtGui import QAction, QActionGroup, QColor
+from PyQt6.QtCore import (
+    PYQT_VERSION_STR,
+    QBuffer,
+    QEvent,
+    QIODevice,
+    QPoint,
+    QRect,
+    Qt,
+    QThread,
+    QTimer,
+    QUrl,
+    QUrlQuery,
+    pyqtSignal,
+)
+from PyQt6.QtGui import QAction, QActionGroup, QColor, QCursor, QImage, QKeySequence
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineCore import QWebEngineSettings
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import (
     QApplication,
+    QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMenu,
+    QMessageBox,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
 from companion.adapters import tts_edge
-from companion.app.workers import ChatStreamWorker, MemoryWorker, TTSWorker
-from companion.core.chat.emotion import EMOTION_INSTRUCTION
-from companion.core.chat.history import ConversationHistory, display_text
+from companion.adapters.active_app import foreground_app_name
+from companion.app.workers import (
+    AppraisalWorker,
+    ChatStreamWorker,
+    DiaryWorker,
+    MemoryWorker,
+    SelfMemoryWorker,
+    SummaryWorker,
+    TranscriptionWorker,
+    TTSWorker,
+    VisionWorker,
+)
+from companion.core.api_key import TTS_ACCOUNT, VISION_ACCOUNT, ApiKeyStore, service_api_key
+from companion.core.chat.emotion import EMOTION_INSTRUCTION, split_leading_tag
+from companion.core.chat.history import ConversationHistory, ConversationSummary, display_text
+from companion.core.chat.pacing import (
+    PACING_INSTRUCTION,
+    MessageSplitter,
+    reply_delay,
+    split_for_display,
+    typing_delay,
+)
+from companion.core.chat.summary import build_chat_messages, plan_summary_update
 from companion.core.config import AppConfig
+from companion.core.diary import (
+    DiaryEntry,
+    DiaryStore,
+    build_diary_messages,
+    day_to_write,
+    render_diary_context,
+    turns_on,
+)
 from companion.core.llm.client import OpenAICompatibleClient
+from companion.core.llm.transcription import transcribe
+from companion.core.memory.browser import MemoryBrowserModel
 from companion.core.memory.gate import should_extract_memory
+from companion.core.memory.self_memory import SELF_MEMORY_LIMIT, render_self_context, should_extract_self
+from companion.core.memory.semantic_recall import create_session_embedder
 from companion.core.memory.store import MemoryStore
 from companion.core.model_profile import (
     DEFAULT_WINDOW_SIZE,
     discover_model_profile,
     discover_vendor_dir,
 )
-from companion.core.text import sanitize_reply_text, sanitize_tts_text
+from companion.core.persona import BuiltinPersonas, Persona, PersonaStore, effective_system_prompt
+from companion.core.proactive.session import ProactiveSession, proactive_request
+from companion.core.reveal import RevealPolicy
+from companion.core.schedule import block_at, format_schedule, presence_label
+from companion.core.settings_form import SettingsForm
+from companion.core.state import (
+    IDLE_THRESHOLD,
+    StateStore,
+    active_reasons,
+    apply_events,
+    apply_reply_tag,
+    current_mood,
+    dominant,
+    enter_care_mode,
+    idle_emotion,
+    looks_distressed,
+    record_user_message,
+    render_state_context,
+    should_appraise,
+    state_summary_lines,
+)
+from companion.core.text import SentenceSplitter, sanitize_reply_text, sanitize_tts_text
+from companion.core.tools.builtin import build_builtin_registry
+from companion.core.tools.reminders import ReminderStore, local_now
+from companion.core.tts_provider import custom_voice
+from companion.core.vision import (
+    ImageError,
+    image_data_url,
+    image_turn_display,
+    image_turn_text,
+    resolve_vision_model,
+)
+from companion.core.voice_input_actions import can_start_voice_input, deliver_voice_input_result
+from companion.core.voice_input_controller import VoiceInputController, VoiceInputResult
+from companion.core.wake_word_actions import wake_word_enabled
 from companion.core.window_state import (
     OPACITY_STEPS,
     SCALE_STEPS,
@@ -48,9 +135,22 @@ from companion.core.window_state import (
     save_window_state,
     scaled_size,
 )
-from companion.paths import CONFIG_PATH, HISTORY_PATH, HTML_PATH, MEMORY_PATH
+from companion.paths import (
+    CONFIG_PATH,
+    DATA_DIR,
+    DIARY_PATH,
+    HISTORY_PATH,
+    HTML_PATH,
+    MEMORY_PATH,
+    PERSONA_PATH,
+    SELF_MEMORY_PATH,
+    STATE_PATH,
+)
 from companion.ui.avatar_bridge import AvatarBridge
 from companion.ui.chat_panel import ChatPanel
+from companion.ui.memory_dialog import MemoryDialog
+from companion.ui.persona_dialog import PersonaDialog
+from companion.ui.settings_dialog import SettingsDialog
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +165,18 @@ LIVE2D_LOADER_CANDIDATES = (
 
 
 MEMORY_QUEUE_LIMIT = 5
+CONVERSATION_WINDOW = 11  # Individual messages, excluding system and memory context.
 CHAT_PANEL_HEIGHT = 170  # at scale 1.0
 MIN_CHAT_PANEL_HEIGHT = 110
 # Safety net if playback stops making progress (e.g. the renderer crashed).
 AUDIO_WATCHDOG_MS = 120_000
+WAKE_CAPTURE_MS = 5_000
+# Her diary plus self memories in one system message.
+OWN_CONTEXT_CHARS = 600
+# Pictures: larger files or sides are re-encoded before upload.
+MAX_IMAGE_SIDE = 1568
+SMALL_IMAGE_BYTES = 2 * 1024 * 1024
+PICTURE_TIP = "Send a picture (or paste / drop one). It is uploaded only when you send it."
 
 
 def to_file_url(path: Path | None, *, directory: bool = False) -> str:
@@ -115,19 +223,54 @@ def print_resource_report(model_path: Path | None, vendor_dir: Path | None) -> N
 
 
 class CompanionWindow(QWidget):
+    wake_stop_requested = pyqtSignal()
+    wake_reset_requested = pyqtSignal()
+
     def __init__(self, config: AppConfig) -> None:
         super().__init__()
         self.config = config
         self.client = OpenAICompatibleClient(config)
-        self.model_profile = discover_model_profile(os.getenv("LIVE2D_MODEL", "").strip())
+        # Tools and proactive triggers share a store; only CHAT_TOOLS enables persistence.
+        reminders = None
+        if config.chat_tools or config.proactive_chat:
+            reminders = ReminderStore(data_dir=DATA_DIR if config.chat_tools else None)
+        self.tool_registry = build_builtin_registry(reminders) if config.chat_tools else None
+        self.model_profile = discover_model_profile(config.live2d_model)
         self.model_path = self.model_profile.path if self.model_profile else None
         self.vendor_dir = discover_vendor_dir()
         self.base_size = self.model_profile.window_size if self.model_profile else DEFAULT_WINDOW_SIZE
         self.window_state = load_window_state(CONFIG_PATH)
         self.memory_store = MemoryStore(MEMORY_PATH, config.memory_limit)
+        self.memory_embedder = create_session_embedder(config)
         self.history = ConversationHistory(HISTORY_PATH)
-        system_prompt = f"{config.system_prompt}\n\n{EMOTION_INSTRUCTION}"
-        self.messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}, *self.history.messages()]
+        self.personas = BuiltinPersonas()
+        self.persona_store = PersonaStore(PERSONA_PATH, self.personas)
+        self.persona = self.persona_store.active(self.personas)
+        self.messages: list[dict[str, str]] = [
+            {"role": "system", "content": self.system_message()}, *self.history.messages(),
+        ]
+        # The companion's own mood and last contact (companion/core/state); None when turned off.
+        self.state_store = StateStore(STATE_PATH) if config.companion_state else None
+        self.companion_state = self.state_store.load(local_now()) if self.state_store else None
+        self.idle_face: str | None = None
+        self.emotion_rng = random.Random()
+        self.appraisal_thread: QThread | None = None
+        self.appraisal_worker: AppraisalWorker | None = None
+        # Reply pacing (REPLY_PACING): complete messages wait here for their typing pause.
+        self.pacing_rng = random.Random()
+        self.message_splitter = MessageSplitter()
+        # (text, emotion tag the model put on that message, if any)
+        self.pending_messages: deque[tuple[str, str | None]] = deque()
+        self.messages_shown = 0
+        # Her diary and her memories about herself (COMPANION_DIARY).
+        self.diary_store = DiaryStore(DIARY_PATH) if config.companion_diary else None
+        self.diary_entries: list[DiaryEntry] = self.diary_store.load() if self.diary_store else []
+        self.self_memory_store = MemoryStore(SELF_MEMORY_PATH, SELF_MEMORY_LIMIT) if config.companion_diary else None
+        self.diary_thread: QThread | None = None
+        self.diary_worker: DiaryWorker | None = None
+        self.diary_day = None
+        self.self_memory_thread: QThread | None = None
+        self.self_memory_worker: SelfMemoryWorker | None = None
 
         print_resource_report(self.model_path, self.vendor_dir)
 
@@ -138,6 +281,9 @@ class CompanionWindow(QWidget):
         self.tts_worker: TTSWorker | None = None
         self.memory_thread: QThread | None = None
         self.memory_worker: MemoryWorker | None = None
+        self.summary_thread: QThread | None = None
+        self.summary_worker: SummaryWorker | None = None
+        self.summary_snapshot: tuple[int, int, ConversationSummary | None] | None = None
         self.memory_jobs: deque[tuple[str, str]] = deque(maxlen=MEMORY_QUEUE_LIMIT)
         self.tts_queue: deque[str] = deque()
         self.pending_clips: dict[str, str] = {}
@@ -151,12 +297,30 @@ class CompanionWindow(QWidget):
         self.pending_user_text = ""
         self.renderer_ready = False
         self.busy = False
+        self.closing = False
+        self.voice_session: VoiceInputController | None = None
+        self.microphone = None
+        self.talk_button = None
+        self.transcription_thread: QThread | None = None
+        self.transcription_worker: TranscriptionWorker | None = None
+        self.wake_thread: QThread | None = None
+        self.wake_worker = None
+        self.wake_microphone = None
+        self.wake_indicator = None
+        self.wake_capture_timer = None
+        self.wake_ready = False
+        self.wake_listening = False
+        self.wake_failed = False
 
         self.bridge = AvatarBridge(self)
         self.bridge.ready.connect(self.on_renderer_ready)
         self.bridge.audioStarted.connect(self.on_audio_started)
         self.bridge.audioFinished.connect(self.on_audio_finished)
         self.bridge.audioFailed.connect(self.on_audio_error)
+
+        self.message_timer = QTimer(self)
+        self.message_timer.setSingleShot(True)
+        self.message_timer.timeout.connect(self.show_next_message)
 
         self.audio_watchdog = QTimer(self)
         self.audio_watchdog.setSingleShot(True)
@@ -166,13 +330,178 @@ class CompanionWindow(QWidget):
         self.idle_timer.setInterval(9000)
         self.idle_timer.timeout.connect(self.play_random_motion)
 
+        # The mood fades with time, so the idle face is rechecked even when nobody talks.
+        self.mood_timer = QTimer(self)
+        self.mood_timer.setInterval(60_000)
+        self.mood_timer.timeout.connect(self.refresh_idle_emotion)
+        self.mood_timer.timeout.connect(self.refresh_presence)
+        if self.companion_state is not None or config.daily_schedule:
+            self.mood_timer.start()
+
         self.setup_window()
         self.build_ui()
+        self.setup_chat_on_hover()
         self.load_live2d_scene()
         self.restore_position()
+        self.refresh_presence()
+        self.setup_proactive(reminders)
+        self.setup_wake_word()
+        if self.diary_store is not None:
+            # A finished day gets its entry shortly after start, then on a slow timer (past midnight).
+            self.diary_timer = QTimer(self)
+            self.diary_timer.setInterval(10 * 60_000)
+            self.diary_timer.timeout.connect(self.maybe_write_diary)
+            self.diary_timer.start()
+            QTimer.singleShot(5_000, self.maybe_write_diary)
+
+    def setup_wake_word(self) -> None:
+        if not wake_word_enabled(self.config):
+            return
+        from companion.adapters.microphone import Microphone
+        from companion.app.wake_word_worker import WakeWordWorker
+
+        self.wake_indicator = QLabel("Wake word on")
+        self.wake_indicator.setTextFormat(Qt.TextFormat.PlainText)
+        self.wake_indicator.setStyleSheet("color: #2f9e62; font-size: 11px;")
+        self.wake_indicator.hide()
+        self.top_bar.layout().insertWidget(1, self.wake_indicator)
+        self.wake_capture_timer = QTimer(self)
+        self.wake_capture_timer.setSingleShot(True)
+        self.wake_capture_timer.timeout.connect(self.stop_voice_input)
+        self.wake_microphone = Microphone(self)
+        self.wake_microphone.failed.connect(self.on_wake_error)
+        self.wake_thread = QThread(self)
+        self.wake_worker = WakeWordWorker(self.config)
+        self.wake_worker.moveToThread(self.wake_thread)
+        queued = Qt.ConnectionType.QueuedConnection
+        self.wake_thread.started.connect(self.wake_worker.start, queued)
+        self.wake_microphone.pcm_ready.connect(self.wake_worker.feed, queued)
+        self.wake_stop_requested.connect(self.wake_worker.stop, queued)
+        self.wake_reset_requested.connect(self.wake_worker.reset, queued)
+        self.wake_worker.started.connect(self.on_wake_started)
+        self.wake_worker.wakeDetected.connect(self.on_wake_detected)
+        self.wake_worker.error.connect(self.on_wake_error)
+        self.wake_worker.finished.connect(self.on_wake_finished)
+        # Direct quit also works while closeEvent is waiting on the UI thread.
+        self.wake_worker.finished.connect(self.wake_thread.quit, Qt.ConnectionType.DirectConnection)
+        self.wake_thread.finished.connect(self.wake_worker.deleteLater)
+        self.wake_thread.finished.connect(self.on_wake_thread_finished)
+        self.wake_thread.finished.connect(self.wake_thread.deleteLater)
+        self.wake_thread.start()
+
+    def on_wake_started(self) -> None:
+        if self.closing or self.wake_failed:
+            self.wake_stop_requested.emit()
+            return
+        self.wake_ready = True
+        self.resume_wake_word()
+
+    def pause_wake_word(self) -> None:
+        if self.wake_microphone is None:
+            return
+        self.wake_listening = False
+        self.wake_indicator.hide()
+        self.wake_microphone.stop()
+
+    def resume_wake_word(self) -> None:
+        if not self.wake_ready or self.wake_failed or self.closing or self.wake_listening:
+            return
+        if (
+            self.busy or not self.stream_done or self.tts_thread is not None
+            or self.tts_queue or self.pending_clips or self.transcription_thread is not None
+            or self.voice_session.state != "idle"
+        ):
+            return
+        # Discard partial utterances from before capture/playback before feeding new PCM.
+        self.wake_reset_requested.emit()
+        if self.wake_microphone.start() and not self.wake_failed:
+            self.wake_listening = True
+            self.wake_indicator.show()
+
+    def on_wake_detected(self, _phrase: str) -> None:
+        if not self.wake_listening or self.closing or self.wake_failed:
+            return
+        if (
+            self.busy or not self.stream_done or self.tts_thread is not None
+            or self.tts_queue or self.pending_clips or self.transcription_thread is not None
+            or self.voice_session.state != "idle" or self.chat_input.text()
+        ):
+            return
+        self.start_voice_input()
+        if self.voice_session.state == "recording":
+            self.chat_panel.add_notice("Listening…")
+            self.wake_capture_timer.start(WAKE_CAPTURE_MS)
+
+    def on_wake_error(self, message: str) -> None:
+        if self.wake_failed:
+            return
+        self.wake_failed = True
+        logger.warning("Wake word disabled for this session: %s", message)
+        self.on_wake_finished()
+        self.wake_stop_requested.emit()
+
+    def on_wake_finished(self) -> None:
+        self.wake_ready = False
+        self.pause_wake_word()
+
+    def on_wake_thread_finished(self) -> None:
+        self.on_wake_finished()
+        self.wake_thread = None
+        self.wake_worker = None
+        if self.closing:
+            self.close()
+
+    def setup_proactive(self, reminders: ReminderStore | None) -> None:
+        self.proactive = None
+        self.proactive_timer = None
+        if self.config.proactive_chat:
+            self.proactive = ProactiveSession(
+                reminders, local_now(), proactive_chat=self.config.proactive_chat,
+                active_app_monitor=self.config.active_app_monitor,
+                # Asleep per the daily routine: only reminders may wake the companion up.
+                awake=self.is_awake if self.config.daily_schedule else None,
+                # Feelings steer it: waits to be coaxed when annoyed, reaches out when missing you.
+                feeling=self.dominant_feeling if getattr(self, "companion_state", None) is not None else None,
+            )
+            self.proactive_timer = QTimer(self)
+            self.proactive_timer.setInterval(30_000)
+            self.proactive_timer.timeout.connect(self.on_proactive_tick)
+            self.proactive_timer.start()
+
+    def on_proactive_tick(self) -> None:
+        if self.proactive is None:
+            return
+        now = local_now()
+        if self.proactive.active_app is not None:
+            try:
+                app_name = foreground_app_name()
+            except Exception:
+                logger.debug("Foreground application query failed; skipping sample", exc_info=True)
+            else:
+                if app_name is None:
+                    logger.debug("Foreground application unavailable; skipping sample")
+                else:
+                    self.proactive.active_app.record_sample(app_name, now)
+        busy = bool(
+            self.busy or not self.stream_done or self.tts_thread is not None
+            or self.tts_queue or self.pending_clips
+        )
+        result = self.proactive.tick(now, busy=busy, input_has_text=bool(self.chat_input.text()))
+        if result is None or busy:
+            return
+        self.busy = True
+        self.pause_wake_word()
+        self.chat_input.setEnabled(False)
+        self.send_button.setEnabled(False)
+        self.set_status("Thinking")
+        self.pending_user_text = ""
+        self.reset_reply_state()
+        self.start_chat_worker(proactive_request(self.conversation_window(defer=True), result))
 
     def setup_window(self) -> None:
-        flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool
+        flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool
+        if self.window_state.always_on_top:
+            flags |= Qt.WindowType.WindowStaysOnTopHint
         self.setWindowFlags(flags)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setObjectName("root")
@@ -191,19 +520,25 @@ class CompanionWindow(QWidget):
         self.top_bar.mouseReleaseEvent = self.handle_drag_release
 
         top_layout = QHBoxLayout(self.top_bar)
-        top_layout.setContentsMargins(12, 8, 8, 8)
+        top_layout.setContentsMargins(12, 4, 6, 4)
         top_layout.setSpacing(8)
 
         drag_label = QLabel("Drag me")
         drag_label.setObjectName("dragLabel")
         top_layout.addWidget(drag_label)
+
+        # What the companion is up to, from its daily routine (hidden when that is off).
+        self.presence_label = QLabel("")
+        self.presence_label.setObjectName("presenceLabel")
+        self.presence_label.setTextFormat(Qt.TextFormat.PlainText)
+        top_layout.addWidget(self.presence_label)
         top_layout.addStretch(1)
 
         self.status_label = QLabel("Idle")
         self.status_label.setObjectName("statusLabel")
         top_layout.addWidget(self.status_label)
 
-        close_button = QPushButton("x")
+        close_button = QPushButton("✕")
         close_button.setObjectName("closeButton")
         close_button.clicked.connect(self.close)
         top_layout.addWidget(close_button)
@@ -236,15 +571,22 @@ class CompanionWindow(QWidget):
         self.chat_panel.setFixedHeight(self.chat_panel_height())
         root_layout.addWidget(self.chat_panel)
         if self.history.entries:
-            self.chat_panel.load([(entry["role"], display_text(entry)) for entry in self.history.entries])
+            turns = [(entry["role"], display_text(entry)) for entry in self.history.entries]
+            if self.config.reply_pacing:
+                # Show restored replies as the separate messages they arrived as.
+                turns = [
+                    (role, part) for role, text in turns
+                    for part in (split_for_display(text) or [text] if role == "assistant" else [text])
+                ]
+            self.chat_panel.load(turns)
         else:
             self.chat_panel.add_notice("Type a message to wake your companion.")
 
-        controls = QFrame()
+        controls = self.controls = QFrame()
         controls.setObjectName("controls")
         controls_layout = QHBoxLayout(controls)
-        controls_layout.setContentsMargins(10, 10, 10, 10)
-        controls_layout.setSpacing(8)
+        controls_layout.setContentsMargins(8, 6, 8, 6)
+        controls_layout.setSpacing(6)
 
         self.chat_input = QLineEdit()
         self.chat_input.setPlaceholderText("Say something...")
@@ -255,6 +597,8 @@ class CompanionWindow(QWidget):
         send_button.clicked.connect(self.send_message)
         controls_layout.addWidget(send_button)
         self.send_button = send_button
+        self.setup_vision_input(controls_layout)
+        self.setup_voice_input(controls_layout)
 
         root_layout.addWidget(controls)
 
@@ -262,97 +606,355 @@ class CompanionWindow(QWidget):
             """
             QWidget#root {
                 background: transparent;
-                color: #f6f7fb;
-                font-family: "Segoe UI";
+                color: #1f2330;
+                font-family: "PingFang SC", "Microsoft YaHei UI", "Segoe UI", "Noto Sans CJK SC", sans-serif;
+                font-size: 13px;
             }
             QFrame#topBar, QFrame#controls {
-                background-color: rgba(15, 18, 28, 170);
-                border: 1px solid rgba(255, 255, 255, 28);
-                border-radius: 18px;
+                background-color: rgba(255, 255, 255, 0.72);
+                border: 1px solid rgba(255, 255, 255, 0.9);
+                border-radius: 16px;
             }
             QScrollArea#chatPanel, QWidget#chatContainer {
                 background: transparent;
             }
             QLabel#userBubble, QLabel#assistantBubble {
-                padding: 7px 11px;
-                border-radius: 12px;
+                padding: 8px 12px;
+                border-radius: 14px;
+                border: 1px solid transparent;
             }
             QLabel#userBubble {
-                background-color: rgba(97, 189, 255, 0.92);
-                color: #08131f;
-            }
-            QLabel#assistantBubble {
-                background-color: rgba(15, 18, 28, 200);
-                border: 1px solid rgba(255, 255, 255, 28);
-                color: rgba(255, 255, 255, 0.94);
-            }
-            QLabel#noticeBubble {
-                padding: 3px 9px;
-                border-radius: 8px;
-                background-color: rgba(0, 0, 0, 0.35);
-                color: rgba(255, 255, 255, 0.7);
-                font-size: 11px;
-            }
-            QLabel#dragLabel {
-                color: rgba(255, 255, 255, 0.88);
-                font-weight: 600;
-            }
-            QLabel#statusLabel {
-                color: #b7f3cf;
-                font-size: 12px;
-                padding: 2px 10px;
-                background-color: rgba(76, 175, 80, 40);
-                border-radius: 10px;
-            }
-            QLineEdit {
-                min-height: 40px;
-                padding: 0 14px;
-                border-radius: 14px;
-                background-color: rgba(255, 255, 255, 0.12);
-                border: 1px solid rgba(255, 255, 255, 0.16);
+                background-color: rgba(108, 140, 255, 0.92);
                 color: white;
             }
+            QLabel#assistantBubble {
+                background-color: rgba(255, 255, 255, 0.92);
+                border: 1px solid rgba(31, 35, 48, 0.08);
+                color: #1f2330;
+            }
+            QLabel#noticeBubble, QLabel#typingBubble {
+                padding: 2px 8px;
+                border-radius: 8px;
+                background-color: rgba(255, 255, 255, 0.55);
+                color: rgba(31, 35, 48, 0.55);
+                font-size: 11px;
+            }
+            QLabel#typingBubble {
+                font-style: italic;
+            }
+            QLabel#dragLabel {
+                color: rgba(31, 35, 48, 0.45);
+                font-size: 12px;
+            }
+            QLabel#presenceLabel {
+                color: rgba(31, 35, 48, 0.75);
+                font-size: 12px;
+            }
+            QLabel#statusLabel {
+                color: rgba(31, 35, 48, 0.5);
+                font-size: 11px;
+                padding: 0 4px;
+            }
+            QLineEdit {
+                min-height: 32px;
+                padding: 0 12px;
+                border-radius: 16px;
+                background-color: rgba(255, 255, 255, 0.95);
+                border: 1px solid rgba(31, 35, 48, 0.1);
+                color: #1f2330;
+                selection-background-color: rgba(108, 140, 255, 0.35);
+            }
+            QLineEdit:focus {
+                border: 1px solid rgba(108, 140, 255, 0.7);
+            }
             QPushButton {
-                min-height: 40px;
-                padding: 0 16px;
-                border-radius: 14px;
+                min-height: 32px;
+                padding: 0 14px;
+                border-radius: 16px;
                 border: 0;
-                background-color: rgba(97, 189, 255, 0.92);
-                color: #08131f;
-                font-weight: 700;
+                background-color: rgba(108, 140, 255, 0.95);
+                color: white;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: rgba(88, 122, 245, 1);
+            }
+            QPushButton#secondaryButton {
+                background-color: rgba(255, 255, 255, 0.95);
+                border: 1px solid rgba(31, 35, 48, 0.1);
+                color: rgba(31, 35, 48, 0.8);
+                font-weight: 500;
             }
             QPushButton#closeButton {
-                min-width: 30px;
-                min-height: 30px;
+                min-width: 22px;
+                max-width: 22px;
+                min-height: 22px;
+                max-height: 22px;
                 padding: 0;
-                border-radius: 15px;
-                background-color: rgba(255, 99, 132, 0.92);
+                border-radius: 11px;
+                background-color: transparent;
+                color: rgba(31, 35, 48, 0.45);
+                font-size: 13px;
+                font-weight: 400;
+            }
+            QPushButton#closeButton:hover {
+                background-color: rgba(255, 99, 132, 0.85);
                 color: white;
             }
             QPushButton:disabled {
-                background-color: rgba(255, 255, 255, 0.28);
-                color: rgba(255, 255, 255, 0.65);
+                background-color: rgba(31, 35, 48, 0.12);
+                color: rgba(31, 35, 48, 0.4);
             }
             QMenu {
-                background-color: rgb(22, 26, 38);
-                border: 1px solid rgba(255, 255, 255, 40);
+                background-color: rgba(255, 255, 255, 0.98);
+                border: 1px solid rgba(31, 35, 48, 0.12);
+                border-radius: 10px;
                 padding: 6px;
-                color: #f6f7fb;
+                color: #1f2330;
             }
             QMenu::item {
                 padding: 6px 28px 6px 12px;
                 border-radius: 6px;
             }
             QMenu::item:selected {
-                background-color: rgba(97, 189, 255, 90);
+                background-color: rgba(108, 140, 255, 0.16);
             }
             QMenu::separator {
                 height: 1px;
-                background: rgba(255, 255, 255, 30);
+                background: rgba(31, 35, 48, 0.1);
                 margin: 4px 6px;
             }
             """
         )
+
+    def setup_vision_input(self, layout: QHBoxLayout) -> None:
+        """Pictures by button, paste, or drop; only when a vision model is available."""
+        self.pending_image: str | None = None
+        self.picture_button = None
+        self.vision_thread: QThread | None = None
+        self.vision_worker: VisionWorker | None = None
+        self.vision_model = resolve_vision_model(
+            self.config.vision_model, self.config.vision_base_url, self.config.base_url,
+        )
+        self.vision_api_key: str | None = None
+        if not self.vision_model:
+            return
+        self.picture_button = QPushButton("Picture")
+        self.picture_button.setObjectName("secondaryButton")
+        # Room for the "Picture ✕" state with the stylesheet's 16 px padding on each side.
+        self.picture_button.setMinimumWidth(self.picture_button.fontMetrics().horizontalAdvance("Picture ✕") + 40)
+        self.picture_button.setToolTip(PICTURE_TIP)
+        self.picture_button.clicked.connect(self.on_picture_button)
+        layout.insertWidget(1, self.picture_button)
+        self.chat_input.installEventFilter(self)
+        self.refresh_vision_access()
+
+    def vision_url(self) -> str:
+        return self.config.vision_base_url or self.config.base_url
+
+    def refresh_vision_access(self, own_key: str | None = None) -> None:
+        """Pictures need a key that may go to the vision host: never the chat key for another provider."""
+        if own_key is None:
+            own_key = ApiKeyStore(account=VISION_ACCOUNT).resolve().value
+        self.vision_api_key = service_api_key(self.vision_url(), self.config.base_url, own_key, self.config.api_key)
+        usable = self.vision_api_key is not None
+        if not usable:
+            logger.info("Pictures are off: the vision host differs from the chat host and has no key of its own")
+        self.picture_button.setVisible(usable)
+        self.setAcceptDrops(usable)
+
+    def eventFilter(self, watched, event) -> bool:  # type: ignore[override]
+        if (
+            watched is self.chat_input and event.type() == QEvent.Type.KeyPress
+            and event.matches(QKeySequence.StandardKey.Paste)
+        ):
+            image = QApplication.clipboard().image()
+            if not image.isNull() and self.vision_api_key is not None:
+                self.attach_image(image_bytes(image))
+                return True
+        return super().eventFilter(watched, event)
+
+    def dragEnterEvent(self, event) -> None:  # type: ignore[override]
+        mime = event.mimeData()
+        if self.picture_button is not None and (mime.hasImage() or mime.hasUrls()):
+            event.acceptProposedAction()
+
+    def dropEvent(self, event) -> None:  # type: ignore[override]
+        mime = event.mimeData()
+        if self.vision_api_key is None:
+            return
+        if mime.hasImage():
+            self.attach_image(image_bytes(QImage(mime.imageData())))
+        elif mime.hasUrls() and mime.urls()[0].isLocalFile():
+            self.attach_file(mime.urls()[0].toLocalFile())
+        event.acceptProposedAction()
+
+    def on_picture_button(self) -> None:
+        if self.pending_image is not None:
+            self.clear_image()
+            return
+        path, _ = QFileDialog.getOpenFileName(self, "Send a picture", "", "Pictures (*.png *.jpg *.jpeg *.gif *.webp)")
+        if path:
+            self.attach_file(path)
+
+    def attach_file(self, path: str) -> None:
+        image = QImage(path)
+        if image.isNull():
+            self.chat_panel.add_notice("That file is not a picture I can open.")
+            return
+        data = Path(path).read_bytes()
+        # Keep small GIF/WebP/PNG/JPEG files as they are; re-encode large ones.
+        self.attach_image(data if len(data) <= SMALL_IMAGE_BYTES and max(image.width(), image.height())
+                          <= MAX_IMAGE_SIDE else image_bytes(image))
+
+    def attach_image(self, data: bytes) -> None:
+        try:
+            self.pending_image = image_data_url(data)
+        except ImageError as exc:
+            self.chat_panel.add_notice(str(exc))
+            return
+        self.picture_button.setText("Picture ✕")
+        self.picture_button.setToolTip("A picture is attached; click to remove it.")
+        self.chat_input.setPlaceholderText("Say something about the picture (optional)...")
+        self.chat_input.setFocus()
+
+    def clear_image(self) -> None:
+        self.pending_image = None
+        if self.picture_button is not None:
+            self.picture_button.setText("Picture")
+            self.picture_button.setToolTip(PICTURE_TIP)
+        self.chat_input.setPlaceholderText("Say something...")
+
+    def send_picture(self, caption: str) -> None:
+        """Describe the picture first, then send the description as the user's turn."""
+        data_url, self.pending_image = self.pending_image, None
+        self.clear_image()
+        self.busy = True
+        self.pause_wake_word()
+        self.chat_input.clear()
+        self.chat_input.setEnabled(False)
+        self.send_button.setEnabled(False)
+        self.set_status("Looking at the picture…")
+        self.chat_panel.add_user(image_turn_display(caption))
+        self.pending_caption = caption
+        vision_config = replace(
+            self.config, base_url=self.vision_url(), model=self.vision_model, api_key=self.vision_api_key or "",
+        )
+        self.vision_thread = QThread(self)
+        self.vision_worker = VisionWorker(OpenAICompatibleClient(vision_config), data_url, caption)
+        self.vision_worker.moveToThread(self.vision_thread)
+        self.vision_thread.started.connect(self.vision_worker.run)
+        self.vision_worker.finished.connect(self.on_picture_described)
+        self.vision_worker.finished.connect(self.vision_worker.deleteLater)
+        self.vision_worker.finished.connect(self.vision_thread.quit)
+        self.vision_thread.finished.connect(self.on_vision_thread_finished)
+        self.vision_thread.finished.connect(self.vision_thread.deleteLater)
+        self.vision_thread.start()
+
+    def on_picture_described(self, description: str) -> None:
+        if self.closing:
+            return
+        self.busy = False
+        if not description:
+            self.chat_panel.add_notice("I couldn't look at that picture. Check VISION_MODEL in Settings.")
+            self.set_status("Error")
+            self.finish_interaction()
+            return
+        self.submit_message(image_turn_text(description, self.pending_caption), display="")
+
+    def on_vision_thread_finished(self) -> None:
+        self.vision_thread = None
+        self.vision_worker = None
+
+    def setup_voice_input(self, layout: QHBoxLayout) -> None:
+        if not self.config.voice_input_usable:
+            return
+        # Keep QtMultimedia and audio-device construction behind the opt-in gate.
+        from companion.adapters.microphone import Microphone
+
+        self.voice_session = VoiceInputController(
+            self.config,
+            partial(
+                transcribe, base_url=self.config.base_url, api_key=self.config.api_key,
+                model=self.config.transcription_model.strip(),
+            ),
+        )
+        self.microphone = Microphone(self)
+        self.microphone.pcm_ready.connect(self.voice_session.feed)
+        self.microphone.failed.connect(self.on_microphone_failed)
+        self.talk_button = QPushButton("Hold to talk")
+        self.talk_button.pressed.connect(self.start_voice_input)
+        self.talk_button.released.connect(self.stop_voice_input)
+        layout.addWidget(self.talk_button)
+
+    def start_voice_input(self) -> None:
+        if self.voice_session is None or not can_start_voice_input(
+            busy=self.busy, worker_active=self.transcription_thread is not None, closing=self.closing,
+        ):
+            return
+        self.voice_session.start()
+        if self.voice_session.state != "recording":
+            return
+        # Reserve this turn so typed input and proactive replies cannot race transcription.
+        self.busy = True
+        self.pause_wake_word()
+        self.chat_input.setEnabled(False)
+        self.send_button.setEnabled(False)
+        self.set_status("Listening")
+        self.microphone.start()
+
+    def stop_voice_input(self) -> None:
+        if self.wake_capture_timer is not None:
+            self.wake_capture_timer.stop()
+        if self.voice_session is None or self.voice_session.state != "recording":
+            return
+        # stop() delivers the last buffered PCM synchronously before finalizing the clip.
+        self.microphone.stop()
+        if self.voice_session.state != "recording":
+            return  # A final microphone read failure cancelled the recording.
+        self.talk_button.setEnabled(False)
+        self.set_status("Transcribing")
+        self.transcription_thread = QThread(self)
+        self.transcription_worker = TranscriptionWorker(None, self.config, session=self.voice_session)
+        self.transcription_worker.moveToThread(self.transcription_thread)
+        self.transcription_thread.started.connect(self.transcription_worker.run)
+        self.transcription_worker.session_finished.connect(self.on_voice_input_result)
+        self.transcription_worker.session_finished.connect(self.transcription_worker.deleteLater)
+        # quit() is thread-safe; direct delivery also lets the bounded close wait finish.
+        self.transcription_worker.session_finished.connect(
+            self.transcription_thread.quit, Qt.ConnectionType.DirectConnection,
+        )
+        self.transcription_thread.finished.connect(self.on_transcription_thread_finished)
+        self.transcription_thread.finished.connect(self.transcription_thread.deleteLater)
+        self.transcription_thread.start()
+
+    def on_microphone_failed(self, message: str) -> None:
+        if self.voice_session is None or self.voice_session.state != "recording":
+            return
+        self.voice_session.cancel()
+        if self.wake_capture_timer is not None:
+            self.wake_capture_timer.stop()
+        if self.closing:
+            return
+        self.chat_panel.add_notice(message)
+        self.set_status("Idle")
+        self.finish_interaction()
+
+    def on_voice_input_result(self, result: VoiceInputResult) -> None:
+        if self.closing:
+            return
+        self.set_status("Idle")
+        self.finish_interaction()
+        deliver_voice_input_result(result, self.submit_message, self.chat_panel.add_notice)
+
+    def on_transcription_thread_finished(self) -> None:
+        self.transcription_thread = None
+        self.transcription_worker = None
+        if self.closing:
+            self.close()
+        else:
+            self.talk_button.setEnabled(True)
+            self.resume_wake_word()
 
     def load_live2d_scene(self) -> None:
         logger.debug("Loading HTML from: %s", HTML_PATH)
@@ -412,6 +1014,61 @@ class CompanionWindow(QWidget):
         self.setWindowOpacity(opacity)
         self.save_window_state()
 
+    def set_always_on_top(self, enabled: bool) -> None:
+        self.window_state.always_on_top = enabled
+        # Changing window flags hides the window; show it again where it was.
+        geometry = self.geometry()
+        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, enabled)
+        self.setGeometry(geometry)
+        self.show()
+        self.save_window_state()
+
+    def setup_chat_on_hover(self) -> None:
+        self.reveal = RevealPolicy()
+        self.chrome = (self.top_bar, self.chat_panel, self.controls)
+        for widget in self.chrome:
+            # Hidden parts keep their space, so the avatar does not jump when the chat comes and goes.
+            policy = widget.sizePolicy()
+            policy.setRetainSizeWhenHidden(True)
+            widget.setSizePolicy(policy)
+        # Polling the pointer is simpler than enter/leave events, which the web view swallows and
+        # the transparent areas of the window may not deliver at all.
+        self.reveal_timer = QTimer(self)
+        self.reveal_timer.setInterval(150)
+        self.reveal_timer.timeout.connect(self.update_reveal)
+        self.chat_panel.bubble_added.connect(lambda: self.reveal.note_message(time.monotonic()))
+        self.apply_chat_on_hover()
+
+    def set_chat_on_hover(self, enabled: bool) -> None:
+        self.window_state.chat_on_hover = enabled
+        self.apply_chat_on_hover()
+        self.save_window_state()
+
+    def apply_chat_on_hover(self) -> None:
+        if self.window_state.chat_on_hover:
+            self.reveal_timer.start()
+            self.update_reveal()
+        else:
+            self.reveal_timer.stop()
+            self.set_chrome_visible(True)
+
+    def chat_engaged(self) -> bool:
+        """The user is in the middle of something the chat must stay up for."""
+        typing = bool(self.chat_input.text().strip()) or (self.chat_input.hasFocus() and self.isActiveWindow())
+        return (
+            typing or self.busy or bool(self.pending_messages) or self.message_timer.isActive()
+            or getattr(self, "pending_image", None) is not None
+        )
+
+    def update_reveal(self) -> None:
+        hovered = self.frameGeometry().contains(QCursor.pos())
+        self.set_chrome_visible(self.reveal.visible(time.monotonic(), hovered=hovered, engaged=self.chat_engaged()))
+
+    def set_chrome_visible(self, visible: bool) -> None:
+        for widget in self.chrome:
+            if widget.isVisibleTo(self) != visible:
+                widget.setVisible(visible)
+
     def reset_position(self) -> None:
         self.position_near_taskbar()
         self.save_window_state()
@@ -425,12 +1082,297 @@ class CompanionWindow(QWidget):
         menu.aboutToHide.connect(menu.deleteLater)
         self.add_choices(menu.addMenu("Size"), SCALE_STEPS, self.window_state.scale, self.set_scale)
         self.add_choices(menu.addMenu("Opacity"), OPACITY_STEPS, self.window_state.opacity, self.set_opacity)
+        on_top = menu.addAction("Always on top")
+        on_top.setCheckable(True)
+        on_top.setChecked(self.window_state.always_on_top)
+        on_top.toggled.connect(self.set_always_on_top)
+        on_hover = menu.addAction("Show chat only on hover")
+        on_hover.setCheckable(True)
+        on_hover.setChecked(self.window_state.chat_on_hover)
+        on_hover.toggled.connect(self.set_chat_on_hover)
         menu.addSeparator()
         menu.addAction("Reset position", self.reset_position)
+        menu.addAction("Persona…", self.show_persona_dialog)
+        menu.addAction("Companion state…", self.show_state)
+        menu.addAction("Settings…", self.show_settings)
+        menu.addAction("Memories…", self.show_memories)
         menu.addSeparator()
         menu.addAction("Quit", self.close)
         menu.popup(global_pos)
         return menu
+
+    def show_settings(self) -> None:
+        api_keys = ApiKeyStore()
+        extra = []
+        vision_keys = ApiKeyStore(account=VISION_ACCOUNT)
+        if getattr(self, "picture_button", None) is not None:
+            extra.append(("Pictures", vision_keys))
+        voice_keys = ApiKeyStore(account=TTS_ACCOUNT)
+        if self.config.tts_provider == "openai":
+            extra.append(("Voice", voice_keys))
+        dialog = SettingsDialog(SettingsForm(CONFIG_PATH), self, api_keys=api_keys, extra_keys=extra)
+        if dialog.exec() == SettingsDialog.DialogCode.Accepted:
+            self.chat_panel.add_notice("Settings saved. Changes apply on the next start.")
+        if dialog.api_key_changed:
+            # The chat client reads config.api_key on every request.
+            self.config.api_key = api_keys.resolve().value
+            self.chat_panel.add_notice("API keys updated." if self.config.api_key else "No chat API key is set now.")
+            if getattr(self, "picture_button", None) is not None:
+                self.refresh_vision_access(vision_keys.resolve().value)
+            if self.config.tts_provider == "openai":
+                self.voice_fallback_noted = False
+                self.custom_voice_for_tts(voice_keys.resolve().value)
+        dialog.deleteLater()
+
+    def system_message(self) -> str:
+        message = f"{effective_system_prompt(self.config.system_prompt, self.persona)}\n\n{EMOTION_INSTRUCTION}"
+        if getattr(self.config, "reply_pacing", False):
+            message += f"\n\n{PACING_INSTRUCTION}"
+        return message
+
+    def needs_persona_setup(self) -> bool:
+        return not self.config.system_prompt and not self.persona_store.exists()
+
+    def apply_persona(self, persona: Persona) -> None:
+        self.persona_store.save(persona)
+        self.persona = persona
+        # Proactive turns and summaries read messages[0], so they follow the new persona too.
+        self.messages[0] = {"role": "system", "content": self.system_message()}
+        if self.config.system_prompt:
+            self.chat_panel.add_notice("Persona saved, but COMPANION_SYSTEM_PROMPT is set and overrides it.")
+        if hasattr(self, "presence_label"):
+            self.refresh_presence()
+
+    def show_persona_dialog(self, first_run: bool = False) -> None:
+        dialog = PersonaDialog(self.personas, self.persona, self, first_run=first_run)
+        try:
+            if dialog.exec() == PersonaDialog.DialogCode.Accepted:
+                self.apply_persona(dialog.persona())
+            elif first_run:
+                # "Keep default" is an answer too; do not ask again on the next start.
+                self.apply_persona(self.persona)
+        except OSError as exc:
+            self.chat_panel.add_notice(f"Could not save the persona: {exc}")
+        dialog.deleteLater()
+
+    def current_block(self):
+        if not self.config.daily_schedule:
+            return None
+        return block_at(self.persona.schedule, local_now())
+
+    def is_awake(self, now) -> bool:
+        block = block_at(self.persona.schedule, now)
+        return block is None or block.kind != "asleep"
+
+    def scheduled(self, state):
+        """The state with what the routine says the companion is doing right now."""
+        block = self.current_block()
+        if block is None:
+            return replace(state, activity="", availability="")
+        return replace(state, activity=block.activity, availability=block.kind)
+
+    def refresh_presence(self) -> None:
+        enabled = self.config.daily_schedule
+        self.presence_label.setVisible(enabled)
+        if enabled:
+            self.presence_label.setText(f"● {presence_label(self.current_block())}")
+
+    def dominant_feeling(self, now):
+        state = getattr(self, "companion_state", None)
+        if state is None:
+            return None, 0.0
+        return dominant(state, now, self.persona.traits, self.mood_half_life())
+
+    def mood_half_life(self) -> timedelta:
+        return timedelta(minutes=max(self.config.mood_half_life_minutes, 5))
+
+    def state_context(self) -> str:
+        state = getattr(self, "companion_state", None)
+        if state is None:
+            return ""
+        return render_state_context(self.scheduled(state), local_now(), self.persona.traits, self.mood_half_life())
+
+    def update_state(self, state) -> None:
+        self.companion_state = state
+        try:
+            self.state_store.save(state)
+        except OSError as exc:
+            logger.warning("Could not save the companion state: %s", type(exc).__name__)
+        self.refresh_idle_emotion()
+
+    def record_user_activity(self) -> None:
+        state = getattr(self, "companion_state", None)
+        if state is not None:
+            self.update_state(record_user_message(state, local_now(), self.persona.traits, self.mood_half_life()))
+
+    def record_reply_mood(self) -> None:
+        state = getattr(self, "companion_state", None)
+        if state is not None:
+            traits, base = self.persona.traits, self.mood_half_life()
+            self.update_state(apply_reply_tag(state, self.reply_emotion, local_now(), traits, base))
+
+    def refresh_idle_emotion(self) -> None:
+        state = getattr(self, "companion_state", None)
+        if state is None or not self.renderer_ready:
+            return
+        face = idle_emotion(state, local_now(), self.persona.traits, self.mood_half_life())
+        if face != self.idle_face:
+            self.idle_face = face
+            self.bridge.setIdleEmotion.emit(face or "")
+
+    def precheck_distress(self, user_text: str) -> None:
+        """Zero-cost keyword check before the reply: the answer to an upsetting message is caring."""
+        state = getattr(self, "companion_state", None)
+        if state is not None and looks_distressed(user_text):
+            self.update_state(enter_care_mode(state, local_now()))
+
+    def start_appraisal_worker(self, user_text: str, assistant_text: str) -> None:
+        """Judge an emotional turn in the background; small talk never gets this far."""
+        state = getattr(self, "companion_state", None)
+        if state is None or not self.config.emotion_appraisal or not self.config.api_key:
+            return
+        if not should_appraise(user_text):
+            return
+        if self.appraisal_thread is not None:
+            logger.debug("Emotion appraisal still running; skipping this turn")
+            return
+        grievances = active_reasons(state, local_now(), self.persona.traits, self.mood_half_life())
+        self.appraisal_thread = QThread(self)
+        self.appraisal_worker = AppraisalWorker(self.client, user_text, assistant_text, grievances)
+        self.appraisal_worker.moveToThread(self.appraisal_thread)
+        self.appraisal_thread.started.connect(self.appraisal_worker.run)
+        self.appraisal_worker.finished.connect(self.on_appraisal_ready)
+        self.appraisal_worker.finished.connect(self.appraisal_worker.deleteLater)
+        self.appraisal_worker.finished.connect(self.appraisal_thread.quit)
+        self.appraisal_thread.finished.connect(self.on_appraisal_thread_finished)
+        self.appraisal_thread.finished.connect(self.appraisal_thread.deleteLater)
+        self.appraisal_thread.start()
+
+    def on_appraisal_ready(self, appraisal) -> None:
+        state = getattr(self, "companion_state", None)
+        if appraisal is None or state is None or self.closing:
+            return
+        logger.info(
+            "Emotion appraisal: %s, distress=%.2f",
+            ", ".join(f"{event.type}:{event.intensity:.2f}" for event in appraisal.events) or "none",
+            appraisal.user_distress,
+        )
+        self.update_state(apply_events(
+            state, appraisal.events, local_now(), self.persona.traits, self.mood_half_life(),
+            user_distress=appraisal.user_distress, rng=self.emotion_rng,
+        ))
+
+    def on_appraisal_thread_finished(self) -> None:
+        self.appraisal_thread = None
+        self.appraisal_worker = None
+
+    def own_context(self, user_text: str = "") -> str:
+        """Her recent diary and what she has said about herself, for the chat context."""
+        if getattr(self, "diary_store", None) is None:
+            return ""
+        diary = render_diary_context(self.diary_entries)
+        room = OWN_CONTEXT_CHARS - (len(diary) + 2 if diary else 0)
+        own = render_self_context(self.self_memory_store.items, user_text, max_chars=room)
+        # Both blocks are built from whole lines, so nothing is cut mid-entry.
+        return "\n\n".join(part for part in (diary, own) if part)
+
+    def start_self_memory_worker(self, user_text: str, assistant_text: str) -> None:
+        if getattr(self, "self_memory_store", None) is None or not self.config.api_key:
+            return
+        if not should_extract_self(assistant_text) or self.self_memory_thread is not None:
+            return
+        self.self_memory_thread = QThread(self)
+        self.self_memory_worker = SelfMemoryWorker(self.client, user_text, assistant_text)
+        self.self_memory_worker.moveToThread(self.self_memory_thread)
+        self.self_memory_thread.started.connect(self.self_memory_worker.run)
+        self.self_memory_worker.finished.connect(self.on_self_memory_ready)
+        self.self_memory_worker.finished.connect(self.self_memory_worker.deleteLater)
+        self.self_memory_worker.finished.connect(self.self_memory_thread.quit)
+        self.self_memory_thread.finished.connect(self.on_self_memory_thread_finished)
+        self.self_memory_thread.finished.connect(self.self_memory_thread.deleteLater)
+        self.self_memory_thread.start()
+
+    def on_self_memory_ready(self, memories: list) -> None:
+        if memories and self.self_memory_store is not None:
+            self.self_memory_store.load()
+            logger.info("Self memories updated (%d candidates)", len(memories))
+
+    def on_self_memory_thread_finished(self) -> None:
+        self.self_memory_thread = None
+        self.self_memory_worker = None
+
+    def diary_request(self):
+        """(day, messages) for the next diary entry to write, or None."""
+        now = local_now()
+        day = day_to_write(self.history.entries, self.diary_entries, now.date(), now.tzinfo)
+        if day is None:
+            return None
+        routine = format_schedule(self.persona.schedule).splitlines() if self.config.daily_schedule else []
+        state = getattr(self, "companion_state", None)
+        feelings = [
+            f"{change.emotion} {change.delta:+.2f}" + (f" ({change.cause})" if change.cause else "")
+            for change in (state.changes if state is not None else ())
+            if change.at.astimezone(now.tzinfo).date() == day
+        ]
+        turns = turns_on(self.history.entries, day, now.tzinfo)
+        return day, build_diary_messages(self.persona.system_prompt(), day, turns, routine, feelings)
+
+    def maybe_write_diary(self) -> None:
+        if getattr(self, "diary_store", None) is None or not self.config.api_key or self.diary_thread is not None:
+            return
+        request = self.diary_request()
+        if request is None:
+            return
+        self.diary_day, messages = request
+        self.diary_thread = QThread(self)
+        self.diary_worker = DiaryWorker(self.client, messages)
+        self.diary_worker.moveToThread(self.diary_thread)
+        self.diary_thread.started.connect(self.diary_worker.run)
+        self.diary_worker.finished.connect(self.on_diary_ready)
+        self.diary_worker.finished.connect(self.diary_worker.deleteLater)
+        self.diary_worker.finished.connect(self.diary_thread.quit)
+        self.diary_thread.finished.connect(self.on_diary_thread_finished)
+        self.diary_thread.finished.connect(self.diary_thread.deleteLater)
+        self.diary_thread.start()
+
+    def on_diary_ready(self, text: str) -> None:
+        if not text or self.diary_day is None or self.diary_store is None:
+            return
+        try:
+            self.diary_entries = self.diary_store.add(DiaryEntry(self.diary_day, text, local_now()))
+        except OSError as exc:
+            logger.warning("Could not save the diary: %s", type(exc).__name__)
+            return
+        logger.info("Diary entry written for %s", self.diary_day)
+
+    def on_diary_thread_finished(self) -> None:
+        self.diary_thread = None
+        self.diary_worker = None
+
+    def state_viewer_text(self) -> str:
+        if self.companion_state is None:
+            return "The companion's mood is turned off (COMPANION_STATE in Settings)."
+        state = self.scheduled(self.companion_state)
+        return "\n".join(state_summary_lines(state, local_now(), self.persona.traits, self.mood_half_life()))
+
+    def show_state(self) -> None:
+        box = QMessageBox(self)
+        box.setWindowTitle("Companion state")
+        box.setTextFormat(Qt.TextFormat.PlainText)
+        box.setText(self.state_viewer_text())
+        box.exec()
+        box.deleteLater()
+
+    def show_memories(self) -> None:
+        # Saving through the live store keeps subsequent recall and writes in sync.
+        diary_on = self.diary_store is not None
+        dialog = MemoryDialog(
+            MemoryBrowserModel(store=self.memory_store), self,
+            diary=self.diary_entries if diary_on else None,
+            self_memories=self.self_memory_store.items if diary_on else None,
+        )
+        dialog.exec()
+        dialog.deleteLater()
 
     @staticmethod
     def add_choices(menu: QMenu, steps: tuple[float, ...], current: float, apply) -> None:
@@ -478,6 +1420,8 @@ class CompanionWindow(QWidget):
         self.set_status("Ready")
         self.idle_timer.start()
         self.play_random_motion()
+        self.idle_face = None
+        self.refresh_idle_emotion()
 
     def set_talking(self, talking: bool) -> None:
         if self.renderer_ready:
@@ -487,29 +1431,65 @@ class CompanionWindow(QWidget):
         if self.renderer_ready and not self.busy:
             self.bridge.playRandomMotion.emit()
 
-    def conversation_window(self) -> list[dict[str, str]]:
-        history = self.messages[:] if len(self.messages) <= 12 else [self.messages[0], *self.messages[-11:]]
-        memory_context = self.memory_store.render_context()
-        if memory_context:
-            return [history[0], {"role": "system", "content": memory_context}, *history[1:]]
-        return history
+    def conversation_window(
+        self, user_text: str = "", *, defer: bool = False,
+    ) -> list[dict[str, str]] | Callable[[], list[dict[str, str]]]:
+        summary = self.history.summary if self.config.conversation_summary else None
+        system_prompt = self.messages[0]["content"]
+        turns = [dict(message) for message in self.messages[1:][-CONVERSATION_WINDOW:]]
+        # Read before this message updates the last-contact time, so a long silence shows.
+        state_context = self.state_context()
+        own_context = self.own_context(user_text)
+        relevant_recall = self.config.memory_relevant_recall
+        embed = self.memory_embedder
+        memory_store = self.memory_store
+        if defer:
+            # Background extraction can update the live store while chat recall is running.
+            memory_store = copy(memory_store)
+            memory_store.items = [dict(item) for item in memory_store.items]
+
+        def build_context() -> list[dict[str, str]]:
+            return build_chat_messages(
+                system_prompt, turns,
+                memory_context=memory_store.render_context(
+                    query=user_text, relevant_recall=relevant_recall, embed=embed,
+                ),
+                summary=summary.text if summary else None,
+                state_context=state_context,
+                own_context=own_context,
+            )
+
+        return build_context if defer else build_context()
 
     def send_message(self) -> None:
-        user_text = self.chat_input.text().strip()
+        if getattr(self, "pending_image", None) is not None and not self.busy and self.vision_api_key is not None:
+            self.send_picture(self.chat_input.text().strip())
+            return
+        self.submit_message(self.chat_input.text().strip())
+
+    def submit_message(self, user_text: str, display: str | None = None) -> None:
         if not user_text or self.busy:
             return
 
+        if self.proactive is not None:
+            self.proactive.record_activity(local_now())
         self.busy = True
+        self.pause_wake_word()
         self.chat_input.clear()
         self.chat_input.setEnabled(False)
         self.send_button.setEnabled(False)
         self.set_status("Thinking")
-        self.chat_panel.add_user(user_text)
+        if display is None:
+            self.chat_panel.add_user(user_text)
+        elif display:
+            self.chat_panel.add_user(display)
         self.pending_user_text = user_text
         self.messages.append({"role": "user", "content": user_text})
         self.history.append("user", user_text)
         self.reset_reply_state()
-        self.start_chat_worker(self.conversation_window())
+        self.precheck_distress(user_text)
+        self.start_chat_worker(self.conversation_window(user_text, defer=True))
+        self.record_user_activity()
 
     def reset_reply_state(self) -> None:
         self.reply_parts = []
@@ -521,10 +1501,16 @@ class CompanionWindow(QWidget):
         self.speech_started = False
         self.finish_status = "Idle"
         self.tts_queue.clear()
+        if self.pacing_on():
+            self.message_splitter = MessageSplitter()
+            self.pending_messages.clear()
+            self.messages_shown = 0
+            self.message_timer.stop()
+            self.chat_panel.hide_typing()
 
-    def start_chat_worker(self, payload: list[dict[str, str]]) -> None:
+    def start_chat_worker(self, payload: list[dict[str, str]] | Callable[[], list[dict[str, str]]]) -> None:
         self.chat_thread = QThread(self)
-        self.chat_worker = ChatStreamWorker(self.client, payload)
+        self.chat_worker = ChatStreamWorker(self.client, payload, registry=self.tool_registry)
         self.chat_worker.moveToThread(self.chat_thread)
 
         self.chat_thread.started.connect(self.chat_worker.run)
@@ -571,7 +1557,120 @@ class CompanionWindow(QWidget):
         self.memory_thread.finished.connect(self.memory_thread.deleteLater)
         self.memory_thread.start()
 
+    def start_summary_worker(self) -> None:
+        if not self.config.conversation_summary or not self.config.api_key or self.summary_thread is not None:
+            return
+        turns = self.history.messages()
+        summary = self.history.summary
+        if plan_summary_update(turns, CONVERSATION_WINDOW, summary.summarized_count if summary else 0) is None:
+            return
+        # self.messages is append-only; history.entries is capped on every save.
+        self.summary_snapshot = (len(self.messages), len(turns), summary)
+        self.summary_thread = QThread(self)
+        self.summary_worker = SummaryWorker(self.client, turns, summary, CONVERSATION_WINDOW)
+        self.summary_worker.moveToThread(self.summary_thread)
+        self.summary_thread.started.connect(self.summary_worker.run)
+        self.summary_worker.finished.connect(self.on_summary_ready)
+        self.summary_worker.finished.connect(self.summary_worker.deleteLater)
+        self.summary_worker.finished.connect(self.summary_thread.quit)
+        self.summary_thread.finished.connect(self.on_summary_thread_finished)
+        self.summary_thread.finished.connect(self.summary_thread.deleteLater)
+        self.summary_thread.start()
+
+    def on_summary_ready(self, summary: ConversationSummary | None) -> None:
+        if self.summary_snapshot is None or not self.config.conversation_summary:
+            return
+        message_count, history_count, previous = self.summary_snapshot
+        if summary is None or summary is previous:
+            return
+        appended = len(self.messages) - message_count
+        dropped = max(0, history_count + appended - len(self.history.entries))
+        previous = self.history.summary
+        self.history.summary = ConversationSummary(summary.text, max(0, summary.summarized_count - dropped))
+        try:
+            self.history.save()
+        except Exception:
+            self.history.summary = previous
+            logger.info("Conversation summary save failed")
+
+    def on_summary_thread_finished(self) -> None:
+        self.summary_thread = None
+        self.summary_worker = None
+        self.summary_snapshot = None
+
+    def pacing_on(self) -> bool:
+        return bool(getattr(self.config, "reply_pacing", False))
+
+    def queue_messages(self, messages: list[str]) -> None:
+        for message in messages:
+            # Models often tag each paced message; the tag drives that bubble's face, not its text.
+            emotion, message = split_leading_tag(message)
+            text = sanitize_reply_text(message)
+            if text:
+                self.pending_messages.append((text, emotion))
+        self.schedule_next_message()
+
+    def schedule_next_message(self) -> None:
+        if self.message_timer.isActive() or not self.pending_messages:
+            return
+        if self.messages_shown == 0:
+            # The first message goes out as soon as it is complete, unless the routine says
+            # the companion is busy or asleep; then it picks up a little later.
+            block = self.current_block()
+            delay = reply_delay(block.kind if block else "", self.pacing_rng)
+            if delay:
+                self.set_status("Waking up…" if block.kind == "asleep" else f"{presence_label(block)}…")
+        else:
+            delay = typing_delay(self.pending_messages[0][0], self.pacing_rng, slow=self.typing_slowness())
+        if delay:
+            self.chat_panel.show_typing()
+        self.message_timer.start(int(delay * 1000))
+
+    def voice_mood(self) -> str | None:
+        state = getattr(self, "companion_state", None)
+        if state is None:
+            return None
+        mood = current_mood(state, local_now(), self.persona.traits, self.mood_half_life())
+        return mood.emotion if mood.intensity >= IDLE_THRESHOLD else None
+
+    def typing_slowness(self) -> float:
+        """Annoyed or hurt, the companion types a little slower."""
+        state = getattr(self, "companion_state", None)
+        if state is None:
+            return 1.0
+        mood = current_mood(state, local_now(), self.persona.traits, self.mood_half_life())
+        return 1.4 if mood.emotion in {"angry", "sad"} and mood.intensity >= IDLE_THRESHOLD else 1.0
+
+    def show_next_message(self) -> None:
+        if not self.pending_messages:
+            return
+        text, emotion = self.pending_messages.popleft()
+        if emotion and emotion != "neutral" and self.renderer_ready:
+            self.bridge.setEmotion.emit(emotion)
+        self.chat_panel.hide_typing()
+        self.chat_panel.add_reply_message(text)
+        self.messages_shown += 1
+        self.set_status("Replying")
+        self.speak_message(text)
+        if self.pending_messages:
+            self.schedule_next_message()
+        elif not self.stream_done:
+            self.chat_panel.show_typing()
+        self.maybe_finish_reply()
+
+    def speak_message(self, text: str) -> None:
+        if not self.speak_reply:
+            return
+        splitter = SentenceSplitter()
+        for sentence in splitter.feed(text) + splitter.flush():
+            spoken = sanitize_tts_text(sentence)
+            if spoken:
+                self.tts_queue.append(spoken)
+        self.run_next_tts()
+
     def render_reply(self) -> None:
+        if self.pacing_on():
+            return
         reply = sanitize_reply_text("".join(self.reply_parts))
         notes = "".join(f"\n\n{note}" for note in self.reply_notes)
         self.chat_panel.update_reply(f"{reply}{notes}")
@@ -579,7 +1678,10 @@ class CompanionWindow(QWidget):
     def add_reply_note(self, note: str) -> None:
         if note not in self.reply_notes:
             self.reply_notes.append(note)
-            self.render_reply()
+            if self.pacing_on():
+                self.chat_panel.add_notice(note)
+            else:
+                self.render_reply()
 
     def on_reply_emotion(self, emotion: str) -> None:
         logger.debug("Reply emotion: %s", emotion)
@@ -591,29 +1693,57 @@ class CompanionWindow(QWidget):
         if not self.reply_parts:
             self.set_status("Replying")
         self.reply_parts.append(text)
-        self.render_reply()
+        if self.pacing_on():
+            self.queue_messages(self.message_splitter.feed(text))
+        else:
+            self.render_reply()
 
     def on_reply_sentence(self, sentence: str) -> None:
-        if not self.speak_reply:
+        # With pacing, speech follows the messages as they appear (speak_message).
+        if not self.speak_reply or self.pacing_on():
             return
         spoken = sanitize_tts_text(sentence)
         if spoken:
             self.tts_queue.append(spoken)
             self.run_next_tts()
 
+    def paced_reply_text(self, raw_reply: str) -> str:
+        """The reply as stored: one line per paced message, without per-message tags, so the
+        model keeps seeing (and copying) its own message format and restore splits it again."""
+        lines = [sanitize_reply_text(split_leading_tag(part)[1]) for part in split_for_display(raw_reply)]
+        return "\n".join(line for line in lines if line)
+
     def on_reply_finished(self, raw_reply: str) -> None:
-        reply = sanitize_reply_text(raw_reply)
+        reply = self.paced_reply_text(raw_reply) if self.pacing_on() else sanitize_reply_text(raw_reply)
         if reply:
             self.record_reply(reply)
-            self.start_memory_worker(self.pending_user_text, reply)
+            self.record_reply_mood()
+            if self.pending_user_text:
+                self.start_memory_worker(self.pending_user_text, reply)
+                if getattr(self, "companion_state", None) is not None:
+                    self.start_appraisal_worker(self.pending_user_text, reply)
+            if getattr(self, "self_memory_store", None) is not None:
+                self.start_self_memory_worker(self.pending_user_text, reply)
         self.render_reply()
         self.pending_user_text = ""
         self.stream_done = True
+        if self.pacing_on():
+            self.queue_messages(self.message_splitter.finish())
+            if not self.pending_messages and not self.message_timer.isActive():
+                self.chat_panel.hide_typing()
         self.maybe_finish_reply()
 
     def on_reply_error(self, error_text: str) -> None:
         logger.error("Chat request failed: %s", error_text)
         partial = sanitize_reply_text("".join(self.reply_parts))
+        if partial and self.pacing_on():
+            # Show what arrived at once rather than pacing a broken reply.
+            self.message_timer.stop()
+            self.queue_messages(self.message_splitter.finish())
+            self.message_timer.stop()
+            while self.pending_messages:
+                self.show_next_message()
+            self.chat_panel.hide_typing()
         if partial:
             self.record_reply(partial)
             self.add_reply_note(f"[Interrupted] {error_text}")
@@ -633,16 +1763,28 @@ class CompanionWindow(QWidget):
         content = self.history_text(reply)
         self.messages.append({"role": "assistant", "content": content})
         self.history.append("assistant", content)
+        try:
+            self.start_summary_worker()
+        except Exception:
+            logger.info("Conversation summary worker could not start")
+            self.summary_thread = None
+            self.summary_worker = None
+            self.summary_snapshot = None
 
     def run_next_tts(self) -> None:
         if self.tts_thread is not None or not self.tts_queue:
             return
         text = self.tts_queue.popleft()
         voice = tts_edge.choose_tts_voice(self.config, text)
-        logger.debug("TTS voice=%s text=%s", voice, text)
+        rate, pitch = tts_edge.choose_tts_prosody(self.config, text)
+        if tts_edge.contains_cjk(text):
+            # Only the (cute) Chinese voice is shaped; the mood colours it slightly.
+            rate, pitch = tts_edge.mood_prosody((rate, pitch), self.voice_mood())
+        logger.debug("TTS voice=%s rate=%s pitch=%s text=%s", voice, rate, pitch, text)
 
         self.tts_thread = QThread(self)
-        self.tts_worker = TTSWorker(text, voice)
+        self.tts_worker = TTSWorker(text, voice, rate, pitch, self.custom_voice_for_tts())
+        self.tts_worker.fellBack.connect(self.on_voice_fallback)
         self.tts_worker.moveToThread(self.tts_thread)
 
         self.tts_thread.started.connect(self.tts_worker.run)
@@ -671,6 +1813,26 @@ class CompanionWindow(QWidget):
         self.audio_watchdog.start(AUDIO_WATCHDOG_MS)
         self.bridge.playAudio.emit(url)
 
+    def custom_voice_for_tts(self, own_key: str | None = None):
+        """The custom voice, if configured and allowed a key; otherwise None (Edge) with one notice."""
+        if getattr(self, "voice_settings", None) is None or own_key is not None:
+            if own_key is None:
+                own_key = ApiKeyStore(account=TTS_ACCOUNT).resolve().value
+            self.voice_settings = custom_voice(
+                self.config.tts_provider, self.config.tts_base_url, self.config.tts_model, self.config.tts_voice,
+                self.config.base_url, self.config.api_key, own_key,
+            )
+        voice, reason = self.voice_settings
+        if reason:
+            self.on_voice_fallback(reason)
+        return voice
+
+    def on_voice_fallback(self, reason: str) -> None:
+        # Say it once per session; every sentence after this falls back the same way.
+        if not getattr(self, "voice_fallback_noted", False):
+            self.voice_fallback_noted = True
+            self.chat_panel.add_notice(f"Custom voice unavailable, using the default voice. ({reason[:120]})")
+
     def on_tts_error(self, error_text: str) -> None:
         logger.warning("TTS failed, not speaking the rest of this reply: %s", error_text)
         self.add_reply_note(f"[TTS] {error_text}")
@@ -685,6 +1847,9 @@ class CompanionWindow(QWidget):
         self.run_next_memory_job()
 
     def on_memory_ready(self, memories: list[dict[str, str]]) -> None:
+        if self.config.memory_consolidation:
+            self.memory_store.load()
+            return
         added = self.memory_store.upsert_many(memories)
         if added:
             logger.info("Stored %d new memories in %s", added, MEMORY_PATH)
@@ -736,6 +1901,10 @@ class CompanionWindow(QWidget):
     def maybe_finish_reply(self) -> None:
         if not self.busy or not self.stream_done:
             return
+        if getattr(self, "pending_messages", None) or (
+            hasattr(self, "message_timer") and self.message_timer.isActive()
+        ):
+            return
         if self.tts_queue or self.tts_thread is not None or self.pending_clips:
             return
         self.audio_watchdog.stop()
@@ -751,8 +1920,50 @@ class CompanionWindow(QWidget):
         self.send_button.setEnabled(True)
         self.chat_input.setFocus()
         self.set_talking(False)
+        self.resume_wake_word()
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
+        self.closing = True
+        if self.wake_capture_timer is not None:
+            self.wake_capture_timer.stop()
+        self.pause_wake_word()
+        if self.voice_session is not None:
+            self.voice_session.cancel()
+            self.microphone.stop()
+        if self.wake_thread is not None and self.wake_thread.isRunning():
+            self.wake_stop_requested.emit()
+            if not self.wake_thread.wait(2000):
+                # Model loading may still be running; retain its owner until finished.
+                event.ignore()
+                self.hide()
+                return
+        if self.transcription_thread is not None and self.transcription_thread.isRunning():
+            self.transcription_thread.quit()
+            if not self.transcription_thread.wait(2000):
+                # Keep the thread owner alive until the bounded network operation returns.
+                # finished retries close; cancellation suppresses any late transcript.
+                event.ignore()
+                self.hide()
+                return
+        vision_thread = getattr(self, "vision_thread", None)
+        if vision_thread is not None and vision_thread.isRunning():
+            # A late description is ignored once closing; the request has its own timeout.
+            vision_thread.quit()
+            vision_thread.wait(2000)
+        if self.proactive_timer is not None:
+            self.proactive_timer.stop()
+        self.proactive = None
+        for name in ("appraisal_thread", "self_memory_thread", "diary_thread"):
+            thread = getattr(self, name, None)
+            if thread is not None and thread.isRunning():
+                # Late results are ignored; give the request a bounded moment to finish.
+                thread.quit()
+                thread.wait(2000)
+        # Ignore queued summary results once teardown begins.
+        self.summary_snapshot = None
+        if self.summary_thread is not None and self.summary_thread.isRunning():
+            self.summary_thread.quit()
+            self.summary_thread.wait(2000)
         self.save_window_state()
         self.idle_timer.stop()
         self.audio_watchdog.stop()
@@ -761,6 +1972,17 @@ class CompanionWindow(QWidget):
         self.tts_queue.clear()
         self.discard_pending_clips()
         super().closeEvent(event)
+
+
+def image_bytes(image: QImage) -> bytes:
+    """Encode a pasted or large picture as JPEG, at most MAX_IMAGE_SIDE pixels on its longer side."""
+    if max(image.width(), image.height()) > MAX_IMAGE_SIDE:
+        image = image.scaled(MAX_IMAGE_SIDE, MAX_IMAGE_SIDE, Qt.AspectRatioMode.KeepAspectRatio,
+                             Qt.TransformationMode.SmoothTransformation)
+    buffer = QBuffer()
+    buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+    image.convertToFormat(QImage.Format.Format_RGB888).save(buffer, "JPEG", 88)
+    return bytes(buffer.data())
 
 
 def delete_file(path: str) -> None:
@@ -772,6 +1994,10 @@ def delete_file(path: str) -> None:
 
 def main() -> int:
     app = QApplication(sys.argv)
-    window = CompanionWindow(AppConfig())
+    resolved = ApiKeyStore().resolve()
+    logger.info("API key source: %s", resolved.source)
+    window = CompanionWindow(AppConfig(api_key=resolved.value))
     window.show()
+    if window.needs_persona_setup():
+        QTimer.singleShot(600, partial(window.show_persona_dialog, first_run=True))
     return app.exec()

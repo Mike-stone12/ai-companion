@@ -1,5 +1,6 @@
 import io
 import json
+import runpy
 
 import pytest
 
@@ -60,3 +61,57 @@ def test_chat_thinking_env_flag(monkeypatch):
     assert config.env_flag("CHAT_THINKING", default=True) is False
     monkeypatch.delenv("CHAT_THINKING")
     assert config.env_flag("CHAT_THINKING", default=False) is False
+
+
+@pytest.mark.parametrize("value, expected", [(None, True), ("0", False)])
+def test_conversation_summary_setting(monkeypatch, value, expected):
+    if value is None:
+        monkeypatch.delenv("CONVERSATION_SUMMARY", raising=False)
+    else:
+        monkeypatch.setenv("CONVERSATION_SUMMARY", value)
+    # Evaluate import-time defaults without changing the shared config module.
+    config_class = runpy.run_path(config.__file__)["AppConfig"]
+    assert config_class().conversation_summary is expected
+
+
+@pytest.mark.parametrize("value, expected", [(None, False), ("1", True), ("0", False)])
+def test_chat_tools_setting(monkeypatch, value, expected):
+    if value is None:
+        monkeypatch.delenv("CHAT_TOOLS", raising=False)
+    else:
+        monkeypatch.setenv("CHAT_TOOLS", value)
+    config_class = runpy.run_path(config.__file__)["AppConfig"]
+    assert config_class().chat_tools is expected
+
+
+@pytest.mark.parametrize("value, expected", [(None, False), ("1", True), ("0", False)])
+def test_proactive_chat_setting(monkeypatch, value, expected):
+    if value is None:
+        monkeypatch.delenv("PROACTIVE_CHAT", raising=False)
+    else:
+        monkeypatch.setenv("PROACTIVE_CHAT", value)
+    config_class = runpy.run_path(config.__file__)["AppConfig"]
+    assert config_class().proactive_chat is expected
+
+
+@pytest.mark.parametrize("value, expected", [(None, False), ("0", False), ("1", True), (" YES ", True)])
+def test_memory_semantic_recall_setting(monkeypatch, value, expected):
+    monkeypatch.setenv("EMBEDDING_MODEL", "embed-model")
+    if value is None:
+        monkeypatch.delenv("MEMORY_SEMANTIC_RECALL", raising=False)
+    else:
+        monkeypatch.setenv("MEMORY_SEMANTIC_RECALL", value)
+    config_class = runpy.run_path(config.__file__)["AppConfig"]
+    assert config_class().memory_semantic_recall is expected
+
+
+@pytest.mark.parametrize("model", [None, "", "  "])
+def test_semantic_recall_without_model_is_disabled(monkeypatch, model):
+    monkeypatch.setenv("MEMORY_SEMANTIC_RECALL", "1")
+    if model is None:
+        monkeypatch.delenv("EMBEDDING_MODEL", raising=False)
+    else:
+        monkeypatch.setenv("EMBEDDING_MODEL", model)
+    config_class = runpy.run_path(config.__file__)["AppConfig"]
+    assert config_class().embedding_model == ""
+    assert config_class().memory_semantic_recall is False

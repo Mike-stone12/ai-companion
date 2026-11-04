@@ -2,9 +2,14 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
+import tempfile
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
+
+from companion.core.memory.semantic_recall import select_request_memories
 
 logger = logging.getLogger(__name__)
 
@@ -62,15 +67,33 @@ class MemoryStore:
 
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(self.items[-self.limit :], ensure_ascii=False, indent=2), encoding="utf-8")
+        contents = json.dumps(self.items[-self.limit :], ensure_ascii=False, indent=2)
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=self.path.parent, prefix=f".{self.path.name}.", delete=False,
+            ) as stream:
+                temporary = Path(stream.name)
+                stream.write(contents)
+            os.replace(temporary, self.path)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
 
-    def render_context(self, max_items: int = 8) -> str:
+    def render_context(
+        self, max_items: int = 8, *, query: str = "", relevant_recall: bool = True,
+        embed: Callable[[list[str]], list[list[float]]] | None = None,
+    ) -> str:
         if not self.items:
             return ""
 
-        recent = sorted(self.items, key=lambda item: item.get("updated_at", ""), reverse=True)[:max_items]
-        lines = [f"- [{item.get('category', 'memory')}] {item['summary']}" for item in recent]
+        selected = select_request_memories(self.items, query, max_items, embed=embed, relevant_recall=relevant_recall)
+        lines = [f"- [{item.get('category', 'memory')}] {item['summary']}" for item in selected]
         return "长期记忆（已压缩）:\n" + "\n".join(lines)
+
+    def trim(self) -> None:
+        """Order entries by recency and retain at most the store limit."""
+        self.items = sorted(self.items, key=lambda item: item.get("updated_at", ""), reverse=True)[: self.limit]
 
     def upsert_many(self, memories: list[dict[str, str]]) -> int:
         added = 0
@@ -98,7 +121,7 @@ class MemoryStore:
             )
             added += 1
 
-        self.items = sorted(self.items, key=lambda item: item.get("updated_at", ""), reverse=True)[: self.limit]
+        self.trim()
         if memories:
             self.save()
         return added

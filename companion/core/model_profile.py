@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from companion.core.settings_values import load_setting_values
 from companion.paths import MODELS_DIR, VENDOR_DIR
 
 logger = logging.getLogger(__name__)
@@ -107,7 +107,7 @@ def discover_model_profile(configured: str = "", models_dir: Path = MODELS_DIR) 
 
 
 def discover_vendor_dir() -> Path | None:
-    configured = os.getenv("LIVE2D_VENDOR_DIR", "").strip()
+    configured = load_setting_values().get("LIVE2D_VENDOR_DIR", "").strip()
     if configured:
         explicit = Path(configured).expanduser()
         if explicit.exists():

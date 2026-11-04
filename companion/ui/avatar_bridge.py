@@ -16,6 +16,8 @@ class AvatarBridge(QObject):
     stopAudio = pyqtSignal()
     setTalking = pyqtSignal(bool)
     setEmotion = pyqtSignal(str)
+    # The expression to hold while idle ("" for the default face), from the companion's mood.
+    setIdleEmotion = pyqtSignal(str)
     playRandomMotion = pyqtSignal()
 
     # renderer -> Python

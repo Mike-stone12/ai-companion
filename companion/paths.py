@@ -6,10 +6,26 @@ from pathlib import Path
 from companion.env import load_local_env
 
 APP_NAME = "AICompanion"
-APP_DIR = Path(__file__).resolve().parent.parent
-ENV_PATH = APP_DIR / ".env"
 
-# Load the project .env before anything reads the environment, so settings such as
+
+def resource_root() -> Path:
+    """Return the bundle's read-only resource root, or the source checkout."""
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS)
+    return Path(__file__).resolve().parent.parent
+
+
+def local_env_path() -> Path:
+    """Keep frozen app configuration beside the executable, outside the bundle."""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).parent / ".env"
+    return resource_root() / ".env"
+
+
+APP_DIR = resource_root()
+ENV_PATH = local_env_path()
+
+# Load the local .env before anything reads the environment, so settings such as
 # COMPANION_DATA_DIR below can come from it. Variables already set in the shell win.
 load_local_env(ENV_PATH)
 
@@ -35,12 +51,18 @@ def user_data_dir(
 HTML_PATH = APP_DIR / "live2d_renderer.html"
 MODELS_DIR = APP_DIR / "models"
 VENDOR_DIR = APP_DIR / "vendor"
+LICENSE_PATH = APP_DIR / "LICENSE"
+NOTICE_PATH = APP_DIR / "NOTICE.md"
 
 # User data lives outside the project so a packaged, read-only app can still write it.
 DATA_DIR = user_data_dir()
 MEMORY_PATH = DATA_DIR / "memory.json"
 HISTORY_PATH = DATA_DIR / "history.json"
 CONFIG_PATH = DATA_DIR / "config.json"
+PERSONA_PATH = DATA_DIR / "persona.json"
+STATE_PATH = DATA_DIR / "state.json"
+DIARY_PATH = DATA_DIR / "diary.json"
+SELF_MEMORY_PATH = DATA_DIR / "self_memory.json"
 LOG_DIR = DATA_DIR / "logs"
 
 LEGACY_MEMORY_PATH = APP_DIR / "memory.json"

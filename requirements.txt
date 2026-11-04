@@ -1,3 +1,4 @@
 PyQt6==6.10.2
 PyQt6-WebEngine==6.10.0
 edge-tts==7.3.1
+keyring==25.7.0

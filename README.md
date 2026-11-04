@@ -1,207 +1,178 @@
 # AI Companion
 
 [![CI](https://github.com/Mike-stone12/ai-companion/actions/workflows/ci.yml/badge.svg)](https://github.com/Mike-stone12/ai-companion/actions/workflows/ci.yml)
+[![Package](https://github.com/Mike-stone12/ai-companion/actions/workflows/package.yml/badge.svg)](https://github.com/Mike-stone12/ai-companion/actions/workflows/package.yml)
 
-**A desktop companion that remembers the conversation.**
+**A Live2D character that lives on your desktop, talks with you out loud, and remembers what you tell it.**
 
-A Windows application combining an animated Live2D character, LLM chat, bilingual voice replies, and persistent memory. The project explores how a conversational interface can retain useful facts across sessions while keeping its context compact.
+AI Companion puts an animated character in a small transparent window on your screen. You chat with it in text or by voice; it answers in a natural voice with matching lip sync and facial expressions, keeps the conversation across restarts, and gradually remembers facts about you. Out of the box it plays your childhood friend from next door (青梅竹马), and you can describe any other personality you like.
 
-**Stack:** Python · PyQt6 / Qt WebEngine · OpenAI-compatible APIs · Edge-TTS · PixiJS · Live2D
+It runs on macOS, Windows, and Linux, and works with any OpenAI-compatible chat API (Moonshot/Kimi, DeepSeek, and others) using your own API key.
 
-[Quick start](#quick-start) · [Memory design](#memory-design) · [Architecture](#architecture) · [Configuration](#configuration)
+[Quick start](#quick-start) · [Persona](#persona) · [Configuration](#configuration) · [Privacy](#privacy) · [License](#license)
 
-## What it does
+## Highlights
 
-- **Desktop character:** a transparent, frameless, draggable window with a Live2D avatar. Ships with two models, a whale-girl maid (default) and Hiyori, which can be swapped with one setting.
-- **Window controls:** right-click the character or the drag bar for a menu with size presets (70–150 %), opacity presets (55–100 %), reset position, and quit. Position, size, and opacity are saved to `config.json` in the user data directory and restored on the next start; a saved position that is no longer on any screen (an unplugged monitor, for example) falls back to the default spot above the taskbar.
-- **Chat history:** a scrollable bubble panel shows the conversation (user right, companion left, notices centered) and the current reply fills in as it streams. The conversation is saved to `history.json` in the user data directory and restored on the next start, both on screen and as context for the model.
-- **Emotional expressions:** the model opens each reply with an emotion tag (`[happy]`, `[sad]`, `[angry]`, `[surprised]`, `[shy]`, `[confused]`, `[awkward]`, `[neutral]`). The tag is stripped from the stream before display and speech, and the avatar switches to the matching expression for the reply, returning to default a few seconds after it stops speaking.
-- **Streaming chat:** connects to any OpenAI-compatible endpoint (Moonshot/Kimi by default, DeepSeek supported) and streams the reply, so text appears as it is generated and speech starts after the first clause instead of the whole reply. Median time from sending a message to the first spoken word dropped from 2.97 s to 1.70 s (DeepSeek `deepseek-flash`, three prompts) and no longer grows with reply length.
-- **Voice replies with lip sync:** synthesizes replies with Edge-TTS, selects a Chinese or English voice based on the response, and moves the avatar's mouth with the speech volume (Web Audio analyser driving `ParamMouthOpenY`, or the model's LipSync parameter).
-- **Persistent memory:** extracts short facts, saves them locally, and includes recent memories in later conversations.
-- **Background processing:** separate Qt workers handle chat requests, memory extraction, and speech synthesis.
-
-## Memory design
-
-The memory pipeline uses a lightweight extraction gate, structured LLM extraction, and a heuristic fallback:
-
-1. **Detect useful input.** Chinese-language patterns identify personal facts, preferences, plans, and upcoming events. Common chit-chat openers are deliberately not triggers, because every extraction costs an API request.
-2. **Extract candidates.** Messages that pass the gate are sent to an LLM in JSON mode. Where the provider supports it (Moonshot, DeepSeek), reasoning is turned off for this call, which makes extraction several times faster. If the LLM finds nothing worth remembering, nothing is stored. High-precision heuristics (name, identity, likes, location) are used only when the request itself fails.
-3. **Queue in the background.** Extraction runs off the UI thread. Jobs queue (up to five) instead of being dropped while one is running, and rate-limited requests are retried after 10 s and 25 s.
-4. **Normalize and store.** Summaries are shortened, deduplicated by exact summary text, timestamped, and stored in `memory.json` in the user data directory (see [Data flow](#data-flow)).
-5. **Recall into context.** Up to eight recent memories are added to the next chat request alongside a bounded conversation history.
-
-The store retains 24 entries by default, configurable through `MEMORY_LIMIT`. This implementation uses external, text-based memory; it does not update model weights.
-
-### Current tradeoffs
-
-- Extraction rules and gating are primarily designed for Chinese input.
-- Recall uses recency, so an older relevant fact can be missed.
-- Exact-text deduplication does not resolve paraphrases or conflicting facts.
-- Memory is added asynchronously and may become available on a later turn.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    UI["PyQt desktop window"] --> View["Qt WebEngine / Live2D"]
-    UI --> Chat["ChatStreamWorker (SSE)"]
-    Chat --> API["Configured LLM endpoint"]
-    Chat --> Split["SentenceSplitter"]
-    Split --> TTS["TTSWorker / Edge-TTS (one sentence at a time)"]
-    TTS --> Bridge["AvatarBridge / QWebChannel"]
-    Bridge --> Audio["Renderer audio + talk motion"]
-    Audio -- "started / finished" --> Bridge
-    Chat --> Memory["MemoryWorker"]
-    Memory --> Store["MemoryStore / local JSON"]
-    Store --> Context["Recent memory context"]
-    Context --> Chat
-```
-
-Replies are streamed: `ChatStreamWorker` reads the SSE stream, shows the text as it arrives, and hands each complete sentence to `SentenceSplitter`-driven TTS. Sentences are synthesized strictly in order and queued in the renderer, which plays them back to back with a single talk gesture; the first clause is cut at a comma after a few words so speech starts early. If the stream breaks, the text received so far is kept and marked as interrupted.
-
-Emotion tags are parsed off the start of the stream (`companion/core/chat/emotion.py`); only the leading tag is held back, so untagged replies are not delayed. The tag is kept in the conversation history sent back to the model, because without it the model imitates its own untagged replies and stops tagging after a turn or two (2/8 tagged replies vs 8/8 in an eight-turn test).
-
-The Python application owns conversation state and worker lifecycles. Everything that does not need Qt (configuration, the LLM client, memory, model profiles) lives in `companion/core` and is tested without a GUI. The embedded HTML renderer handles the avatar and plays the synthesized speech. Python and the renderer talk over a QWebChannel object (`companion/ui/avatar_bridge.py`): Python sends play / stop / talking / motion commands, and the renderer reports when it is ready and when audio starts, finishes, or fails. The talk gesture therefore starts with the audio rather than when the request is sent, and the mouth follows the speech volume frame by frame (applied after motions and physics, right before rendering), and a two-minute watchdog resets the window if the renderer never reports back. Qt signals return worker results to the interface.
+- **A character, not a chat box.** A frameless, draggable Live2D avatar with idle motions, emotion expressions picked by the model (happy, shy, surprised, …), and mouth movement that follows its voice.
+- **Texts like a friend.** A reply arrives as one to four short messages with a "typing…" pause between them, a little later when it is busy or asleep; the first one is spoken as soon as it is complete.
+- **Speaks as it thinks.** Replies stream in and the first sentence is spoken while the rest is still being written; median time to the first spoken word is about 1.7 s. Chinese and English voices are chosen automatically (Edge TTS), with a lively, slightly raised Chinese voice by default.
+- **Real feelings, with a personality you set.** It can be happy, annoyed, hurt, jealous, or miss you, each for a reason it remembers; how strongly it reacts depends on personality sliders (quick to anger, jealous, easily hurt, gets over things quickly, candid or tsundere). A sincere apology for the actual thing works better than a quick "sorry", and when you are genuinely upset it sets its own feelings aside to look after you. It never guilt-trips you or threatens to leave.
+- **Keeps a diary.** The day after you talk it writes a short diary entry in its own voice, and it remembers what it has said about itself (favourite things, promises) so it stays consistent. You can read both under **Memories…**.
+- **A life of its own.** Its mood carries over from one reply to the next and fades over a couple of hours; after a day without hearing from you it misses you, and the idle face shows how it feels. It also keeps a daily routine: in class in the morning, free in the evening, sleepy late at night, asleep after half past midnight. It still answers when asleep (groggily), and while asleep it starts nothing but your reminders.
+- **Remembers you.** Short facts ("you like coffee", "your exam is on Friday") are extracted in the background, merged with what it already knows, and brought back when relevant. Older conversation is folded into a running summary.
+- **A personality you choose.** Pick or write the companion's name, relationship to you, personality, and speaking style. See [Persona](#persona).
+- **Your key stays in the keychain.** The API key is stored in the operating system's keychain from the Settings dialog, never in a settings file or the logs.
+- **Sees your pictures.** Send one with the **Picture** button, paste, or drag-and-drop; a vision model describes it and the companion answers in its own voice. On a DeepSeek endpoint this needs no setup.
+- **Optional extras**, all off by default: hold-to-talk voice input, an offline wake word, proactive chat (greetings, check-ins, reminders), and a gentle nudge after long sessions in the same app, such as 40 minutes of gaming.
 
 ## Quick start
 
-**Requirements:** Windows, Python 3.11+, and an API key for a compatible LLM provider. Chat and voice synthesis require network access.
+You need an API key from an OpenAI-compatible provider. The defaults point at [Moonshot (Kimi)](https://platform.moonshot.ai/); DeepSeek and others work by changing the endpoint and model.
 
-Run these commands in **PowerShell**:
+### Option A: download a build
+
+Builds for macOS, Windows, and Linux are produced automatically by the [Package workflow](https://github.com/Mike-stone12/ai-companion/actions/workflows/package.yml). There is no tagged release yet; until there is, open the latest successful run on `agent-dev` or `master` and download the archive for your system from **Artifacts** (a GitHub login is required).
+
+| System | Archive | Start it |
+| --- | --- | --- |
+| macOS (Apple silicon) | `AI-Companion-macOS.zip` | Unzip and open `AI Companion.app`. The build is not signed: the first time, right-click the app and choose **Open**, or run `xattr -dr com.apple.quarantine "AI Companion.app"`. |
+| Windows | `AI-Companion-Windows.zip` | Unzip and run `AI Companion\AI Companion.exe`. If SmartScreen warns about an unknown publisher, choose **More info → Run anyway**. |
+| Linux | `AI-Companion-Linux.tar.gz` | `tar -xzf AI-Companion-Linux.tar.gz` and run `"AI Companion/AI Companion"`. |
+
+The packaged builds include both characters and everything except the optional wake word. They bundle the default whale-girl character, which is licensed for **non-commercial use only** (CC BY-NC-SA 4.0); `LICENSE` and `NOTICE.md` are in every archive. See [License](#license).
+
+### Option B: run from source
+
+Requires Python 3.11 or newer.
+
+```bash
+git clone https://github.com/Mike-stone12/ai-companion.git
+cd ai-companion
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python main.py
+```
+
+On Windows (PowerShell):
 
 ```powershell
 git clone https://github.com/Mike-stone12/ai-companion.git
 cd ai-companion
-py -3.11 -m venv venv
-.\venv\Scripts\python.exe -m pip install -r requirements.txt
-Copy-Item .env.example .env
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe main.py
 ```
 
-Edit `.env` with your provider's API key, endpoint, and model, then start the application:
+### First start
 
-```powershell
-.\venv\Scripts\python.exe main.py
-```
+1. **Choose a persona.** A dialog asks who your companion should be. Keep the childhood friend or edit it, then click **Save** (or **Keep default**).
+2. **Add your API key.** Right-click the character and choose **Settings…**. Paste the key under *API key* and click **Save to keychain**; chat uses it immediately.
+3. **Pick a provider (optional).** In the same dialog, set *Chat API base URL* and *Chat model*, for example `https://api.deepseek.com/v1` and `deepseek-flash`, click **Save**, and restart the app.
+4. **Say hi.** Type in the box under the character and press Enter.
 
-Using the environment's Python executable directly avoids requiring shell activation.
+Without a key the app runs in a demo mode that answers with a fixed message. Right-click the character any time for size, opacity, always on top, persona, settings, memories, and quit; drag the **Drag me** bar above it to move it. **Show chat only on hover** leaves just the character on screen: the chat comes back while the pointer is over it, while you type, and for a few seconds when it says something.
 
-### Try the memory flow
+To check an installation without using the network, run it with `--self-test` (for example `.venv/bin/python main.py --self-test`). It prints a PASS/FAIL report and exits.
 
-1. Send a short fact such as `我喜欢咖啡`.
-2. Wait for the reply and background memory extraction to finish.
-3. Close and restart the application.
-4. Ask `我喜欢什么饮料？` to try recall from the saved context.
+## Persona
 
-Recall depends on extraction and the configured model; this is a manual walkthrough, not a benchmark result.
+The persona is who the companion is. It becomes the model's instructions, so it shapes every reply, including the messages the companion starts on its own.
+
+| Field | What it does |
+| --- | --- |
+| Companion's name | Its name. Leave it empty and it will take a name you give it in conversation. |
+| What it calls you | Your name or nickname, if you want one used. |
+| Relationship to you | Who it is to you: childhood friend, older sister, study partner, … |
+| Personality | Temperament and attitude. |
+| Speaking style | How it talks: casual or polite, teasing, short sentences, … |
+| Background | Anything else it should know about its situation. |
+| Personality sliders | How quickly it gets annoyed, jealous, or hurt, how fast it gets over things, how candid it is, and how it shows being upset (says it straight, sarcastic, goes cold, sulks cutely). |
+| Daily routine | One time block per line, e.g. `08:30-12:00 [busy] in class`; kinds are `busy`, `drowsy`, `asleep`, or free time. The top bar shows what it is doing. |
+
+The default persona is a **childhood friend** who grew up next door: warm, a little teasing, honest rather than flattering, and quick to notice when you are tired. Whatever persona you choose, the companion talks directly to you, replies in the language you write in, and does not invent shared memories you never mentioned.
+
+Change it any time with **Persona…** in the right-click menu; the next reply uses it. The persona is saved in `persona.json` in your [data directory](#privacy). Proactive messages and the long-session nudge also speak in the persona's voice, to you. Advanced users can replace the whole instruction with the `COMPANION_SYSTEM_PROMPT` setting, which overrides the persona.
 
 ## Configuration
 
-| Variable | Purpose | Default |
+Most things can be changed from **Settings…** in the right-click menu; changes apply on the next start. You can also put settings in a `.env` file (copy [`.env.example`](.env.example)), which takes precedence. For a source checkout `.env` sits in the repository folder; for a packaged build it goes next to the executable (`AI Companion.app/Contents/MacOS/.env` on macOS).
+
+| Setting | Default | |
 | --- | --- | --- |
-| `OPENAI_API_KEY` | Provider API key | Required for chat |
-| `OPENAI_BASE_URL` | Chat API base URL | `https://api.moonshot.ai/v1` |
-| `OPENAI_MODEL` | Model identifier | `kimi-k2.6` |
-| `OPENAI_TIMEOUT` | Request timeout in seconds | `60` |
-| `OPENAI_RETRIES` | Request retry setting | `2` |
-| `CHAT_THINKING` | Let the model reason before chat replies (Moonshot and DeepSeek only). Off is faster and keeps replies short enough to speak. | `0` |
-| `LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, or `ERROR`. Logs go to the terminal and `logs/companion.log` in the user data directory (rotated at 1 MB, 3 backups). | `INFO` |
-| `EDGE_TTS_VOICE_ZH` | Chinese voice | `zh-CN-XiaoxiaoNeural` |
-| `EDGE_TTS_VOICE_EN` | English voice | `en-US-AriaNeural` |
-| `MEMORY_ENABLED` | Enable new memory extraction | `1` |
-| `MEMORY_LIMIT` | Maximum retained memory entries | `24` |
-| `COMPANION_DATA_DIR` | Where memory and logs are stored | Platform user data directory |
-| `COMPANION_SYSTEM_PROMPT` | Companion's system instruction | Built-in companion prompt |
-| `LIVE2D_MODEL` | Model folder under `models/` (`whale-girl`, `hiyori`) or a path to a `.model3.json` | `whale-girl` |
-| `LIVE2D_VENDOR_DIR` | Optional renderer dependency directory | `vendor/` |
+| `OPENAI_BASE_URL` | `https://api.moonshot.ai/v1` | Chat endpoint (OpenAI-compatible) |
+| `OPENAI_MODEL` | `kimi-k2.6` | Chat model |
+| `VISION_MODEL` / `VISION_BASE_URL` | automatic on DeepSeek | Picture model and endpoint; another provider needs its own key (Settings… > Pictures key) |
+| `OPENAI_API_KEY` | | Fallback when no key is in the keychain |
+| `LIVE2D_MODEL` | `whale-girl` | Character: `whale-girl` or `hiyori` |
+| `EDGE_TTS_VOICE_ZH` / `EDGE_TTS_VOICE_EN` | Xiaoyi / Aria | Voices for Chinese and English replies |
+| `TTS_PITCH` / `TTS_RATE` | `+10Hz` / `+6%` | Pitch and speed offsets for the Chinese voice |
+| `TTS_PROVIDER` + `TTS_MODEL` / `TTS_VOICE` | Edge | A custom voice from any OpenAI-compatible `/audio/speech` service (or a local server); falls back to Edge TTS. Another provider needs its own key (Settings… > Voice key). Use AI-generated or licensed voices only |
+| `COMPANION_STATE` | on | Feelings that carry over between replies and colour the voice (`MOOD_HALF_LIFE_MINUTES`, default 120); right-click > **Companion state…** shows them. `EMOTION_APPRAISAL` (on) spends one extra small request on emotional turns only |
+| `DAILY_SCHEDULE` | on | The daily routine from the persona: sleeping, busy, and drowsy times |
+| `COMPANION_DIARY` | on | A diary entry for each day you talked, and its own memories about itself |
+| `REPLY_PACING` | on | Replies arrive as a few short messages with "typing…" pauses, like texting |
+| `VOICE_INPUT` + `TRANSCRIPTION_MODEL` | off | Hold-to-talk button (needs a transcription model from your provider) |
+| `PROACTIVE_CHAT` | off | Greetings, idle check-ins, and spoken reminders; with its feelings on, it also reaches out when it misses you or is happy, and waits to be coaxed when annoyed |
+| `ACTIVE_APP_MONITOR` | off | One caring remark after about 40 minutes in the same app (needs `PROACTIVE_CHAT`; Windows and macOS) |
+| `CHAT_TOOLS` | off | Lets the model tell the time and set reminders |
+| `WAKE_WORD` | off | Offline wake phrase (source install with Vosk; see the guide) |
 
-Variables already set in the shell take precedence over values in `.env`.
+The full list, the wake word setup, and command-line tools for memories and settings are in **[docs/configuration.md](docs/configuration.md)**.
 
-`MEMORY_ENABLED=0` stops new extraction. Existing memories are still loaded into chat context by the current implementation.
+## Privacy
 
-## Project layout
+- Your messages, recalled memories, and the persona are sent to the chat API you configure. Replies are sent to Microsoft Edge's text-to-speech service to be spoken. Voice input, when enabled, is sent to your provider's transcription endpoint. A picture is uploaded to the vision endpoint only when you send it, and your chat key is never sent to a different provider.
+- The long-session nudge sends only the foreground app's name and how long it has been in front, nothing else.
+- Memories, chat history, settings, the persona, its feelings, and its diary are stored locally as plain JSON in your data directory: `~/Library/Application Support/AICompanion/` on macOS, `%APPDATA%\AICompanion\` on Windows, `~/.local/share/ai-companion/` on Linux. **Memories…** in the right-click menu lets you review and edit what it remembers.
+- The API key lives in the system keychain (or your own `.env`), never in those files or the logs.
 
-```text
-main.py                 Entry point
-companion/
-  core/                 Pure Python, no Qt: config, text cleanup, LLM client,
-                        memory (store, gate, extractor), model profiles,
-                        window state (settings file, placement rules)
-  adapters/tts_edge.py  Edge TTS synthesis and voice selection
-  app/workers.py        QThread workers for chat, TTS, and memory extraction
-  ui/main_window.py     The desktop window
-  qt_bootstrap.py       Windows Qt DLL setup and import diagnostics
-tests/                  pytest suite for companion/core (runs without Qt)
-live2d_renderer.html     Embedded avatar renderer
-.env.example            Example provider and voice settings
-requirements.txt        Pinned Python dependencies
-models/whale-girl/      Default model (CC BY-NC-SA 4.0, see NOTICE.md)
-models/hiyori/          Alternative model (Live2D Free Material License)
-vendor/                 Renderer dependencies (PixiJS 6, Cubism Core, pixi-live2d-display 0.4.0)
-```
+## Troubleshooting
 
-### Adding a model
+- **It answers with a demo message:** no API key was found. Add one in **Settings…** (see [First start](#first-start)).
+- **Chat fails:** check the key, the endpoint, the model name, and your network. Logs are in `logs/companion.log` in the data directory.
+- **No voice:** speech needs network access to Edge TTS; on a slow connection a reply may be shown as text only.
+- **No character appears (virtual machine or no GPU):** the avatar needs WebGL, which Chromium disables without a usable GPU. Start the app with the environment variable `QTWEBENGINE_CHROMIUM_FLAGS` set to render it in software: `--ignore-gpu-blocklist` on Windows, or `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader` on macOS and Linux. `--self-test` shows whether the model renders.
+- **The character is off-screen or too big:** right-click it and choose **Reset position** or a smaller size.
+- **macOS says the app is damaged:** it is unsigned; see [Option A](#option-a-download-a-build).
+- **macOS asks for keychain access again after an update:** an unsigned build gets a new code signature with every version, so macOS asks once more whether it may read the stored key. Choose **Always Allow**.
 
-Put a Cubism 4 model in its own folder under `models/` and, optionally, add a `companion.json`:
+More in [docs/configuration.md](docs/configuration.md#settings) and [docs/architecture.md](docs/architecture.md).
 
-```json
-{
-  "model": "c_0120.model3.json",
-  "window": { "width": 430, "height": 580 },
-  "motions": { "talk": ["selfie"], "ambient": ["bubble", "splash"] },
-  "expressions": { "happy": "expressions/开心兴奋.exp3.json", "angry": "expressions/生气.exp3.json" }
-}
-```
-
-`motions.talk` lists the motion groups played when the companion starts replying, and `motions.ambient` lists the groups played occasionally while idle. The model's idle group loops automatically. `expressions` maps emotion tags to `.exp3.json` files; they are registered on the model settings in memory when the model loads, so the model files themselves stay unmodified. Emotions without a mapping (or models without `expressions`) keep the default face. Without `companion.json`, the renderer uses the first `*.model3.json` in the folder and guesses roles from group names (`Talk`/`Tap`, `Flick`). Select the model with `LIVE2D_MODEL=<folder>`.
-
-### Data flow
-
-User data lives outside the project, so a packaged read-only app can still write it:
-
-| Platform | Location |
-| --- | --- |
-| macOS | `~/Library/Application Support/AICompanion/` |
-| Windows | `%APPDATA%\AICompanion\` |
-| Linux | `$XDG_DATA_HOME/ai-companion/` (default `~/.local/share/ai-companion/`) |
-
-It holds `memory.json`, `history.json` (the last 200 turns), `config.json` (window position, size, and opacity under a `window` key), and `logs/`. On first start, a `memory.json` left in the project root by older versions is moved there; if one already exists in the data directory, neither file is touched. `.env` (secrets, ignored by Git) and the models stay in the project.
-
-At the default `INFO` level the log records requests, memory counts, and errors but no conversation text; reply and TTS text appear only at `DEBUG`. Memories and conversation history are stored locally as plain JSON, and recalled memory text is sent to the configured LLM endpoint with chat requests. Replies are sent to Edge-TTS for speech synthesis. The renderer loads all dependencies from `vendor/` and only falls back to a version-pinned CDN copy if a local file is missing.
-
-### Troubleshooting
-
-- **Qt import or DLL errors:** use a fresh virtual environment and `pip install -r requirements.txt`. On Windows the startup log prints the DLL directories it added and, for Anaconda installs, whether the ICU runtime conflicts with PyQt6.
-- **No character appears:** check the resource paths logged at startup (`logs/companion.log` in the data directory), or set `LIVE2D_MODEL` and `LIVE2D_VENDOR_DIR` explicitly. `LOG_LEVEL=DEBUG` also lists every renderer file it looked for.
-- **Chat fails:** verify the API key, model identifier, endpoint, and network connectivity. If no reply text arrives within 30 s (an overloaded DeepSeek keeps the stream open with keep-alive comments and no content), the window gives up with "模型服务繁忙" instead of waiting; a stall of 30 s between pieces of a reply also ends it.
-- **No voice on a slow network:** each sentence's speech synthesis is capped at 20 s (5 s to connect, 15 s per read). After the first failure the rest of that reply is shown as text only, so a bad connection does not stack one timeout per sentence.
-- **Window in the wrong place or size:** right-click it and choose **Reset position** or a size preset. A saved position that is off every screen is ignored at startup; to discard the rest, delete the `window` section from `config.json` in the data directory.
-- **Memory is not recalled:** check that extraction completed, that `memory.json` in the data directory contains the fact, and that it remains among the recent entries.
-
-## Development
+## For developers
 
 ```bash
-pip install -r requirements-dev.txt
-ruff check .
-pytest
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/ruff check .
+.venv/bin/pytest
 ```
 
-The tests cover `companion/core`, which never imports PyQt or edge-tts, so they run without a display or the GUI dependencies. CI runs `ruff` and `pytest` on Ubuntu, Windows, and macOS for every pull request, with only `requirements-dev.txt` installed; a Qt import added to `companion/core` fails there.
+The core (`companion/core`) is pure Python and tested without Qt on Ubuntu, Windows, and macOS; every pull request is also packaged on all three systems and smoke-tested with `--self-test`. See [docs/development.md](docs/development.md) for packaging and evaluation, [docs/architecture.md](docs/architecture.md) for how memory, streaming, and the persona work, and [CLAUDE.md](CLAUDE.md) for project conventions.
 
-## Next steps
+## Roadmap
 
-- Evaluate extraction and recall on a repeatable conversation set.
-- Add semantic retrieval and conflict-aware memory updates.
-- Add an interface for inspecting, editing, and removing stored memories.
-- Validate platforms beyond Windows.
+- [x] Live2D desktop character with streaming chat, voice replies, lip sync, and emotion expressions
+- [x] Persistent memory with consolidation, relevant recall, and conversation summaries
+- [x] Settings, persona, and memory dialogs; API key in the OS keychain
+- [x] Opt-in voice input, wake word, proactive chat, reminders, and long-session nudges
+- [x] Packaged builds for macOS, Windows, and Linux, built and smoke-tested in CI
+- [x] A mood that carries over and a daily routine; a livelier default voice
+- [x] Personality-driven emotions, texting-style replies, a diary, pictures, and a custom voice provider
+- [ ] An AI-designed voice of its own (Qwen voice design or a local voice-design model)
+- [ ] First tagged release with downloadable builds
+- [ ] Persona presets library and import/export
+- [ ] Hands-on testing of the packaged builds on Windows and Linux desktops
+- [ ] Refine voice input and the wake word with real-device feedback
+- [ ] Demo GIF
+- [ ] Publish live memory-extraction evaluation numbers
 
-## License and credits
+## License
 
-The source code is released under the [MIT License](LICENSE).
+The **source code** is released under the [MIT License](LICENSE).
 
-Model and runtime assets are not covered by the MIT License. Full terms are in [NOTICE.md](NOTICE.md).
+The characters and renderer runtime are **not** covered by the MIT License:
 
-- **Whale girl** (default), [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), **non-commercial**. Character design by 上善无形, DeepSeek-themed maid redesign by ZipZipPipe, Live2D model by 氵六青, via [Andersen216/dsh-whale-girl-live2d](https://github.com/Andersen216/dsh-whale-girl-live2d). This is fan art; the project is not affiliated with DeepSeek.
-- **Hiyori** (© Live2D Inc.), used under the Live2D Free Material License; see [`models/hiyori/LIVE2D_README.txt`](models/hiyori/LIVE2D_README.txt).
+- **Whale girl** (the default character) is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). **It may not be used commercially**, including in any paid product or service. Character design by 上善无形, DeepSeek-themed maid redesign by ZipZipPipe, Live2D model by 氵六青, via [Andersen216/dsh-whale-girl-live2d](https://github.com/Andersen216/dsh-whale-girl-live2d). This is fan art; the project is not affiliated with DeepSeek. For commercial use, switch to another model (`LIVE2D_MODEL=hiyori`) and check its license.
+- **Hiyori** (© Live2D Inc.) is used under the Live2D Free Material License; see [`models/hiyori/LIVE2D_README.txt`](models/hiyori/LIVE2D_README.txt).
+- **Live2D Cubism Core** is under the Live2D Proprietary Software License; PixiJS and pixi-live2d-display are MIT.
 
-Rendering uses [PixiJS](https://github.com/pixijs/pixijs), [pixi-live2d-display](https://github.com/guansss/pixi-live2d-display), and Live2D Cubism Core.
+Full terms and attribution are in [NOTICE.md](NOTICE.md).
