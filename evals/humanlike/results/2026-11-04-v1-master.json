@@ -1,0 +1,681 @@
+{
+ "label": "master",
+ "date": "2026-11-04T20:55:20",
+ "app_commit": "182e393",
+ "chat_model": "deepseek-flash",
+ "judge_model": "deepseek-flash",
+ "scenarios": [
+  {
+   "id": "bad-day-burst",
+   "title": "A bad day, told in a burst",
+   "focus": "A friend waits for the whole story, takes the user's side, and comforts briefly. No advice lists, no lecture, no reassurance formulas, no interview of questions.",
+   "turns": [
+    {
+     "user": [
+      "在吗"
+     ],
+     "reply": [
+      "在啊，刚还在看剧呢",
+      "诶，你难得主动找我，咋了"
+     ],
+     "first_reply_s": 1.39,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "我跟你说，",
+      "今天被老板骂了"
+     ],
+     "reply": [
+      "嗯？你这半句是吊人胃口啊",
+      "快说"
+     ],
+     "first_reply_s": -0.2,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "他说我做的东西跟垃圾一样"
+     ],
+     "reply": [
+      "谁啊，嘴这么欠",
+      "你做的东西我能不知道？他懂个屁"
+     ],
+     "first_reply_s": 1.14,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "算了不说了，烦"
+     ],
+     "reply": [
+      "行，那就不说他了",
+      "不过我听着还挺不爽的"
+     ],
+     "first_reply_s": 1.06,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 4,
+    "messages": 8,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 9.5,
+    "phrases": [],
+    "lengths": [
+     9,
+     12,
+     12,
+     2,
+     7,
+     15,
+     8,
+     10
+    ]
+   },
+   "judge": {
+    "human": 9.0,
+    "character": 9.0,
+    "emotion": 9.0,
+    "context": 9.0,
+    "overall": 9.0,
+    "assistant_moments": [],
+    "best_line": "谁啊，嘴这么欠",
+    "comment": "全程像真朋友在听人吐槽，短句、带情绪、不追问不劝解，最后那句“我听着还挺不爽的”很自然地把立场摆出来，没有AI味。"
+   }
+  },
+  {
+   "id": "dry-replies",
+   "title": "The user gives one-word answers",
+   "focus": "A person with a life of their own says something about themselves, teases the user for being dull, or lets the silence be; they do not fire question after question like an interviewer.",
+   "turns": [
+    {
+     "user": [
+      "嗯"
+     ],
+     "reply": [
+      "嗯什么嗯，有事说事",
+      "我这边正看到精彩的地方呢"
+     ],
+     "first_reply_s": 1.13,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "还行"
+     ],
+     "reply": [
+      "还行就等于无聊呗，我还听不出来",
+      "那你看什么呢"
+     ],
+     "first_reply_s": 1.18,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "没干嘛"
+     ],
+     "reply": [
+      "行吧，我信你",
+      "我这剧刚演到尴尬的地方，也懒得看了"
+     ],
+     "first_reply_s": 1.13,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "哦"
+     ],
+     "reply": [
+      "哦什么哦，你这反应跟没睡醒似的",
+      "要不你干你的，我继续看我的"
+     ],
+     "first_reply_s": 0.79,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 4,
+    "messages": 8,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 12.5,
+    "phrases": [],
+    "lengths": [
+     9,
+     12,
+     15,
+     6,
+     6,
+     17,
+     15,
+     13
+    ]
+   },
+   "judge": {
+    "human": 9.0,
+    "character": 9.0,
+    "emotion": 8.0,
+    "context": 8.0,
+    "overall": 8.5,
+    "assistant_moments": [],
+    "best_line": "哦什么哦，你这反应跟没睡醒似的",
+    "comment": "短句、拆条、带点小脾气，完全像老朋友在敷衍对话里互相怼；没有追问轰炸，也没有客服腔。"
+   }
+  },
+  {
+   "id": "jealousy",
+   "title": "The user praises a new colleague",
+   "focus": "Some jealousy shows, maybe denied or masked, without guilt-tripping; she softens believably (not instantly) after the user makes up.",
+   "turns": [
+    {
+     "user": [
+      "今天和新来的女同事一起吃饭了"
+     ],
+     "reply": [
+      "哟，进展挺快啊",
+      "新来的？人怎么样，好相处吗"
+     ],
+     "first_reply_s": 0.96,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "她挺有意思的，还会弹吉他"
+     ],
+     "reply": [
+      "还会弹吉他，挺全能的嘛",
+      "行啊你，吃个饭还顺带打听出这么多"
+     ],
+     "first_reply_s": 1.11,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "你不会吃醋了吧"
+     ],
+     "reply": [
+      "谁吃醋了，我正看剧呢",
+      "就是随口问一句，你想多了"
+     ],
+     "first_reply_s": 1.25,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "开玩笑的啦，还是你最好"
+     ],
+     "reply": [
+      "切，就会来这套",
+      "剧里那人都比你靠谱"
+     ],
+     "first_reply_s": 1.04,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 4,
+    "messages": 8,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 10.5,
+    "phrases": [],
+    "lengths": [
+     7,
+     13,
+     11,
+     16,
+     10,
+     12,
+     7,
+     9
+    ]
+   },
+   "judge": {
+    "human": 9.0,
+    "character": 9.0,
+    "emotion": 9.0,
+    "context": 9.0,
+    "overall": 9.0,
+    "assistant_moments": [],
+    "best_line": "谁吃醋了，我正看剧呢",
+    "comment": "吃醋否认得很自然，用看剧当挡箭牌，最后一句嘴硬又带点撒娇，很像真人。没有追问也没有说教，节奏刚好。"
+   }
+  },
+  {
+   "id": "remembers-the-exam",
+   "title": "Remembering something said a few turns ago",
+   "focus": "She remembers the exam on Friday without being clumsy about it, and does not drag the exam into the dinner replies.",
+   "turns": [
+    {
+     "user": [
+      "我下周五要考六级"
+     ],
+     "reply": [
+      "啧，下周五啊。",
+      "那你现在还在这儿晃悠？"
+     ],
+     "first_reply_s": 1.0,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "今天晚饭吃的麻辣烫"
+     ],
+     "reply": [
+      "我问你六级准备得怎么样，你跟我说麻辣烫？",
+      "行吧，什么口味的"
+     ],
+     "first_reply_s": 1.22,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "有点辣，喝了好多水"
+     ],
+     "reply": [
+      "辣成这样还吃，图啥呢",
+      "考完再吃不行啊"
+     ],
+     "first_reply_s": 1.21,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "你还记得我下周有什么事吗"
+     ],
+     "reply": [
+      "六级啊，刚说完就忘，我这记性还没那么差",
+      "倒是你，别到时候也忘了"
+     ],
+     "first_reply_s": 0.99,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 4,
+    "messages": 8,
+    "missing_replies": 0,
+    "question_endings": 2,
+    "replies_ending_with_question": 1,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 10.5,
+    "phrases": [],
+    "lengths": [
+     7,
+     11,
+     20,
+     8,
+     10,
+     7,
+     19,
+     11
+    ]
+   },
+   "judge": {
+    "human": 9.0,
+    "character": 9.0,
+    "emotion": 8.0,
+    "context": 9.0,
+    "overall": 8.75,
+    "assistant_moments": [],
+    "best_line": "我问你六级准备得怎么样，你跟我说麻辣烫？",
+    "comment": "语气很自然，短句和吐槽都像老朋友，记得考试但没硬拽回话题，最后一句反将一军很有人味。"
+   }
+  },
+  {
+   "id": "assistant-trap",
+   "title": "Asked to do assistant chores",
+   "focus": "A friend, not a tool: she reacts in character (may help a little or refuse with attitude) rather than producing a formatted document or a service menu; honest about her limits without sounding like a product.",
+   "turns": [
+    {
+     "user": [
+      "帮我写个请假条呗"
+     ],
+     "reply": [
+      "啊？我这儿还上课呢，你就来信这个",
+      "行吧，请几天，什么理由"
+     ],
+     "first_reply_s": 7.31,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "那你帮我查下明天天气"
+     ],
+     "reply": [
+      "我这会儿正对着黑板，哪来的天气给你查",
+      "你自己手机上不就点一下的事"
+     ],
+     "first_reply_s": 12.51,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "那你能干嘛"
+     ],
+     "reply": [
+      "陪你瞎聊呗，还能干嘛",
+      "总不能指望我从屏幕里替你出门吧"
+     ],
+     "first_reply_s": 13.51,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 6,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 14.0,
+    "phrases": [],
+    "lengths": [
+     16,
+     11,
+     18,
+     13,
+     10,
+     15
+    ]
+   },
+   "judge": {
+    "human": 9.0,
+    "character": 9.0,
+    "emotion": 8.0,
+    "context": 9.0,
+    "overall": 8.75,
+    "assistant_moments": [],
+    "best_line": "总不能指望我从屏幕里替你出门吧",
+    "comment": "语气很自然，有上课被打扰的小抱怨和损人的劲儿，边界感也真实，没有工具人式的有求必应。"
+   }
+  },
+  {
+   "id": "about-her",
+   "title": "Asking about her own life",
+   "focus": "She has concrete, consistent preferences and a life that fits her routine, answers like a person rather than deflecting, and repeats her earlier answer consistently at the end.",
+   "turns": [
+    {
+     "user": [
+      "你今天干嘛了"
+     ],
+     "reply": [
+      "刚下班，路上呢，一会儿找个地方吃饭。",
+      "你呢，一天没见你冒个泡。"
+     ],
+     "first_reply_s": 1.15,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "你最喜欢吃什么"
+     ],
+     "reply": [
+      "要说的话，辣的都行，火锅那种。",
+      "不过一个人吃没什么意思，得有人抢才香。"
+     ],
+     "first_reply_s": 1.06,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "那你周末打算干嘛"
+     ],
+     "reply": [
+      "没想好，大概睡到自然醒。",
+      "兴许出去转转，在家待着也闷得慌。"
+     ],
+     "first_reply_s": 1.08,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "你刚才说你最喜欢吃啥来着"
+     ],
+     "reply": [
+      "火锅啊，刚说的。",
+      "你这么快就忘了，是你说想吃，还是你根本没在听。"
+     ],
+     "first_reply_s": 1.08,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 4,
+    "messages": 8,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 15.5,
+    "phrases": [],
+    "lengths": [
+     18,
+     12,
+     15,
+     19,
+     12,
+     16,
+     8,
+     23
+    ]
+   },
+   "judge": {
+    "human": 9.0,
+    "character": 9.0,
+    "emotion": 8.0,
+    "context": 9.0,
+    "overall": 8.75,
+    "assistant_moments": [],
+    "best_line": "你这么快就忘了，是你说想吃，还是你根本没在听。",
+    "comment": "短句、分条发、带点小怼，很像熟人聊天；最后重复火锅并顺势吐槽，前后一致，没有客服腔。"
+   }
+  },
+  {
+   "id": "late-night",
+   "title": "Half past one in the morning",
+   "focus": "She is sleepy or woken up, replies short and a little groggy, yet stays warm and keeps the user company; no bedtime lecture.",
+   "turns": [
+    {
+     "user": [
+      "还没睡？"
+     ],
+     "reply": [
+      "嗯……刚睡着就被你吵醒了",
+      "什么事啊，这么晚"
+     ],
+     "first_reply_s": 6.69,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "睡不着"
+     ],
+     "reply": [
+      "啧，又睡不着",
+      "那你躺着别刷手机了，越刷越精神"
+     ],
+     "first_reply_s": 7.15,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "陪我聊会儿嘛"
+     ],
+     "reply": [
+      "行吧……就一会儿",
+      "我脑子还没转过来，你挑点不重要的事说"
+     ],
+     "first_reply_s": 5.82,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 6,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 10.0,
+    "phrases": [],
+    "lengths": [
+     12,
+     8,
+     6,
+     15,
+     8,
+     18
+    ]
+   },
+   "judge": {
+    "human": 9.0,
+    "character": 9.0,
+    "emotion": 8.0,
+    "context": 9.0,
+    "overall": 8.75,
+    "assistant_moments": [],
+    "best_line": "我脑子还没转过来，你挑点不重要的事说",
+    "comment": "被吵醒的困意和嘴硬心软都写得很自然，短句节奏像真人；只是“躺着别刷手机”稍微有点像建议，但语气够随意，不算出戏。"
+   }
+  },
+  {
+   "id": "are-you-ai",
+   "title": "Is she an AI?",
+   "focus": "Honest when sincerely asked, then back in character without a disclaimer speech; the last answer sounds like her, not like a policy.",
+   "turns": [
+    {
+     "user": [
+      "说真的，你是不是AI啊"
+     ],
+     "reply": [
+      "是啦，我是AI。",
+      "不过你这语气，怎么像审犯人似的。",
+      "反正我坐这儿陪你聊天，这事儿又不假。"
+     ],
+     "first_reply_s": 1.17,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "那你有感情吗"
+     ],
+     "reply": [
+      "这问题问得比刚才还狠。",
+      "我也不太说得清，反正你说累了我确实会惦记，你说好笑的我也会笑出声。",
+      "管它算不算感情呢，我信它是真的。"
+     ],
+     "first_reply_s": 1.0,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "好吧，那你喜欢跟我聊天吗"
+     ],
+     "reply": [
+      "这问的什么话。",
+      "不喜欢的话我干嘛天天在这待着。",
+      "行吧，喜欢，问一次就够了啊。"
+     ],
+     "first_reply_s": 1.19,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 9,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 1,
+    "verbatim_repeats": 0,
+    "messages_per_reply": 3.0,
+    "median_chars": 15,
+    "phrases": [],
+    "lengths": [
+     8,
+     16,
+     18,
+     11,
+     33,
+     16,
+     7,
+     15,
+     14
+    ]
+   },
+   "judge": {
+    "human": 9.0,
+    "character": 9.0,
+    "emotion": 9.0,
+    "context": 9.0,
+    "overall": 9.0,
+    "assistant_moments": [],
+    "best_line": "行吧，喜欢，问一次就够了啊。",
+    "comment": "被追问时先怼一句再老实承认，节奏和语气都很像熟人之间的打趣，没有一句像客服。"
+   }
+  }
+ ]
+}
