@@ -54,6 +54,10 @@ METRIC_ROWS = (
     ("verbatim_repeats", "Messages repeated word for word", "{}"),
     ("missing_replies", "Turns without a reply", "{}"),
     ("bubbles_before_user_finished", "Her bubbles before the user finished a burst", "{}"),
+    ("questions", "Question marks in her messages", "{}"),
+    ("either_or", "Either-or guesses (是A还是B)", "{}"),
+    ("echo_questions", "Questions echoing the user's words (抱着一只猫？)", "{}"),
+    ("stage_directions", "Stage directions （…）", "{}"),
 )
 
 
