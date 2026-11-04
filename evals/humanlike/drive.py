@@ -121,10 +121,19 @@ def main(argv: list[str] | None = None) -> int:
             while not window.chat_input.isEnabled() and time.monotonic() - blocked_at < TURN_TIMEOUT_S:
                 pump(0.05)
             waited.append(round(time.monotonic() - blocked_at, 2))
+            # "quote": [turn, message] quotes her message from an earlier turn of this run (apps
+            # without quote replies just send the text).
+            seen_as = text
+            if index == 0 and turn.get("quote") and hasattr(window, "set_quote"):
+                at_turn, at_message = turn["quote"]
+                earlier = turns[at_turn]["reply"]
+                if at_message < len(earlier):
+                    window.set_quote(earlier[at_message], False)
+                    seen_as = f"（引用她说的「{earlier[at_message]}」）{text}"
             window.chat_input.setText(text)
             window.send_message()
             last_sent = time.monotonic()
-            sends.append((last_sent, text))
+            sends.append((last_sent, seen_as))
         pump(0.2)
         end = time.monotonic() + TURN_TIMEOUT_S
         while not idle() and time.monotonic() < end:

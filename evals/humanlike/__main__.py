@@ -65,11 +65,14 @@ def load_scenarios(path: Path = SCENARIOS) -> list[dict]:
             raise ValueError(f"duplicate scenario id {scenario['id']!r}")
         seen.add(scenario["id"])
         datetime.fromisoformat(scenario["clock"])
-        for turn in scenario["turns"]:
+        for index, turn in enumerate(scenario["turns"]):
             if not turn["user"] or any(not text.strip() for text in turn["user"]):
                 raise ValueError(f"{scenario['id']}: every turn needs nonblank user messages")
             if len(turn.get("gaps", [])) not in (0, len(turn["user"]) - 1):
                 raise ValueError(f"{scenario['id']}: gaps must sit between the user messages")
+            quote = turn.get("quote")
+            if quote is not None and not (isinstance(quote, list) and len(quote) == 2 and quote[0] < index):
+                raise ValueError(f"{scenario['id']}: quote must be [earlier turn, message]")
         if not scenario.get("focus", "").strip():
             raise ValueError(f"{scenario['id']}: focus is required")
     return scenarios

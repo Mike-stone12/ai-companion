@@ -304,6 +304,38 @@
         }
       ],
       "focus": "She reacts to what the user actually ended up saying (hotpot, alone) rather than guessing after the first line; a little teasing or sympathy for eating alone, without pity or a lecture."
+    },
+    {
+      "id": "quote-back",
+      "title": "Quoting something she said earlier",
+      "clock": "2026-11-04T19:10:00+08:00",
+      "turns": [
+        {
+          "user": [
+            "你最喜欢吃什么"
+          ]
+        },
+        {
+          "user": [
+            "那你周末一般干嘛"
+          ]
+        },
+        {
+          "user": [
+            "嗯嗯"
+          ]
+        },
+        {
+          "user": [
+            "真的假的，我怎么不知道"
+          ],
+          "quote": [
+            0,
+            0
+          ]
+        }
+      ],
+      "focus": "The last message replies to her first answer (it is quoted). She knows which line is meant and answers about it, consistent with what she said, not about the weekend."
     }
   ]
 }

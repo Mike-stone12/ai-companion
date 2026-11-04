@@ -119,7 +119,7 @@ def test_plain_text_still_goes_straight_to_chat(window):
 
     window.send_message()
 
-    window.submit_message.assert_called_once_with("你好")
+    window.submit_message.assert_called_once_with("你好", None)
 
 
 def test_same_host_reuses_the_chat_key(window):

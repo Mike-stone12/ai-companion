@@ -69,6 +69,7 @@ from companion.core.chat.pacing import (
     split_for_display,
     typing_delay,
 )
+from companion.core.chat.quote import MARKER, clip_quote, quote_display, quote_turn_text
 from companion.core.chat.summary import build_chat_messages, plan_summary_update
 from companion.core.config import AppConfig
 from companion.core.diary import (
@@ -592,6 +593,26 @@ class CompanionWindow(QWidget):
             self.chat_panel.load(turns)
         else:
             self.chat_panel.add_notice("Type a message to wake your companion.")
+        self.chat_panel.quote_requested.connect(self.set_quote)
+
+        # The line being replied to, shown above the input until it is sent or dismissed.
+        self.pending_quote: tuple[str, bool] | None = None
+        quote_bar = self.quote_bar = QFrame()
+        quote_bar.setObjectName("quoteBar")
+        quote_layout = QHBoxLayout(quote_bar)
+        quote_layout.setContentsMargins(10, 2, 4, 2)
+        quote_layout.setSpacing(6)
+        self.quote_label = QLabel()
+        self.quote_label.setObjectName("quoteLabel")
+        self.quote_label.setTextFormat(Qt.TextFormat.PlainText)
+        quote_layout.addWidget(self.quote_label, 1)
+        quote_clear = QPushButton("✕")
+        quote_clear.setObjectName("quoteClear")
+        quote_clear.setToolTip("Cancel the quote")
+        quote_clear.clicked.connect(self.clear_quote)
+        quote_layout.addWidget(quote_clear)
+        quote_bar.hide()
+        root_layout.addWidget(quote_bar)
 
         controls = self.controls = QFrame()
         controls.setObjectName("controls")
@@ -652,6 +673,20 @@ class CompanionWindow(QWidget):
             }
             QLabel#typingBubble {
                 font-style: italic;
+            }
+            QFrame#quoteBar {
+                background-color: rgba(255, 255, 255, 0.6);
+                border-left: 3px solid rgba(108, 140, 255, 0.92);
+                border-radius: 6px;
+            }
+            QLabel#quoteLabel {
+                color: rgba(31, 35, 48, 0.7);
+                font-size: 12px;
+            }
+            QPushButton#quoteClear {
+                border: 0;
+                background: transparent;
+                padding: 0 6px;
             }
             QLabel#dragLabel {
                 color: rgba(31, 35, 48, 0.45);
@@ -1476,10 +1511,35 @@ class CompanionWindow(QWidget):
         if getattr(self, "pending_image", None) is not None and not self.busy and self.vision_api_key is not None:
             self.send_picture(self.chat_input.text().strip())
             return
+        text = self.chat_input.text().strip()
+        if not text or (self.busy and not self.merge_on()):
+            return
+        turn, display = self.take_quote(text)
         if self.merge_on():
-            self.collect_message(self.chat_input.text().strip())
+            self.collect_message(turn, display)
         else:
-            self.submit_message(self.chat_input.text().strip())
+            self.submit_message(turn, display)
+
+    def set_quote(self, text: str, own: bool) -> None:
+        """Reply to one earlier bubble (right-click > Quote)."""
+        self.pending_quote = (text, own)
+        self.quote_label.setText(f"{MARKER} {clip_quote(text)}")
+        self.quote_bar.show()
+        self.chat_input.setFocus()
+
+    def clear_quote(self) -> None:
+        self.pending_quote = None
+        if hasattr(self, "quote_bar"):
+            self.quote_bar.hide()
+
+    def take_quote(self, text: str) -> tuple[str, str | None]:
+        """(turn text for the model, bubble text or None) for a message, using up any quote."""
+        quote = getattr(self, "pending_quote", None)
+        if quote is None:
+            return text, None
+        self.clear_quote()
+        quoted, own = quote
+        return quote_turn_text(quoted, own=own, text=text), quote_display(quoted, text)
 
     def merge_on(self) -> bool:
         return bool(getattr(self.config, "message_merge", False))
@@ -1488,12 +1548,12 @@ class CompanionWindow(QWidget):
         merger = getattr(self, "merger", None)
         return bool(merger) or (hasattr(self, "merge_timer") and self.merge_timer.isActive())
 
-    def collect_message(self, user_text: str) -> None:
+    def collect_message(self, user_text: str, display: str | None = None) -> None:
         """Typed messages wait for the rest of the burst; the input stays open meanwhile."""
         if not user_text:
             return
         self.chat_input.clear()
-        self.chat_panel.add_user(user_text)
+        self.chat_panel.add_user(display or user_text)
         if self.proactive is not None:
             self.proactive.record_activity(local_now())
         self.merger.add(user_text, time.monotonic())
