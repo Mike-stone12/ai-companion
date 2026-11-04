@@ -126,7 +126,9 @@ def run_extractor(
 
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--cases", type=Path, default=CASES_PATH, help="dataset (default: evals/memory_benchmark/cases.jsonl)")
+    parser.add_argument(
+        "--cases", type=Path, default=CASES_PATH, help="dataset (default: evals/memory_benchmark/cases.jsonl)"
+    )
     parser.add_argument("--extractor", choices=("heuristic", "llm"), default="heuristic")
     parser.add_argument("--gated-only", action="store_true", help="only run the extractor on messages the gate passes")
     parser.add_argument("--rpm", type=float, default=0, help="pace extractor calls to this many requests per minute")

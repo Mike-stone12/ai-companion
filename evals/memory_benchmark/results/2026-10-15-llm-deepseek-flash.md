@@ -8,7 +8,7 @@
 | gated_only | False |
 | model | deepseek-flash |
 | base_url | https://api.deepseek.com/v1 |
-| rescored_from | eval/memory/results/2026-10-15-llm-deepseek-flash.jsonl |
+| rescored_from | evals/memory_benchmark/results/2026-10-15-llm-deepseek-flash.jsonl |
 
 ## Gate (rule-based, no API calls)
 

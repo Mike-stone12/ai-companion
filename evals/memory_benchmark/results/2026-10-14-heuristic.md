@@ -6,7 +6,7 @@
 | started | 2026-10-14T23:43:34 |
 | cases | cases.jsonl (93 cases) |
 | gated_only | False |
-| rescored_from | eval/memory/results/2026-10-14-heuristic.jsonl |
+| rescored_from | evals/memory_benchmark/results/2026-10-14-heuristic.jsonl |
 
 ## Gate (rule-based, no API calls)
 
