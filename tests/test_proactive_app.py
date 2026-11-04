@@ -28,6 +28,7 @@ def window(tmp_path):
         "on_reply_delta", "on_reply_sentence", "on_reply_finished", "render_reply", "history_text", "record_reply",
         "maybe_finish_reply", "finish_interaction", "closeEvent", "submit_message",
         "record_user_activity", "record_reply_mood", "precheck_distress", "pacing_on",
+        "merge_on", "merge_waiting", "reply_started",
     }
     cls.bases = [ast.Name(id="FakeWidget", ctx=ast.Load())]
     cls.body = [node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name in methods]

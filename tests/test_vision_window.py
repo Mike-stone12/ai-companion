@@ -31,7 +31,9 @@ def window():
     )
     instance = cls.__new__(cls)
     instance.thread, instance.clients = thread, clients
-    instance.config = AppConfig(base_url="https://api.deepseek.com/v1", model="deepseek-flash", api_key="k")
+    instance.config = AppConfig(
+        base_url="https://api.deepseek.com/v1", model="deepseek-flash", api_key="k", message_merge=False,
+    )
     instance.vision_model = "deepseek-flash"
     instance.vision_api_key = "k"
     instance.own_key = own_key
