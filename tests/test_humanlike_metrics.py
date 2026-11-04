@@ -92,3 +92,19 @@ def test_the_scenario_file_is_valid():
     scenarios = load_scenarios()
     assert len(scenarios) >= 8
     assert any(len(turn["user"]) > 1 for s in scenarios for turn in s["turns"])
+
+
+def test_answering_a_burst_halfway_is_counted():
+    halfway = {
+        "user": ["我今天在地铁上", "看到一只猫"], "reply": ["然后呢", "哇"],
+        "timeline": [[0, "user", "我今天在地铁上"], [1, "her", "然后呢"], [2, "user", "看到一只猫"], [3, "her", "哇"]],
+    }
+    waited = {
+        "user": ["我今天在地铁上", "看到一只猫"], "reply": ["哇"],
+        "timeline": [[0, "user", "我今天在地铁上"], [2, "user", "看到一只猫"], [4, "her", "哇"]],
+    }
+    single = {"user": ["嗯"], "reply": ["干嘛"], "timeline": [[0, "user", "嗯"], [1, "her", "干嘛"]]}
+    m = transcript_metrics([halfway, waited, single])
+    assert m["burst_turns"] == 2
+    assert m["bursts_interrupted"] == 1
+    assert m["bubbles_before_user_finished"] == 1

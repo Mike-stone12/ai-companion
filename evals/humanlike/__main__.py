@@ -4,6 +4,7 @@
     python -m evals.humanlike run --label my-change --app-dir ../other-checkout
     python -m evals.humanlike run --fake --no-judge             # dry run against a local fake endpoint
     python -m evals.humanlike compare results/A.json results/B.json
+    python -m evals.humanlike report results/A.json             # rewrite the .md with current metrics
 
 ``run`` plays every scenario in ``scenarios.json`` through ``CompanionWindow`` (one fresh
 process and data directory each), then reports rule-based metrics (metrics.py) and, unless
@@ -52,6 +53,7 @@ METRIC_ROWS = (
     ("repeated_openers", "Replies opening like an earlier one", "{}"),
     ("verbatim_repeats", "Messages repeated word for word", "{}"),
     ("missing_replies", "Turns without a reply", "{}"),
+    ("bubbles_before_user_finished", "Her bubbles before the user finished a burst", "{}"),
 )
 
 
@@ -202,6 +204,7 @@ def report(run_data: dict) -> str:
     waits = [t["first_reply_s"] for s in scenarios for t in s["turns"] if t.get("first_reply_s") is not None]
     if waits:
         lines.append(f"| Median wait for her first bubble after the user's last line (s) | {median(waits):.2f} |")
+    lines.append(f"| Bursts she answered halfway | {total['bursts_interrupted']} / {total['burst_turns']} |")
     lines.append(f"| Replies / messages | {total['replies']} / {total['messages']} |")
     if total["phrases"]:
         lines.append(f"| Phrases found | {', '.join(sorted(set(total['phrases'])))} |")
@@ -276,12 +279,21 @@ def main(argv: list[str] | None = None) -> None:
     run_parser.add_argument("--fake", action="store_true", help="use a local fake endpoint (dry run)")
     run_parser.add_argument("--no-judge", action="store_true", help="skip the LLM judge")
     run_parser.add_argument("--repeat", type=int, default=2, help="play every scenario this many times (default 2)")
+    report_parser = sub.add_parser("report", help="rewrite a saved run's .md (no requests)")
+    report_parser.add_argument("results", type=Path)
     compare_parser = sub.add_parser("compare", help="blind A/B of two saved runs")
     compare_parser.add_argument("before")
     compare_parser.add_argument("after")
     args = parser.parse_args(argv)
     if args.command == "run":
         run(args)
+    elif args.command == "report":
+        run_data = json.loads(args.results.read_text(encoding="utf-8"))
+        # Metrics are recomputed from the transcripts, so new metrics apply to old runs.
+        for scenario in run_data["scenarios"]:
+            scenario["metrics"] = transcript_metrics(scenario["turns"])
+        args.results.with_suffix(".md").write_text(report(run_data), encoding="utf-8")
+        print(report(run_data).split("\n## ")[0])
     else:
         compare(args)
 

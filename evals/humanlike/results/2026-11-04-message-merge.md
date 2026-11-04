@@ -19,7 +19,9 @@ App 04f1932, chat model `deepseek-flash`, judge `deepseek-v4-pro`, 2026-11-04T21
 | Replies opening like an earlier one | 0 |
 | Messages repeated word for word | 0 |
 | Turns without a reply | 0 |
+| Her bubbles before the user finished a burst | 0 |
 | Median wait for her first bubble after the user's last line (s) | 2.75 |
+| Bursts she answered halfway | 0 / 10 |
 | Replies / messages | 76 / 180 |
 
 ## bad-day-burst (run 1): A bad day, told in a burst

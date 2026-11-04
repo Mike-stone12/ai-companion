@@ -46,9 +46,18 @@ def transcript_metrics(turns: list[dict]) -> dict:
         "replies": 0, "messages": 0, "missing_replies": 0, "question_endings": 0,
         "replies_ending_with_question": 0, "assistant_phrase_hits": 0, "markdown": 0, "exclamations": 0,
         "emoji": 0, "tilde": 0, "repeated_openers": 0, "verbatim_repeats": 0,
+        "burst_turns": 0, "bursts_interrupted": 0, "bubbles_before_user_finished": 0,
     }
     phrases: list[str] = []
     for turn in turns:
+        # A burst the user is still typing: her bubbles before the user's last line answered half of it.
+        timeline = turn.get("timeline") or []
+        user_positions = [i for i, (_, who, _) in enumerate(timeline) if who == "user"]
+        if len(user_positions) > 1:
+            early = sum(1 for i, (_, who, _) in enumerate(timeline) if who == "her" and i < user_positions[-1])
+            totals["burst_turns"] += 1
+            totals["bursts_interrupted"] += early > 0
+            totals["bubbles_before_user_finished"] += early
         messages = [m.strip() for m in turn.get("reply", []) if m.strip()]
         totals["replies"] += 1
         if not messages:
@@ -84,7 +93,7 @@ def summarize(per_scenario: list[dict]) -> dict:
     keys = (
         "replies", "messages", "missing_replies", "question_endings", "replies_ending_with_question",
         "assistant_phrase_hits", "markdown", "exclamations", "emoji", "tilde", "repeated_openers",
-        "verbatim_repeats",
+        "verbatim_repeats", "burst_turns", "bursts_interrupted", "bubbles_before_user_finished",
     )
     total = {key: sum(m[key] for m in per_scenario) for key in keys}
     lengths = [length for m in per_scenario for length in m.get("lengths", [])]
