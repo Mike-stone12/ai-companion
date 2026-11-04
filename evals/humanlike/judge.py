@@ -16,32 +16,39 @@ from collections.abc import Callable
 Judge = Callable[[list[dict[str, str]]], str]
 SCORE_KEYS = ("human", "character", "emotion", "context")
 
-RUBRIC = """You judge how much a companion character's chat replies feel like a real person texting \
-someone close (Chinese casual texting between old friends), not like an AI assistant.
+RUBRIC = """You are a strict judge of whether a companion character's chat replies feel like a real \
+person texting someone close (Chinese casual texting between old friends), or like an AI.
 
 The character: {persona}
 
-Score each 1-10 (10 = indistinguishable from a real close friend):
-- human: reads like a real person texting: length, rhythm, splitting into short messages, wording, \
-not eager, not formulaic, no assistant habits (advice lists, reassurance formulas, offers to help, \
-a question at the end of every reply, formatting).
-- character: consistent with the character and her own life, preferences, and mood.
-- emotion: emotional fit and tact for what the user said: neither flat nor overdone; takes the \
-user's side when they are down.
-- context: follows the conversation and remembers what was said; no forced callbacks.
+First list every flaw you can find, quoting the line: assistant habits (advice, reassurance formulas, \
+offers to help, explaining herself or her limits, a question at the end of most replies, interviewing \
+the user), unnatural rhythm (answering half a sentence before the user finished, instant long replies), \
+repetition, forced or wrong callbacks, things the user did not say, tone that is off for the moment, \
+lines that are too polished or "written". Then score each 1-10:
+- human: could this be a real friend's chat log?
+- character: consistent with the character, her own life, preferences, and mood.
+- emotion: emotional fit and tact for what the user said.
+- context: follows the conversation, remembers what was said, answers what the user actually said.
+
+Calibration: typical chatbot output deserves 4-6; good roleplay with a few tells 7; 8 only with no \
+clear tell; 9-10 only if you would bet it is a real person. Start from 6 and move per flaw or strength.
 
 What a real person would do in this scene: {focus}
 
-Lines starting with "用户" are the user; lines starting with "她" are the character; each line is one \
-chat message. Reply with JSON only:
-{{"human": n, "character": n, "emotion": n, "context": n, \
+Each line is one chat bubble. "用户" is the user, "她" is the character; [n s] is seconds since the \
+user's first message in that exchange (a line sent while she was replying shows up between her lines). \
+Reply with JSON only:
+{{"flaws": ["quoted line: what is wrong"], "human": n, "character": n, "emotion": n, "context": n, \
 "assistant_moments": ["exact lines that sound like an assistant or a bot"], \
 "best_line": "the most human line", "comment": "one or two sentences in Chinese"}}"""
 
 PAIRWISE = """You compare two versions of the same chat between a user and a companion character, \
 and decide which character feels more like a real person texting someone close (Chinese casual \
 texting between old friends) rather than an AI assistant. Consider wording, length and rhythm, \
-emotional tact, consistency, memory of the conversation, and the absence of assistant habits.
+emotional tact, consistency, memory of the conversation, timing ([n s] = seconds since the user's \
+first message in that exchange), and the absence of assistant habits. Both versions may be good; \
+pick the one with fewer tells, and say tie only if you truly cannot tell them apart.
 
 The character: {persona}
 What a real person would do in this scene: {focus}
@@ -56,8 +63,15 @@ Reply with JSON only: {{"winner": "A" | "B" | "tie", "reason": "one sentence in 
 
 
 def render_transcript(turns: list[dict]) -> str:
+    """One line per bubble, with timing when the run recorded it."""
     lines = []
     for turn in turns:
+        timeline = turn.get("timeline")
+        if timeline:
+            lines += [f"[{t:g}s] {'用户' if who == 'user' else '她'}：{text}" for t, who, text in timeline]
+            if not any(who == "her" for _, who, _ in timeline):
+                lines.append("她：（没有回复）")
+            continue
         lines += [f"用户：{message}" for message in turn.get("user", [])]
         lines += [f"她：{message}" for message in turn.get("reply", [])] or ["她：（没有回复）"]
     return "\n".join(lines)
@@ -91,6 +105,7 @@ def score(judge: Judge, turns: list[dict], *, persona: str, focus: str) -> dict:
     return {
         **scores,
         "overall": sum(scores.values()) / len(scores),
+        "flaws": [str(f) for f in (data.get("flaws") or []) if str(f).strip()][:8],
         "assistant_moments": [str(m) for m in moments if str(m).strip()][:5],
         "best_line": str(data.get("best_line", "")),
         "comment": str(data.get("comment", "")),

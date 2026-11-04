@@ -62,3 +62,14 @@ def test_compare_runs_both_orders_and_maps_them_back():
 def test_a_split_decision_is_a_tie_and_one_tie_defers_to_the_other_vote():
     assert compare(scripted("A", "A"), TURNS, TURNS, persona="p", focus="f")["result"] == "tie"
     assert compare(scripted("tie", "A"), TURNS, TURNS, persona="p", focus="f")["result"] == "after"
+
+
+def test_a_recorded_timeline_is_rendered_in_order_with_seconds():
+    turn = {
+        "user": ["我跟你说，", "今天被老板骂了"],
+        "reply": ["快说"],
+        "timeline": [[0.0, "user", "我跟你说，"], [1.4, "her", "快说"], [6.2, "user", "今天被老板骂了"]],
+    }
+    assert render_transcript([turn]).splitlines() == [
+        "[0s] 用户：我跟你说，", "[1.4s] 她：快说", "[6.2s] 用户：今天被老板骂了",
+    ]

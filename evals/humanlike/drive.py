@@ -110,12 +110,21 @@ def main(argv: list[str] | None = None) -> int:
         before = len(window.messages)
         shown_before = len(shown)
         last_sent = 0.0
+        waited = []
+        sends: list[tuple[float, str]] = []
         for index, text in enumerate(turn["user"]):
             if index:
                 pump(gaps[index - 1] if index - 1 < len(gaps) else 1.0)
+            # Like a real user, wait while the app will not take input (before message merging,
+            # the input is disabled while she replies), then send.
+            blocked_at = time.monotonic()
+            while not window.chat_input.isEnabled() and time.monotonic() - blocked_at < TURN_TIMEOUT_S:
+                pump(0.05)
+            waited.append(round(time.monotonic() - blocked_at, 2))
             window.chat_input.setText(text)
             window.send_message()
             last_sent = time.monotonic()
+            sends.append((last_sent, text))
         pump(0.2)
         end = time.monotonic() + TURN_TIMEOUT_S
         while not idle() and time.monotonic() < end:
@@ -123,10 +132,19 @@ def main(argv: list[str] | None = None) -> int:
         replies = [m["content"] for m in window.messages[before:] if m["role"] == "assistant"]
         lines = [strip_tag(line) for content in replies for line in content.splitlines()]
         new_shown = shown[shown_before:]
+        # What the user saw, in order, with seconds since the turn's first message: bubbles from
+        # both sides, so a reply to half a sentence or a line sent mid-reply is visible.
+        origin = sends[0][0]
+        timeline = sorted(
+            [(t, "user", text) for t, text in sends] + [(t, "her", text) for t, text in new_shown]
+        )
         turns.append({
             "user": turn["user"],
             "reply": [line for line in lines if line],
-            "first_reply_s": round(new_shown[0][0] - last_sent, 2) if new_shown else None,
+            "timeline": [[round(t - origin, 1), who, text] for t, who, text in timeline],
+            "waited_s": waited,
+            # Her first bubble after the user's last line: how long the user waited for an answer.
+            "first_reply_s": next((round(t - last_sent, 2) for t, _ in new_shown if t >= last_sent), None),
             "timed_out": not idle(),
         })
         pump(1.0)

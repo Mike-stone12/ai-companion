@@ -23,7 +23,7 @@ import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from statistics import mean
+from statistics import mean, median
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -138,15 +138,17 @@ def run(args: argparse.Namespace) -> Path:
 
         server, base_url = fake_server.start()
     judge_model, judge = (None, None) if args.no_judge else make_judge(os.getenv("JUDGE_MODEL"))
-    print(f"Playing {len(scenarios)} scenarios in {app_dir} ({git_commit(app_dir)})")
-    transcripts = play(scenarios, app_dir, base_url)
+    print(f"Playing {len(scenarios)} scenarios x {args.repeat} in {app_dir} ({git_commit(app_dir)})")
+    played = []
+    for run_index in range(1, args.repeat + 1):
+        played += [(run_index, s, t) for s, t in zip(scenarios, play(scenarios, app_dir, base_url), strict=True)]
     if server is not None:
         server.shutdown()
 
     results = []
-    for scenario, transcript in zip(scenarios, transcripts, strict=True):
+    for run_index, scenario, transcript in played:
         entry = {
-            "id": scenario["id"], "title": scenario["title"], "focus": scenario["focus"],
+            "id": scenario["id"], "run": run_index, "title": scenario["title"], "focus": scenario["focus"],
             "turns": transcript["turns"], "metrics": transcript_metrics(transcript["turns"]),
         }
         if transcript.get("error"):
@@ -162,7 +164,7 @@ def run(args: argparse.Namespace) -> Path:
     run_data = {
         "label": args.label, "date": datetime.now().isoformat(timespec="seconds"),
         "app_commit": git_commit(app_dir), "chat_model": "fake" if args.fake else os.getenv("OPENAI_MODEL", ""),
-        "judge_model": judge_model, "scenarios": results,
+        "judge_model": judge_model, "repeat": args.repeat, "scenarios": results,
     }
     RESULTS.mkdir(exist_ok=True)
     stem = f"{datetime.now():%Y-%m-%d}-{args.label}"
@@ -197,17 +199,22 @@ def report(run_data: dict) -> str:
         if key in means:
             lines.append(f"| Judge: {key} (1-10) | {means[key]:.2f} |")
     lines += [f"| {label} | {fmt.format(total[key])} |" for key, label, fmt in METRIC_ROWS]
+    waits = [t["first_reply_s"] for s in scenarios for t in s["turns"] if t.get("first_reply_s") is not None]
+    if waits:
+        lines.append(f"| Median wait for her first bubble after the user's last line (s) | {median(waits):.2f} |")
     lines.append(f"| Replies / messages | {total['replies']} / {total['messages']} |")
     if total["phrases"]:
         lines.append(f"| Phrases found | {', '.join(sorted(set(total['phrases'])))} |")
     for s in scenarios:
-        lines += ["", f"## {s['id']}: {s['title']}", ""]
+        lines += ["", f"## {s['id']} (run {s.get('run', 1)}): {s['title']}", ""]
         if "judge" in s:
             j = s["judge"]
             lines.append(
                 f"Judge: human {j['human']:g}, character {j['character']:g}, emotion {j['emotion']:g}, "
                 f"context {j['context']:g}. {j['comment']}"
             )
+            if j.get("flaws"):
+                lines.append(f"Flaws: {' / '.join(j['flaws'])}")
             if j["assistant_moments"]:
                 lines.append(f"Assistant-like: {' / '.join(j['assistant_moments'])}")
             lines.append("")
@@ -224,15 +231,15 @@ def compare(args: argparse.Namespace) -> None:
     before = json.loads(Path(args.before).read_text(encoding="utf-8"))
     after = json.loads(Path(args.after).read_text(encoding="utf-8"))
     judge_model, judge = make_judge(os.getenv("JUDGE_MODEL"))
-    by_id = {s["id"]: s for s in before["scenarios"]}
+    by_id = {(s["id"], s.get("run", 1)): s for s in before["scenarios"]}
     rows, tally = [], {"after": 0, "before": 0, "tie": 0}
     for s in after["scenarios"]:
-        if s["id"] not in by_id or not s["turns"] or not by_id[s["id"]]["turns"]:
+        key = (s["id"], s.get("run", 1))
+        if key not in by_id or not s["turns"] or not by_id[key]["turns"]:
             continue
-        verdict = judging.compare(judge, by_id[s["id"]]["turns"], s["turns"], persona=PERSONA_SUMMARY,
-                                  focus=s["focus"])
+        verdict = judging.compare(judge, by_id[key]["turns"], s["turns"], persona=PERSONA_SUMMARY, focus=s["focus"])
         tally[verdict["result"]] += 1
-        rows.append(f"| {s['id']} | {verdict['result']} | {' / '.join(verdict['reasons'])} |")
+        rows.append(f"| {s['id']} #{key[1]} | {verdict['result']} | {' / '.join(verdict['reasons'])} |")
     text = "\n".join([
         f"# {after['label']} vs {before['label']}",
         "",
@@ -268,6 +275,7 @@ def main(argv: list[str] | None = None) -> None:
     run_parser.add_argument("--only", help="comma-separated scenario ids")
     run_parser.add_argument("--fake", action="store_true", help="use a local fake endpoint (dry run)")
     run_parser.add_argument("--no-judge", action="store_true", help="skip the LLM judge")
+    run_parser.add_argument("--repeat", type=int, default=2, help="play every scenario this many times (default 2)")
     compare_parser = sub.add_parser("compare", help="blind A/B of two saved runs")
     compare_parser.add_argument("before")
     compare_parser.add_argument("after")
