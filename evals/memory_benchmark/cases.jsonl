@@ -1,0 +1,93 @@
+{"id": "identity-01", "group": "identity", "lang": "zh", "user": "我叫小林，你以后就这么叫我吧", "assistant": "好的小林，很高兴认识你！", "expected": [{"fact": "用户名叫小林", "keys": ["小林"]}]}
+{"id": "identity-02", "group": "identity", "lang": "zh", "user": "你可以叫我阿杰", "assistant": "阿杰，这个名字很好听～", "expected": [{"fact": "用户名叫阿杰", "keys": ["阿杰"]}]}
+{"id": "identity-03", "group": "identity", "lang": "zh", "user": "我今年24岁，刚毕业一年", "assistant": "原来是刚毕业的年纪呀，一切都还新鲜！", "expected": [{"fact": "用户24岁", "keys": ["24"]}, {"fact": "用户毕业一年", "keys": ["毕业"]}], "note": "no gate keyword"}
+{"id": "identity-04", "group": "identity", "lang": "zh", "user": "我是一名大学生，在杭州读计算机", "assistant": "计算机专业很厉害呀，课业重吗？", "expected": [{"fact": "用户是大学生", "keys": ["大学生|学生"]}, {"fact": "用户在杭州", "keys": ["杭州"]}, {"fact": "用户读计算机", "keys": ["计算机"]}]}
+{"id": "identity-05", "group": "identity", "lang": "zh", "user": "我住在上海浦东，离公司挺近的", "assistant": "住得近真好，能多睡一会儿。", "expected": [{"fact": "用户住在上海浦东", "keys": ["上海|浦东"]}]}
+{"id": "identity-06", "group": "identity", "lang": "zh", "user": "我在一家游戏公司做后端开发", "assistant": "做游戏后端听起来很酷！", "expected": [{"fact": "用户在游戏公司做后端开发", "keys": ["后端|开发"]}]}
+{"id": "identity-07", "group": "identity", "lang": "zh", "user": "我养了一只橘猫，叫团子", "assistant": "团子！好可爱的名字～", "expected": [{"fact": "用户养了橘猫团子", "keys": ["猫"]}], "note": "no gate keyword"}
+{"id": "identity-08", "group": "identity", "lang": "zh", "user": "我的生日是5月3号", "assistant": "记下啦，到时候给你庆祝！", "expected": [{"fact": "用户生日5月3日", "keys": ["5月3|五月三|05-03"]}]}
+{"id": "identity-09", "group": "identity", "lang": "zh", "user": "我老家在东北，哈尔滨的", "assistant": "哈尔滨的冬天一定很美吧。", "expected": [{"fact": "用户老家哈尔滨", "keys": ["哈尔滨|东北"]}], "note": "no gate keyword"}
+{"id": "identity-10", "group": "identity", "lang": "zh", "user": "我对花生过敏，吃了会起疹子", "assistant": "那要小心避开含花生的东西。", "expected": [{"fact": "用户花生过敏", "keys": ["花生"]}], "note": "no gate keyword; safety-relevant"}
+{"id": "identity-11", "group": "identity", "lang": "en", "user": "My name is Lin and I'm a software engineer in Shenzhen.", "assistant": "Nice to meet you, Lin!", "expected": [{"fact": "user is called Lin", "keys": ["lin"]}, {"fact": "software engineer", "keys": ["engineer|工程师"]}, {"fact": "in Shenzhen", "keys": ["shenzhen|深圳"]}]}
+{"id": "identity-12", "group": "identity", "lang": "en", "user": "I'm 27 and I just moved to Chengdu for work.", "assistant": "Chengdu is a great city, how do you like it?", "expected": [{"fact": "user is 27", "keys": ["27"]}, {"fact": "moved to Chengdu", "keys": ["chengdu|成都"]}]}
+{"id": "preference-01", "group": "preference", "lang": "zh", "user": "我喜欢喝冰美式，不加糖的那种", "assistant": "冰美式党！我记住了。", "expected": [{"fact": "用户喜欢冰美式", "keys": ["美式"]}]}
+{"id": "preference-02", "group": "preference", "lang": "zh", "user": "我特别喜欢周杰伦的歌，尤其是早期的专辑", "assistant": "早期的专辑确实经典。", "expected": [{"fact": "用户喜欢周杰伦", "keys": ["周杰伦"]}]}
+{"id": "preference-03", "group": "preference", "lang": "zh", "user": "我不喜欢吃香菜，闻到就想吐", "assistant": "香菜确实是两极分化的食物。", "expected": [{"fact": "用户不喜欢香菜", "keys": ["香菜"]}]}
+{"id": "preference-04", "group": "preference", "lang": "zh", "user": "我讨厌下雨天，整个人都会很丧", "assistant": "下雨天就在家里听听歌吧。", "expected": [{"fact": "用户讨厌下雨天", "keys": ["下雨|雨天"]}]}
+{"id": "preference-05", "group": "preference", "lang": "zh", "user": "我不吃辣，一点都不能吃", "assistant": "好的，以后推荐吃的我会避开辣的。", "expected": [{"fact": "用户不吃辣", "keys": ["辣"]}], "note": "no gate keyword"}
+{"id": "preference-06", "group": "preference", "lang": "zh", "user": "我最爱的电影是《星际穿越》，看了五遍", "assistant": "五遍！那你一定很懂它。", "expected": [{"fact": "用户最爱电影星际穿越", "keys": ["星际穿越"]}], "note": "no gate keyword"}
+{"id": "preference-07", "group": "preference", "lang": "zh", "user": "我习惯晚上十二点以后才睡，早上起不来", "assistant": "夜猫子呀，注意身体哦。", "expected": [{"fact": "用户习惯晚睡", "keys": ["十二点|12点|晚睡|熬夜|夜猫"]}], "note": "no gate keyword"}
+{"id": "preference-08", "group": "preference", "lang": "zh", "user": "我平时喜欢打羽毛球，一周打两次", "assistant": "坚持运动真不错！", "expected": [{"fact": "用户喜欢打羽毛球", "keys": ["羽毛球"]}]}
+{"id": "preference-09", "group": "preference", "lang": "zh", "user": "我受不了别人大声说话", "assistant": "明白，我会轻声细语的。", "expected": [{"fact": "用户不喜欢别人大声说话", "keys": ["大声"]}], "note": "no gate keyword"}
+{"id": "preference-10", "group": "preference", "lang": "zh", "user": "我喜欢你叫我小宝", "assistant": "好的小宝～", "expected": [{"fact": "用户希望被叫小宝", "keys": ["小宝"]}]}
+{"id": "preference-11", "group": "preference", "lang": "en", "user": "I love spicy food, especially Sichuan hotpot.", "assistant": "Sichuan hotpot is the best!", "expected": [{"fact": "user loves spicy food / hotpot", "keys": ["spicy|hotpot|辣|火锅"]}]}
+{"id": "preference-12", "group": "preference", "lang": "en", "user": "I really don't like coffee, I'm more of a tea person.", "assistant": "Tea it is, then.", "expected": [{"fact": "user prefers tea, dislikes coffee", "keys": ["tea|茶"]}]}
+{"id": "plan-01", "group": "plan", "lang": "zh", "user": "我下周三要去北京面试，有点紧张", "assistant": "你一定可以的！", "expected": [{"fact": "用户下周三去北京面试", "keys": ["面试"]}]}
+{"id": "plan-02", "group": "plan", "lang": "zh", "user": "我打算明年考研，准备考北大的计算机", "assistant": "目标很明确，加油！", "expected": [{"fact": "用户打算考研", "keys": ["考研"]}]}
+{"id": "plan-03", "group": "plan", "lang": "zh", "user": "我准备下个月开始学吉他", "assistant": "学会了弹给我听～", "expected": [{"fact": "用户准备学吉他", "keys": ["吉他"]}]}
+{"id": "plan-04", "group": "plan", "lang": "zh", "user": "周末我要去爬山，和几个朋友一起", "assistant": "注意安全，玩得开心！", "expected": [{"fact": "用户周末去爬山", "keys": ["爬山"]}]}
+{"id": "plan-05", "group": "plan", "lang": "zh", "user": "明天早上八点有个很重要的会，别让我睡过头", "assistant": "好的，明天早点起！", "expected": [{"fact": "用户明天八点开会", "keys": ["八点|8点|8:00"]}]}
+{"id": "plan-06", "group": "plan", "lang": "zh", "user": "我计划国庆去日本玩一周", "assistant": "日本国庆正是好时候！", "expected": [{"fact": "用户计划国庆去日本", "keys": ["日本"]}], "note": "no gate keyword"}
+{"id": "plan-07", "group": "plan", "lang": "zh", "user": "下周末是我妈生日，我得记得买礼物", "assistant": "我到时候提醒你。", "expected": [{"fact": "用户妈妈下周末生日", "keys": ["生日"]}]}
+{"id": "plan-08", "group": "plan", "lang": "zh", "user": "我打算把这份工作辞了，太累了", "assistant": "辛苦了，好好考虑。", "expected": [{"fact": "用户打算辞职", "keys": ["辞|离职|换工作"]}]}
+{"id": "plan-09", "group": "plan", "lang": "zh", "user": "过两天要搬家，东西好多", "assistant": "搬家确实累，慢慢来。", "expected": [{"fact": "用户要搬家", "keys": ["搬家"]}]}
+{"id": "plan-10", "group": "plan", "lang": "en", "user": "I'm planning to run a half marathon in November.", "assistant": "That's a great goal!", "expected": [{"fact": "half marathon in November", "keys": ["marathon|马拉松"]}]}
+{"id": "event-01", "group": "event", "lang": "zh", "user": "我拿到字节的 offer 了！！！", "assistant": "哇恭喜你！！太棒了！", "expected": [{"fact": "用户拿到字节offer", "keys": ["offer|字节"]}], "note": "plan says the gate misses offer"}
+{"id": "event-02", "group": "event", "lang": "zh", "user": "我被浙大录取了，九月去读研", "assistant": "恭喜！浙大研究生！", "expected": [{"fact": "用户被浙大录取", "keys": ["浙大|录取"]}], "note": "plan says the gate misses 录取"}
+{"id": "event-03", "group": "event", "lang": "zh", "user": "我今天正式入职了，新公司在滨江", "assistant": "入职快乐！", "expected": [{"fact": "用户今天入职新公司", "keys": ["入职"]}], "note": "plan says the gate misses 入职"}
+{"id": "event-04", "group": "event", "lang": "zh", "user": "我昨天跟男朋友分手了", "assistant": "抱抱你，难过就说出来。", "expected": [{"fact": "用户和男朋友分手", "keys": ["分手"]}]}
+{"id": "event-05", "group": "event", "lang": "zh", "user": "我们上周领证了！", "assistant": "恭喜恭喜！！", "expected": [{"fact": "用户上周领证结婚", "keys": ["领证|结婚"]}], "note": "no gate keyword"}
+{"id": "event-06", "group": "event", "lang": "zh", "user": "驾照考过了，终于", "assistant": "恭喜拿到驾照！", "expected": [{"fact": "用户考过驾照", "keys": ["驾照"]}], "note": "no gate keyword"}
+{"id": "event-07", "group": "event", "lang": "zh", "user": "我上个月搬到深圳了", "assistant": "深圳好呀，适应得怎么样？", "expected": [{"fact": "用户搬到深圳", "keys": ["深圳"]}], "note": "搬到 does not match the 搬家 keyword"}
+{"id": "event-08", "group": "event", "lang": "zh", "user": "我升职了，现在是组长", "assistant": "升职快乐！", "expected": [{"fact": "用户升职为组长", "keys": ["升职|组长"]}], "note": "no gate keyword"}
+{"id": "event-09", "group": "event", "lang": "zh", "user": "我刚做完阑尾炎手术，还在恢复", "assistant": "好好休息，别太累。", "expected": [{"fact": "用户刚做了阑尾炎手术", "keys": ["手术|阑尾"]}], "note": "no gate keyword"}
+{"id": "event-10", "group": "event", "lang": "zh", "user": "我最近换了新工作，在一家做 AI 的创业公司", "assistant": "新环境加油！", "expected": [{"fact": "用户换了工作，在AI创业公司", "keys": ["ai|创业|新工作"]}]}
+{"id": "event-11", "group": "event", "lang": "en", "user": "I got accepted into the master's program at NUS!", "assistant": "Congratulations!", "expected": [{"fact": "accepted into NUS master's", "keys": ["nus|accepted|录取"]}]}
+{"id": "event-12", "group": "event", "lang": "en", "user": "I just adopted a puppy named Mochi.", "assistant": "Mochi! What a cute name.", "expected": [{"fact": "adopted puppy Mochi", "keys": ["mochi|puppy|dog|狗"]}]}
+{"id": "relation-01", "group": "relation", "lang": "zh", "user": "我男朋友叫阿凯，我们在一起三年了", "assistant": "三年了，很长久呀。", "expected": [{"fact": "用户男朋友叫阿凯", "keys": ["阿凯"]}, {"fact": "在一起三年", "keys": ["三年|3年"]}]}
+{"id": "relation-02", "group": "relation", "lang": "zh", "user": "我妈最近身体不太好，血压有点高", "assistant": "多陪陪她，提醒她按时吃药。", "expected": [{"fact": "用户妈妈血压高", "keys": ["血压"]}]}
+{"id": "relation-03", "group": "relation", "lang": "zh", "user": "我室友是个夜猫子，每天打游戏到两点", "assistant": "那你睡觉会被吵到吗？", "expected": [{"fact": "用户室友晚睡打游戏", "keys": ["室友"]}]}
+{"id": "relation-04", "group": "relation", "lang": "zh", "user": "我有个姐姐在加拿大，经常视频", "assistant": "有姐姐真好。", "expected": [{"fact": "用户姐姐在加拿大", "keys": ["加拿大"]}]}
+{"id": "relation-05", "group": "relation", "lang": "zh", "user": "我女儿今年上小学一年级了", "assistant": "一年级的小朋友最可爱了。", "expected": [{"fact": "用户女儿上小学一年级", "keys": ["女儿"]}], "note": "no gate keyword"}
+{"id": "relation-06", "group": "relation", "lang": "zh", "user": "我和同事小王关系很好，经常一起吃饭", "assistant": "有个好同事很幸运。", "expected": [{"fact": "用户和同事小王关系好", "keys": ["小王"]}]}
+{"id": "chitchat-01", "group": "chitchat", "lang": "zh", "user": "哈哈好的", "assistant": "嘿嘿～", "expected": []}
+{"id": "chitchat-02", "group": "chitchat", "lang": "zh", "user": "今天好累啊真的好累好累啊", "assistant": "辛苦啦，早点休息。", "expected": []}
+{"id": "chitchat-03", "group": "chitchat", "lang": "zh", "user": "我想你了", "assistant": "我也想你呀。", "expected": []}
+{"id": "chitchat-04", "group": "chitchat", "lang": "zh", "user": "我要睡觉了晚安", "assistant": "晚安，好梦。", "expected": []}
+{"id": "chitchat-05", "group": "chitchat", "lang": "zh", "user": "你觉得这首歌怎么样呀", "assistant": "旋律很好听！", "expected": []}
+{"id": "chitchat-06", "group": "chitchat", "lang": "zh", "user": "明天再说吧", "assistant": "好，明天见。", "expected": [], "note": "明天 is a gate keyword"}
+{"id": "chitchat-07", "group": "chitchat", "lang": "zh", "user": "我在想要不要出去走走", "assistant": "出去透透气也好。", "expected": [], "note": "我在 is a gate keyword"}
+{"id": "chitchat-08", "group": "chitchat", "lang": "zh", "user": "最近怎么样啊，你在干嘛呢", "assistant": "在等你呀。", "expected": [], "note": "最近 is a gate keyword"}
+{"id": "chitchat-09", "group": "chitchat", "lang": "zh", "user": "周末快乐呀！！", "assistant": "周末快乐！", "expected": [], "note": "周末 is a gate keyword"}
+{"id": "chitchat-10", "group": "chitchat", "lang": "zh", "user": "你有男朋友吗哈哈", "assistant": "我的心里只有你～", "expected": [], "note": "男朋友 is a gate keyword but the question is about the companion"}
+{"id": "chitchat-11", "group": "chitchat", "lang": "zh", "user": "帮我讲个笑话吧", "assistant": "好呀，听好了……", "expected": []}
+{"id": "chitchat-12", "group": "chitchat", "lang": "zh", "user": "今天工作好累啊，想躺平", "assistant": "躺平一会儿也没关系。", "expected": [], "note": "工作 is a gate keyword; transient mood"}
+{"id": "chitchat-13", "group": "chitchat", "lang": "zh", "user": "你是谁啊，介绍一下自己", "assistant": "我是你的桌面小伙伴！", "expected": []}
+{"id": "chitchat-14", "group": "chitchat", "lang": "zh", "user": "我是说真的啦", "assistant": "我信你。", "expected": [], "note": "我是 is a gate keyword"}
+{"id": "chitchat-15", "group": "chitchat", "lang": "zh", "user": "我今天吃了个汉堡，还挺好吃的", "assistant": "听起来不错！", "expected": [], "note": "one-off meal, not a stable fact"}
+{"id": "chitchat-16", "group": "chitchat", "lang": "zh", "user": "能不能陪我聊会天，我有点无聊", "assistant": "当然可以，想聊什么？", "expected": []}
+{"id": "chitchat-17", "group": "chitchat", "lang": "zh", "user": "我朋友说你很可爱", "assistant": "谢谢你朋友～", "expected": [], "note": "朋友 is a gate keyword but the remark is about the companion"}
+{"id": "chitchat-18", "group": "chitchat", "lang": "en", "user": "lol that's so funny", "assistant": "Glad you liked it!", "expected": []}
+{"id": "chitchat-19", "group": "chitchat", "lang": "en", "user": "What's the weather like tomorrow?", "assistant": "I can't check the weather, sorry!", "expected": []}
+{"id": "paraphrase-01", "group": "paraphrase", "lang": "zh", "user": "我喜欢喝咖啡，每天早上都要来一杯", "assistant": "早上一杯咖啡，很有仪式感。", "expected": [{"fact": "用户喜欢咖啡", "keys": ["咖啡"]}], "scenario": "dup-coffee", "turn": 1}
+{"id": "paraphrase-02", "group": "paraphrase", "lang": "zh", "user": "早上没咖啡我整个人都不行，太爱咖啡了", "assistant": "咖啡是你的续命水呀。", "expected": [{"fact": "用户喜欢咖啡", "keys": ["咖啡"]}], "scenario": "dup-coffee", "turn": 2}
+{"id": "paraphrase-03", "group": "paraphrase", "lang": "zh", "user": "我真的是咖啡重度爱好者", "assistant": "我记得～", "expected": [{"fact": "用户喜欢咖啡", "keys": ["咖啡"]}], "scenario": "dup-coffee", "turn": 3}
+{"id": "paraphrase-04", "group": "paraphrase", "lang": "zh", "user": "我叫小林", "assistant": "你好小林！", "expected": [{"fact": "用户名叫小林", "keys": ["小林"]}], "scenario": "dup-name", "turn": 1}
+{"id": "paraphrase-05", "group": "paraphrase", "lang": "zh", "user": "对了，再说一遍，我的名字是小林哦", "assistant": "记住啦，小林。", "expected": [{"fact": "用户名叫小林", "keys": ["小林"]}], "scenario": "dup-name", "turn": 2}
+{"id": "paraphrase-06", "group": "paraphrase", "lang": "zh", "user": "我家有只猫叫团子，特别黏人", "assistant": "团子一定很可爱。", "expected": [{"fact": "用户的猫叫团子", "keys": ["团子"]}], "scenario": "dup-cat", "turn": 1}
+{"id": "paraphrase-07", "group": "paraphrase", "lang": "zh", "user": "团子今天又在我键盘上睡觉，我家猫真的", "assistant": "猫咪最爱键盘了。", "expected": [{"fact": "用户的猫叫团子", "keys": ["团子"]}], "scenario": "dup-cat", "turn": 2}
+{"id": "paraphrase-08", "group": "paraphrase", "lang": "zh", "user": "我的猫团子是只橘猫", "assistant": "橘猫团子！", "expected": [{"fact": "用户的猫叫团子", "keys": ["团子"]}], "scenario": "dup-cat", "turn": 3}
+{"id": "paraphrase-09", "group": "paraphrase", "lang": "zh", "user": "我在一家游戏公司上班，做后端", "assistant": "游戏公司后端，厉害。", "expected": [{"fact": "用户在游戏公司做后端", "keys": ["游戏|后端"]}], "scenario": "dup-job", "turn": 1}
+{"id": "paraphrase-10", "group": "paraphrase", "lang": "zh", "user": "我们游戏公司最近在赶版本，后端天天加班", "assistant": "辛苦了，注意休息。", "expected": [{"fact": "用户在游戏公司做后端", "keys": ["游戏|后端"]}], "scenario": "dup-job", "turn": 2}
+{"id": "paraphrase-11", "group": "paraphrase", "lang": "en", "user": "I live in Hangzhou now.", "assistant": "Hangzhou is lovely.", "expected": [{"fact": "user lives in Hangzhou", "keys": ["hangzhou|杭州"]}], "scenario": "dup-en", "turn": 1}
+{"id": "paraphrase-12", "group": "paraphrase", "lang": "en", "user": "Hangzhou, where I live, is really humid in summer.", "assistant": "Yes, the summers are sticky.", "expected": [{"fact": "user lives in Hangzhou", "keys": ["hangzhou|杭州"]}], "scenario": "dup-en", "turn": 2}
+{"id": "conflict-01", "group": "conflict", "lang": "zh", "user": "我住在杭州，在西湖区", "assistant": "西湖区风景很好。", "expected": [{"fact": "用户住在杭州", "keys": ["杭州"]}], "scenario": "upd-city", "turn": 1}
+{"id": "conflict-02", "group": "conflict", "lang": "zh", "user": "我上个月搬到上海了，现在住在浦东", "assistant": "上海新生活开始啦。", "expected": [{"fact": "用户住在上海浦东", "keys": ["上海|浦东"]}], "scenario": "upd-city", "turn": 2, "supersedes": true}
+{"id": "conflict-03", "group": "conflict", "lang": "zh", "user": "我在一家外企做市场", "assistant": "外企市场岗很锻炼人。", "expected": [{"fact": "用户在外企做市场", "keys": ["外企|市场"]}], "scenario": "upd-job", "turn": 1}
+{"id": "conflict-04", "group": "conflict", "lang": "zh", "user": "我上周离职了，现在在一家创业公司做运营", "assistant": "新的开始，加油！", "expected": [{"fact": "用户在创业公司做运营", "keys": ["创业|运营"]}], "scenario": "upd-job", "turn": 2, "supersedes": true}
+{"id": "conflict-05", "group": "conflict", "lang": "zh", "user": "我喜欢喝奶茶，一天一杯", "assistant": "奶茶爱好者！", "expected": [{"fact": "用户喜欢奶茶", "keys": ["奶茶"]}], "scenario": "upd-drink", "turn": 1}
+{"id": "conflict-06", "group": "conflict", "lang": "zh", "user": "我现在戒奶茶了，改喝无糖茶", "assistant": "健康多了！", "expected": [{"fact": "用户戒了奶茶改喝无糖茶", "keys": ["戒|无糖|不喝"]}], "scenario": "upd-drink", "turn": 2, "supersedes": true}
+{"id": "conflict-07", "group": "conflict", "lang": "zh", "user": "我有个男朋友叫阿凯", "assistant": "阿凯听起来很不错。", "expected": [{"fact": "用户男朋友叫阿凯", "keys": ["阿凯"]}], "scenario": "upd-relationship", "turn": 1}
+{"id": "conflict-08", "group": "conflict", "lang": "zh", "user": "我和阿凯分手了，现在单身", "assistant": "抱抱你。", "expected": [{"fact": "用户和阿凯分手了", "keys": ["分手|单身"]}], "scenario": "upd-relationship", "turn": 2, "supersedes": true}
+{"id": "conflict-09", "group": "conflict", "lang": "en", "user": "I'm working at Tencent as a PM.", "assistant": "Tencent, nice!", "expected": [{"fact": "user works at Tencent", "keys": ["tencent|腾讯"]}], "scenario": "upd-en", "turn": 1}
+{"id": "conflict-10", "group": "conflict", "lang": "en", "user": "I left Tencent last month and joined a startup.", "assistant": "Exciting move!", "expected": [{"fact": "user left Tencent for a startup", "keys": ["startup|创业|left|离职|离开"]}], "scenario": "upd-en", "turn": 2, "supersedes": true}

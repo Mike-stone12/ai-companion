@@ -132,7 +132,7 @@ companion/
     persona_dialog.py             Qt persona dialog (first start and Persona… menu)
   qt_bootstrap.py                 Windows Qt DLL setup and import diagnostics
   self_test.py                    Offline --self-test checks (window half in ui/self_test.py)
-evals/                            Offline memory evaluation cases
+evals/                            Offline evaluation cases; memory_benchmark/ scores extracted facts
 tests/                            Core, adapter, and CLI tests (runs without Qt)
 docs/                             Configuration, architecture, and development guides
 live2d_renderer.html              Embedded avatar renderer

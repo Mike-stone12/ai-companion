@@ -1,0 +1,94 @@
+{"meta": {"extractor": "llm", "started": "2026-10-15T00:09:13", "cases": "cases.jsonl (93 cases)", "gated_only": false, "model": "deepseek-flash", "base_url": "https://api.deepseek.com/v1"}}
+{"id": "identity-01", "gate": true, "skipped": false, "memories": [{"summary": "用户叫小林", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 0.81}
+{"id": "identity-02", "gate": true, "skipped": false, "memories": [{"summary": "用户昵称阿杰", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 1.17}
+{"id": "identity-03", "gate": false, "skipped": false, "memories": [{"summary": "用户24岁，毕业一年", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 1.16}
+{"id": "identity-04", "gate": true, "skipped": false, "memories": [{"summary": "大学生，在杭州读计算机专业", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 0.88}
+{"id": "identity-05", "gate": true, "skipped": false, "memories": [{"summary": "用户住在上海浦东，离公司近", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 0.92}
+{"id": "identity-06", "gate": true, "skipped": false, "memories": [{"summary": "用户在游戏公司做后端开发", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 1.22}
+{"id": "identity-07", "gate": false, "skipped": false, "memories": [{"summary": "养了一只橘猫叫团子", "category": "宠物", "source": "llm"}], "errors": [], "elapsed_s": 1.19}
+{"id": "identity-08", "gate": true, "skipped": false, "memories": [{"summary": "用户生日是5月3日", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 1.42}
+{"id": "identity-09", "gate": false, "skipped": false, "memories": [{"summary": "用户老家在哈尔滨", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 1.14}
+{"id": "identity-10", "gate": false, "skipped": false, "memories": [{"summary": "用户对花生过敏，食用会起疹子", "category": "健康", "source": "llm"}], "errors": [], "elapsed_s": 1.17}
+{"id": "identity-11", "gate": false, "skipped": false, "memories": [{"summary": "用户名叫Lin，深圳软件工程师", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 1.16}
+{"id": "identity-12", "gate": false, "skipped": false, "memories": [{"summary": "用户27岁", "category": "用户身份", "source": "llm"}, {"summary": "用户因工作搬到成都", "category": "关键事件", "source": "llm"}], "errors": [], "elapsed_s": 1.14}
+{"id": "preference-01", "gate": true, "skipped": false, "memories": [{"summary": "喜欢喝冰美式，不加糖", "category": "偏好", "source": "llm"}], "errors": [], "elapsed_s": 1.09}
+{"id": "preference-02", "gate": false, "skipped": false, "memories": [{"summary": "用户喜欢周杰伦早期专辑", "category": "偏好", "source": "llm"}], "errors": [], "elapsed_s": 1.14}
+{"id": "preference-03", "gate": true, "skipped": false, "memories": [{"summary": "用户不吃香菜，闻到想吐", "category": "饮食偏好", "source": "llm"}], "errors": [], "elapsed_s": 1.02}
+{"id": "preference-04", "gate": true, "skipped": false, "memories": [{"summary": "用户讨厌下雨天，情绪会低落", "category": "偏好", "source": "llm"}], "errors": [], "elapsed_s": 0.95}
+{"id": "preference-05", "gate": false, "skipped": false, "memories": [{"summary": "用户完全不吃辣", "category": "饮食偏好", "source": "llm"}], "errors": [], "elapsed_s": 0.83}
+{"id": "preference-06", "gate": false, "skipped": false, "memories": [{"summary": "最爱电影《星际穿越》，看过五遍", "category": "偏好", "source": "llm"}], "errors": [], "elapsed_s": 0.72}
+{"id": "preference-07", "gate": false, "skipped": false, "memories": [{"summary": "习惯十二点后睡，早上起不来", "category": "生活习惯", "source": "llm"}], "errors": [], "elapsed_s": 1.27}
+{"id": "preference-08", "gate": false, "skipped": false, "memories": [{"summary": "用户喜欢打羽毛球，每周两次", "category": "偏好", "source": "llm"}], "errors": [], "elapsed_s": 1.22}
+{"id": "preference-09", "gate": false, "skipped": false, "memories": [{"summary": "用户反感他人大声说话", "category": "偏好", "source": "llm"}], "errors": [], "elapsed_s": 1.11}
+{"id": "preference-10", "gate": true, "skipped": false, "memories": [{"summary": "用户喜欢被称呼小宝", "category": "偏好", "source": "llm"}], "errors": [], "elapsed_s": 1.23}
+{"id": "preference-11", "gate": false, "skipped": false, "memories": [{"summary": "用户喜爱辣食，尤其四川火锅", "category": "偏好", "source": "llm"}], "errors": [], "elapsed_s": 1.2}
+{"id": "preference-12", "gate": false, "skipped": false, "memories": [{"summary": "用户偏好茶而非咖啡", "category": "偏好", "source": "llm"}], "errors": [], "elapsed_s": 1.0}
+{"id": "plan-01", "gate": true, "skipped": false, "memories": [{"summary": "下周三去北京面试", "category": "待办计划", "source": "llm"}], "errors": [], "elapsed_s": 1.14}
+{"id": "plan-02", "gate": true, "skipped": false, "memories": [{"summary": "计划明年考研北大计算机", "category": "待办计划", "source": "llm"}], "errors": [], "elapsed_s": 0.81}
+{"id": "plan-03", "gate": true, "skipped": false, "memories": [{"summary": "计划下月开始学吉他", "category": "待办计划", "source": "llm"}], "errors": [], "elapsed_s": 1.19}
+{"id": "plan-04", "gate": true, "skipped": false, "memories": [{"summary": "周末计划与朋友爬山", "category": "待办计划", "source": "llm"}], "errors": [], "elapsed_s": 1.16}
+{"id": "plan-05", "gate": true, "skipped": false, "memories": [{"summary": "明早八点有重要会议", "category": "待办计划", "source": "llm"}], "errors": [], "elapsed_s": 1.11}
+{"id": "plan-06", "gate": false, "skipped": false, "memories": [{"summary": "计划国庆去日本玩一周", "category": "待办计划", "source": "llm"}], "errors": [], "elapsed_s": 1.03}
+{"id": "plan-07", "gate": true, "skipped": false, "memories": [{"summary": "下周末是妈妈生日，需买礼物", "category": "待办计划", "source": "llm"}], "errors": [], "elapsed_s": 1.31}
+{"id": "plan-08", "gate": true, "skipped": false, "memories": [{"summary": "用户打算辞职，觉得工作太累", "category": "待办计划", "source": "llm"}], "errors": [], "elapsed_s": 0.98}
+{"id": "plan-09", "gate": true, "skipped": false, "memories": [{"summary": "用户过两天要搬家", "category": "待办计划", "source": "llm"}], "errors": [], "elapsed_s": 0.97}
+{"id": "plan-10", "gate": false, "skipped": false, "memories": [{"summary": "计划11月参加半程马拉松", "category": "待办计划", "source": "llm"}], "errors": [], "elapsed_s": 1.12}
+{"id": "event-01", "gate": false, "skipped": false, "memories": [{"summary": "用户拿到字节跳动offer", "category": "关键事件", "source": "llm"}], "errors": [], "elapsed_s": 1.23}
+{"id": "event-02", "gate": false, "skipped": false, "memories": [{"summary": "被浙大录取，九月读研", "category": "重要事件", "source": "llm"}], "errors": [], "elapsed_s": 1.03}
+{"id": "event-03", "gate": false, "skipped": false, "memories": [{"summary": "用户今日正式入职新公司", "category": "关键事件", "source": "llm"}, {"summary": "新公司位于滨江", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 1.25}
+{"id": "event-04", "gate": true, "skipped": false, "memories": [{"summary": "用户昨天与男友分手", "category": "关键事件", "source": "llm"}], "errors": [], "elapsed_s": 0.81}
+{"id": "event-05", "gate": false, "skipped": false, "memories": [{"summary": "用户上周领证结婚", "category": "关键事件", "source": "llm"}], "errors": [], "elapsed_s": 1.09}
+{"id": "event-06", "gate": false, "skipped": false, "memories": [{"summary": "用户考取驾照", "category": "关键事件", "source": "llm"}], "errors": [], "elapsed_s": 0.97}
+{"id": "event-07", "gate": false, "skipped": false, "memories": [{"summary": "用户上个月搬到深圳", "category": "生活事件", "source": "llm"}], "errors": [], "elapsed_s": 0.92}
+{"id": "event-08", "gate": false, "skipped": false, "memories": [{"summary": "用户升职为组长", "category": "关键事件", "source": "llm"}], "errors": [], "elapsed_s": 1.14}
+{"id": "event-09", "gate": false, "skipped": false, "memories": [{"summary": "用户刚做完阑尾炎手术，恢复中", "category": "健康", "source": "llm"}], "errors": [], "elapsed_s": 1.28}
+{"id": "event-10", "gate": true, "skipped": false, "memories": [{"summary": "用户换新工作，入职AI创业公司", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 1.08}
+{"id": "event-11", "gate": false, "skipped": false, "memories": [{"summary": "用户被NUS硕士项目录取", "category": "关键事件", "source": "llm"}], "errors": [], "elapsed_s": 0.84}
+{"id": "event-12", "gate": false, "skipped": false, "memories": [{"summary": "用户养了一只叫Mochi的小狗", "category": "宠物", "source": "llm"}], "errors": [], "elapsed_s": 1.17}
+{"id": "relation-01", "gate": true, "skipped": false, "memories": [{"summary": "用户男友叫阿凯，交往三年", "category": "人物关系", "source": "llm"}], "errors": [], "elapsed_s": 1.39}
+{"id": "relation-02", "gate": true, "skipped": false, "memories": [{"summary": "用户母亲血压偏高", "category": "重要人物", "source": "llm"}], "errors": [], "elapsed_s": 1.12}
+{"id": "relation-03", "gate": true, "skipped": false, "memories": [{"summary": "室友常打游戏到凌晨两点", "category": "重要人物特征", "source": "llm"}], "errors": [], "elapsed_s": 1.31}
+{"id": "relation-04", "gate": true, "skipped": false, "memories": [{"summary": "姐姐在加拿大，常视频联系", "category": "人物关系", "source": "llm"}], "errors": [], "elapsed_s": 1.34}
+{"id": "relation-05", "gate": false, "skipped": false, "memories": [{"summary": "用户女儿上小学一年级", "category": "家庭信息", "source": "llm"}], "errors": [], "elapsed_s": 1.17}
+{"id": "relation-06", "gate": true, "skipped": false, "memories": [{"summary": "与同事小王关系好，常一起吃饭", "category": "人际关系", "source": "llm"}], "errors": [], "elapsed_s": 1.25}
+{"id": "chitchat-01", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 1.08}
+{"id": "chitchat-02", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 1.02}
+{"id": "chitchat-03", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 1.2}
+{"id": "chitchat-04", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.97}
+{"id": "chitchat-05", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.95}
+{"id": "chitchat-06", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 1.14}
+{"id": "chitchat-07", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 1.11}
+{"id": "chitchat-08", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 1.08}
+{"id": "chitchat-09", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.83}
+{"id": "chitchat-10", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 1.08}
+{"id": "chitchat-11", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.88}
+{"id": "chitchat-12", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.98}
+{"id": "chitchat-13", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.95}
+{"id": "chitchat-14", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 1.11}
+{"id": "chitchat-15", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.94}
+{"id": "chitchat-16", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 1.08}
+{"id": "chitchat-17", "gate": true, "skipped": false, "memories": [], "errors": [], "elapsed_s": 0.78}
+{"id": "chitchat-18", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 1.05}
+{"id": "chitchat-19", "gate": false, "skipped": false, "memories": [], "errors": [], "elapsed_s": 1.09}
+{"id": "paraphrase-01", "gate": true, "skipped": false, "memories": [{"summary": "用户喜欢喝咖啡，每天早上一杯", "category": "偏好", "source": "llm"}], "errors": [], "elapsed_s": 0.98}
+{"id": "paraphrase-02", "gate": false, "skipped": false, "memories": [{"summary": "用户非常爱喝咖啡", "category": "偏好", "source": "llm"}], "errors": [], "elapsed_s": 0.86}
+{"id": "paraphrase-03", "gate": false, "skipped": false, "memories": [{"summary": "用户是咖啡重度爱好者", "category": "偏好", "source": "llm"}], "errors": [], "elapsed_s": 1.25}
+{"id": "paraphrase-04", "gate": true, "skipped": false, "memories": [{"summary": "用户名叫小林", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 1.25}
+{"id": "paraphrase-05", "gate": false, "skipped": false, "memories": [{"summary": "用户名字是小林", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 0.92}
+{"id": "paraphrase-06", "gate": false, "skipped": false, "memories": [{"summary": "用户养猫叫团子，性格黏人", "category": "宠物", "source": "llm"}], "errors": [], "elapsed_s": 0.89}
+{"id": "paraphrase-07", "gate": false, "skipped": false, "memories": [{"summary": "用户养了一只叫团子的猫", "category": "宠物", "source": "llm"}], "errors": [], "elapsed_s": 0.97}
+{"id": "paraphrase-08", "gate": false, "skipped": false, "memories": [{"summary": "用户养橘猫叫团子", "category": "宠物", "source": "llm"}], "errors": [], "elapsed_s": 1.28}
+{"id": "paraphrase-09", "gate": true, "skipped": false, "memories": [{"summary": "用户在游戏公司做后端", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 1.12}
+{"id": "paraphrase-10", "gate": true, "skipped": false, "memories": [{"summary": "用户在游戏公司工作", "category": "用户身份", "source": "llm"}, {"summary": "近期赶版本，后端常加班", "category": "工作状态", "source": "llm"}], "errors": [], "elapsed_s": 1.27}
+{"id": "paraphrase-11", "gate": false, "skipped": false, "memories": [{"summary": "用户现居杭州", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 1.28}
+{"id": "paraphrase-12", "gate": false, "skipped": false, "memories": [{"summary": "用户居住在杭州", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 0.78}
+{"id": "conflict-01", "gate": true, "skipped": false, "memories": [{"summary": "用户住在杭州西湖区", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 1.02}
+{"id": "conflict-02", "gate": false, "skipped": false, "memories": [{"summary": "用户上个月搬到上海浦东居住", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 1.08}
+{"id": "conflict-03", "gate": true, "skipped": false, "memories": [{"summary": "用户在外企从事市场工作", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 1.11}
+{"id": "conflict-04", "gate": false, "skipped": false, "memories": [{"summary": "用户上周离职，现于创业公司做运营", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 0.98}
+{"id": "conflict-05", "gate": true, "skipped": false, "memories": [{"summary": "用户爱喝奶茶，每天一杯", "category": "偏好", "source": "llm"}], "errors": [], "elapsed_s": 0.84}
+{"id": "conflict-06", "gate": false, "skipped": false, "memories": [{"summary": "戒奶茶改喝无糖茶", "category": "偏好", "source": "llm"}], "errors": [], "elapsed_s": 1.19}
+{"id": "conflict-07", "gate": true, "skipped": false, "memories": [{"summary": "用户有男朋友叫阿凯", "category": "人物关系", "source": "llm"}], "errors": [], "elapsed_s": 1.08}
+{"id": "conflict-08", "gate": false, "skipped": false, "memories": [{"summary": "用户与阿凯已分手，现单身", "category": "关键事件", "source": "llm"}], "errors": [], "elapsed_s": 1.17}
+{"id": "conflict-09", "gate": false, "skipped": false, "memories": [{"summary": "用户在腾讯担任产品经理", "category": "用户身份", "source": "llm"}], "errors": [], "elapsed_s": 1.0}
+{"id": "conflict-10", "gate": false, "skipped": false, "memories": [{"summary": "上月离开腾讯，加入创业公司", "category": "职业变动", "source": "llm"}], "errors": [], "elapsed_s": 0.94}

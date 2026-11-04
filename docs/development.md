@@ -18,6 +18,32 @@ python -m companion.core.memory.evaluation
 
 The extraction harness uses labelled Chinese cases in `evals/extraction_cases.json` and can score injected extractors fully offline. Run `python -m companion.core.memory.extraction_eval` for usage without making requests. A maintainer can explicitly run `python -m companion.core.memory.extraction_eval --live` with a configured API key; **`--live` sends the case messages to the configured LLM endpoint**. It reports store-decision accuracy, false stores, missed stores, keyword hit rate (all expected substrings found per positive case), and per-case errors. Live runs reuse the existing extractor, including its heuristic fallback on request or parse failures.
 
+### Memory benchmark
+
+`evals/memory_benchmark/cases.jsonl` holds 93 user messages (80 Chinese, 13 English) with the facts a memory system should keep from each one: identity, preferences, plans, events, people around the user, chit-chat that must not be stored, the same fact paraphrased across turns (dedup), and later messages that contradict an earlier one (update). Where the extraction harness above scores store decisions, this benchmark scores the facts themselves and what the store ends up holding after multi-turn scenarios.
+
+```bash
+python -m evals.memory_benchmark.run_benchmark                    # gate + heuristic fallback, no API calls
+python -m evals.memory_benchmark.run_benchmark --extractor llm    # gate + the real LLM extractor (sends requests)
+python -m evals.memory_benchmark.run_benchmark --rescore evals/memory_benchmark/results/<file>.jsonl
+```
+
+The extractor runs on every message, including those the gate rejects, so a run scores the gate, the extractor alone, and the real pipeline together. Raw extractor output and a markdown report of each run are kept in `evals/memory_benchmark/results/`.
+
+Baseline (2026-10-14/15; LLM rows use `deepseek-flash` with thinking off, median 1.1 s per call). Re-running the offline rows on 2026-11-04 gives identical numbers, so the gate has not changed since:
+
+| Stage | Metric | Result |
+| --- | --- | --- |
+| Gate | Messages with a fact that reach the extractor | 33/74 (45 %) |
+| Gate | Passed messages that actually hold a fact | 33/40 (82 %) |
+| Gate | English messages with a fact that pass | 0/11 |
+| Gate + LLM extractor (what the app stores) | Precision / recall of extracted facts | 34/34 (100 %) / 36/81 (44 %) |
+| LLM extractor alone (gate ignored) | Precision / recall of extracted facts | 76/77 (99 %) / 81/81 (100 %), nothing on chit-chat |
+| Gate + heuristic fallback | Precision / recall of extracted facts | 12/12 (100 %) / 12/81 (15 %) |
+| Store, LLM extractor alone | Duplicate / stale entries after the paraphrase and conflict scenarios | 8/23 (35 %) / 5/23 (22 %) |
+
+The gate is the main loss: it is keyword-based and Chinese-only, so it drops every English fact, events phrased without a trigger word (拿到 offer, 入职, 搬到), and plain facts such as 我今年24岁 or 我对花生过敏, while seven chit-chat messages pass and cost a request. The store rows feed `MemoryStore` directly, without the consolidation pipeline, so they measure what consolidation has to clean up.
+
 ## Packaging
 
 Build on each target operating system from the repository root, using the app
