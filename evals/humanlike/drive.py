@@ -124,12 +124,17 @@ def main(argv: list[str] | None = None) -> int:
             # "quote": [turn, message] quotes her message from an earlier turn of this run (apps
             # without quote replies just send the text).
             seen_as = text
-            if index == 0 and turn.get("quote") and hasattr(window, "set_quote"):
+            if index == 0 and turn.get("quote"):
                 at_turn, at_message = turn["quote"]
                 earlier = turns[at_turn]["reply"]
                 if at_message < len(earlier):
-                    window.set_quote(earlier[at_message], False)
-                    seen_as = f"（引用她说的「{earlier[at_message]}」）{text}"
+                    # The judge sees what the user meant either way, so an app that cannot quote
+                    # is marked down when she answers something else.
+                    seen_as = f"（回复她说的「{earlier[at_message]}」）{text}"
+                    if hasattr(window, "set_quote"):
+                        window.set_quote(earlier[at_message], False)
+                    else:
+                        seen_as += "　［这个版本没有引用功能，她只收到了后半句］"
             window.chat_input.setText(text)
             window.send_message()
             last_sent = time.monotonic()
