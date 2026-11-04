@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from evals.humanlike.judge import compare, parse_json, render_transcript, score
+from evals.humanlike.judge import TURN_BREAK, compare, parse_json, render_transcript, score
 
 TURNS = [
     {"user": ["在吗"], "reply": ["干嘛", "又有事求我？"]},
@@ -14,7 +14,8 @@ TURNS = [
 
 def test_transcript_has_one_line_per_message_and_marks_a_missing_reply():
     assert render_transcript(TURNS).splitlines() == [
-        "用户：在吗", "她：干嘛", "她：又有事求我？", "用户：我跟你说，", "用户：今天被老板骂了", "她：（没有回复）",
+        "用户：在吗", "她：干嘛", "她：又有事求我？", TURN_BREAK, "用户：我跟你说，", "用户：今天被老板骂了",
+        "她：（没有回复）",
     ]
 
 
@@ -39,6 +40,7 @@ def test_score_returns_the_rubric_and_an_overall_mean():
     assert result["overall"] == pytest.approx(7.5)
     assert result["assistant_moments"] == ["又有事求我？"]
     assert "青梅竹马" in seen[0][0]["content"] and "等她说完" in seen[0][0]["content"]
+    assert TURN_BREAK in seen[0][0]["content"]
     assert seen[0][1]["content"] == render_transcript(TURNS)
 
 

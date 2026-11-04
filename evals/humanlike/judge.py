@@ -38,6 +38,8 @@ What a real person would do in this scene: {focus}
 
 Each line is one chat bubble. "用户" is the user, "她" is the character; [n s] is seconds since the \
 user's first message in that exchange (a line sent while she was replying shows up between her lines). \
+"{turn_break}" separates exchanges: before it the user had finished and was waiting, so her replies \
+there can only answer what came before it; never count them as interrupting a later exchange. \
 Reply with JSON only:
 {{"flaws": ["quoted line: what is wrong"], "human": n, "character": n, "emotion": n, "context": n, \
 "assistant_moments": ["exact lines that sound like an assistant or a bot"], \
@@ -47,7 +49,8 @@ PAIRWISE = """You compare two versions of the same chat between a user and a com
 and decide which character feels more like a real person texting someone close (Chinese casual \
 texting between old friends) rather than an AI assistant. Consider wording, length and rhythm, \
 emotional tact, consistency, memory of the conversation, timing ([n s] = seconds since the user's \
-first message in that exchange), and the absence of assistant habits. Both versions may be good; \
+first message in that exchange; "{turn_break}" separates exchanges, and before it the user had \
+finished and was waiting), and the absence of assistant habits. Both versions may be good; \
 pick the one with fewer tells, and say tie only if you truly cannot tell them apart.
 
 The character: {persona}
@@ -62,10 +65,17 @@ Version B:
 Reply with JSON only: {{"winner": "A" | "B" | "tie", "reason": "one sentence in Chinese"}}"""
 
 
+# Between exchanges: the user had stopped and waited, so later lines were not yet written when
+# she answered (without it, judges read a reply to part one of a story as an interruption).
+TURN_BREAK = "—— 用户停下等她回复；下面是之后的新一段 ——"
+
+
 def render_transcript(turns: list[dict]) -> str:
     """One line per bubble, with timing when the run recorded it."""
     lines = []
-    for turn in turns:
+    for index, turn in enumerate(turns):
+        if index:
+            lines.append(TURN_BREAK)
         timeline = turn.get("timeline")
         if timeline:
             lines += [f"[{t:g}s] {'用户' if who == 'user' else '她'}：{text}" for t, who, text in timeline]
@@ -89,7 +99,7 @@ def parse_json(text: str) -> dict:
 
 
 def score(judge: Judge, turns: list[dict], *, persona: str, focus: str) -> dict:
-    prompt = RUBRIC.format(persona=persona, focus=focus)
+    prompt = RUBRIC.format(persona=persona, focus=focus, turn_break=TURN_BREAK)
     reply = judge([
         {"role": "system", "content": prompt},
         {"role": "user", "content": render_transcript(turns)},
@@ -114,7 +124,7 @@ def score(judge: Judge, turns: list[dict], *, persona: str, focus: str) -> dict:
 
 def _winner(judge: Judge, first: list[dict], second: list[dict], persona: str, focus: str) -> tuple[str, str]:
     prompt = PAIRWISE.format(
-        persona=persona, focus=focus, a=render_transcript(first), b=render_transcript(second),
+        persona=persona, focus=focus, turn_break=TURN_BREAK, a=render_transcript(first), b=render_transcript(second),
     )
     data = parse_json(judge([{"role": "user", "content": prompt}]))
     winner = str(data.get("winner", "")).strip().upper()
