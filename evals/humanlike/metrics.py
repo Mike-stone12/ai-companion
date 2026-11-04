@@ -17,11 +17,40 @@ ASSISTANT_PHRASES = (
     "照顾好自己", "记得早点休息", "希望对你有帮助", "随时找我", "随时告诉我", "如果你需要", "作为一个AI",
     "作为AI", "作为一个人工智能", "我是一个AI", "语言模型", "我无法", "这话我接不住", "这话没法接",
     "我无言以对", "好问题",
+    # Listening and comfort templates the judge kept flagging as service-like.
+    "我在这听着", "我听着", "正好闲着", "想说话再喊我", "有事喊我", "我一直都在",
 )
 QUESTION_ENDS = ("？", "?", "？」", "?」")
 MARKDOWN = re.compile(r"(\*\*[^*]+\*\*|^\s*(?:[-*•]|\d+[.、)])\s+|^#{1,6}\s)", re.MULTILINE)
 EMOJI = re.compile("[\U0001F300-\U0001FAFF☀-➿]")
 OPENER_CHARS = 2
+QUESTION_MARKS = ("？", "?")
+# "是A还是B" or "A还是B？": guessing between two readings of what the user meant.
+EITHER_OR = re.compile(r"是.+还是|.还是.+[？?]$")
+STAGE_DIRECTION = re.compile(r"^(?:[（(].+[）)]|\*[^*]+\*)$")
+ECHO_MIN_CHARS = 3
+
+
+def longest_common_run(a: str, b: str) -> int:
+    best = 0
+    for i in range(len(a)):
+        for j in range(i + best + 1, len(a) + 1):
+            if a[i:j] in b:
+                best = j - i
+            else:
+                break
+    return best
+
+
+def echoes(question: str, user_lines: list[str]) -> bool:
+    """A question that mostly repeats the user's own words ("抱着一只猫？")."""
+    if not question.endswith(QUESTION_MARKS):
+        return False
+    core = re.split(r"[，,]", question.rstrip("？?"))[-1].strip()
+    if len(core) < ECHO_MIN_CHARS:
+        return False
+    run = max((longest_common_run(core, line) for line in user_lines), default=0)
+    return run >= ECHO_MIN_CHARS and run >= 0.6 * len(core)
 
 
 def message_metrics(text: str) -> dict:
@@ -34,6 +63,9 @@ def message_metrics(text: str) -> dict:
         "exclamations": stripped.count("！") + stripped.count("!"),
         "emoji": len(EMOJI.findall(stripped)),
         "tilde": stripped.count("~") + stripped.count("～"),
+        "questions": sum(stripped.count(mark) for mark in QUESTION_MARKS),
+        "either_or": bool(EITHER_OR.search(stripped)),
+        "stage_direction": bool(STAGE_DIRECTION.match(stripped)),
     }
 
 
@@ -47,6 +79,7 @@ def transcript_metrics(turns: list[dict]) -> dict:
         "replies_ending_with_question": 0, "assistant_phrase_hits": 0, "markdown": 0, "exclamations": 0,
         "emoji": 0, "tilde": 0, "repeated_openers": 0, "verbatim_repeats": 0,
         "burst_turns": 0, "bursts_interrupted": 0, "bubbles_before_user_finished": 0,
+        "questions": 0, "either_or": 0, "stage_directions": 0, "echo_questions": 0,
     }
     phrases: list[str] = []
     for turn in turns:
@@ -75,8 +108,11 @@ def transcript_metrics(turns: list[dict]) -> dict:
             totals["assistant_phrase_hits"] += len(m["assistant_phrases"])
             phrases += m["assistant_phrases"]
             totals["markdown"] += m["markdown"]
-            for key in ("exclamations", "emoji", "tilde"):
+            for key in ("exclamations", "emoji", "tilde", "questions"):
                 totals[key] += m[key]
+            totals["either_or"] += m["either_or"]
+            totals["stage_directions"] += m["stage_direction"]
+            totals["echo_questions"] += echoes(message, turn.get("user", []))
             if message in seen_messages:
                 totals["verbatim_repeats"] += 1
             seen_messages.add(message)
@@ -94,6 +130,7 @@ def summarize(per_scenario: list[dict]) -> dict:
         "replies", "messages", "missing_replies", "question_endings", "replies_ending_with_question",
         "assistant_phrase_hits", "markdown", "exclamations", "emoji", "tilde", "repeated_openers",
         "verbatim_repeats", "burst_turns", "bursts_interrupted", "bubbles_before_user_finished",
+        "questions", "either_or", "stage_directions", "echo_questions",
     )
     total = {key: sum(m[key] for m in per_scenario) for key in keys}
     lengths = [length for m in per_scenario for length in m.get("lengths", [])]

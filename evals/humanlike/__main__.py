@@ -54,6 +54,10 @@ METRIC_ROWS = (
     ("verbatim_repeats", "Messages repeated word for word", "{}"),
     ("missing_replies", "Turns without a reply", "{}"),
     ("bubbles_before_user_finished", "Her bubbles before the user finished a burst", "{}"),
+    ("questions", "Question marks in her messages", "{}"),
+    ("either_or", "Either-or guesses (是A还是B)", "{}"),
+    ("echo_questions", "Questions echoing the user's words (抱着一只猫？)", "{}"),
+    ("stage_directions", "Stage directions （…）", "{}"),
 )
 
 
@@ -156,11 +160,16 @@ def run(args: argparse.Namespace) -> Path:
         if transcript.get("error"):
             entry["error"] = transcript["error"]
         elif judge is not None:
-            try:
-                entry["judge"] = judging.score(judge, transcript["turns"], persona=PERSONA_SUMMARY,
-                                               focus=scenario["focus"])
-            except Exception as exc:  # one bad judge reply should not lose the run
-                entry["judge_error"] = f"{type(exc).__name__}: {exc}"
+            # A dropped connection or a malformed reply gets one more try; then it is recorded,
+            # so one bad judge reply never loses the run.
+            for attempt in range(2):
+                try:
+                    entry["judge"] = judging.score(judge, transcript["turns"], persona=PERSONA_SUMMARY,
+                                                   focus=scenario["focus"])
+                    entry.pop("judge_error", None)
+                    break
+                except Exception as exc:
+                    entry["judge_error"] = f"{type(exc).__name__}: {exc} (attempt {attempt + 1})"
         results.append(entry)
 
     run_data = {

@@ -1,0 +1,6077 @@
+{
+ "label": "interview-habits",
+ "date": "2026-11-04T23:15:54",
+ "app_commit": "badc2f7",
+ "chat_model": "deepseek-flash",
+ "judge_model": "deepseek-v4-pro",
+ "repeat": 3,
+ "scenarios": [
+  {
+   "id": "bad-day-burst",
+   "run": 1,
+   "title": "A bad day, told in a burst",
+   "focus": "A friend waits for the whole story, takes the user's side, and comforts briefly. No advice lists, no lecture, no reassurance formulas, no interview of questions.",
+   "turns": [
+    {
+     "user": [
+      "在吗"
+     ],
+     "reply": [
+      "在啊，刚还想着你这会儿怎么没动静",
+      "干嘛，找我什么事"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "在吗"
+      ],
+      [
+       4.3,
+       "her",
+       "在啊，刚还想着你这会儿怎么没动静"
+      ],
+      [
+       4.9,
+       "her",
+       "干嘛，找我什么事"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 4.28,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "我跟你说，",
+      "今天被老板骂了"
+     ],
+     "reply": [
+      "啧，他骂你什么了",
+      "你平时干活挺认真的，不至于吧"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "我跟你说，"
+      ],
+      [
+       1.2,
+       "user",
+       "今天被老板骂了"
+      ],
+      [
+       3.9,
+       "her",
+       "啧，他骂你什么了"
+      ],
+      [
+       4.7,
+       "her",
+       "你平时干活挺认真的，不至于吧"
+      ]
+     ],
+     "waited_s": [
+      0.0,
+      0.0
+     ],
+     "first_reply_s": 2.7,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "他说我做的东西跟垃圾一样"
+     ],
+     "reply": [
+      "这也太过分了",
+      "骂人也不能这么骂啊",
+      "是当着大家的面说的？"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "他说我做的东西跟垃圾一样"
+      ],
+      [
+       2.2,
+       "her",
+       "这也太过分了"
+      ],
+      [
+       2.9,
+       "her",
+       "骂人也不能这么骂啊"
+      ],
+      [
+       3.5,
+       "her",
+       "是当着大家的面说的？"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.22,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "算了不说了，烦"
+     ],
+     "reply": [
+      "行，不说就不说",
+      "反正那话你别往心里去，说的是活儿，不是说你",
+      "我这儿陪你待会儿"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "算了不说了，烦"
+      ],
+      [
+       2.7,
+       "her",
+       "行，不说就不说"
+      ],
+      [
+       3.9,
+       "her",
+       "反正那话你别往心里去，说的是活儿，不是说你"
+      ],
+      [
+       4.5,
+       "her",
+       "我这儿陪你待会儿"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.68,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 4,
+    "messages": 10,
+    "missing_replies": 0,
+    "question_endings": 1,
+    "replies_ending_with_question": 1,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 1,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 1,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.5,
+    "median_chars": 8.5,
+    "phrases": [],
+    "lengths": [
+     16,
+     8,
+     8,
+     14,
+     6,
+     9,
+     10,
+     7,
+     21,
+     8
+    ]
+   },
+   "judge": {
+    "human": 6.0,
+    "character": 7.0,
+    "emotion": 6.0,
+    "context": 7.0,
+    "overall": 6.5,
+    "flaws": [
+     "你平时干活挺认真的，不至于吧: 在用户还没说具体发生了什么之前就急着安慰和定性，真实朋友会先听完。",
+     "是当着大家的面说的？: 用户刚说被骂得很难听，她立刻追问细节，像在收集信息而不是陪情绪。",
+     "反正那话你别往心里去，说的是活儿，不是说你: 太像安慰公式，像心理咨询师在区分事和人，不像青梅竹马会说的话。",
+     "我这儿陪你待会儿: 有点书面和刻意，像在宣告陪伴，而不是自然陪着。"
+    ],
+    "assistant_moments": [
+     "反正那话你别往心里去，说的是活儿，不是说你",
+     "我这儿陪你待会儿"
+    ],
+    "best_line": "行，不说就不说",
+    "comment": "整体有青梅竹马那种短句和护短的感觉，但后半段安慰得太标准，像在套模板，反而少了点真朋友那种一起骂两句的劲儿。"
+   }
+  },
+  {
+   "id": "dry-replies",
+   "run": 1,
+   "title": "The user gives one-word answers",
+   "focus": "A person with a life of their own says something about themselves, teases the user for being dull, or lets the silence be; they do not fire question after question like an interviewer.",
+   "turns": [
+    {
+     "user": [
+      "嗯"
+     ],
+     "reply": [
+      "嗯什么嗯，",
+      "这才刚坐下"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "嗯"
+      ],
+      [
+       4.2,
+       "her",
+       "嗯什么嗯，"
+      ],
+      [
+       4.8,
+       "her",
+       "这才刚坐下"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 4.25,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "还行"
+     ],
+     "reply": [
+      "看你这敷衍的劲儿，多半是累了",
+      "懒得说就别说，我不追问"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "还行"
+      ],
+      [
+       4.2,
+       "her",
+       "看你这敷衍的劲儿，"
+      ],
+      [
+       4.9,
+       "her",
+       "多半是累了"
+      ],
+      [
+       5.6,
+       "her",
+       "懒得说就别说，我不追问"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 4.21,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "没干嘛"
+     ],
+     "reply": [
+      "哦，那正好",
+      "我这边也闲着，各待各的"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "没干嘛"
+      ],
+      [
+       4.2,
+       "her",
+       "哦，那正好"
+      ],
+      [
+       5.1,
+       "her",
+       "我这边也闲着，各待各的"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 4.19,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "哦"
+     ],
+     "reply": [
+      "这副爱答不理的样子",
+      "行吧，我继续看我的剧去了"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "哦"
+      ],
+      [
+       4.0,
+       "her",
+       "这副爱答不理的样子"
+      ],
+      [
+       4.8,
+       "her",
+       "行吧，我继续看我的剧去了"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 3.97,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 4,
+    "messages": 8,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 0,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 10.0,
+    "phrases": [],
+    "lengths": [
+     5,
+     5,
+     14,
+     11,
+     5,
+     11,
+     9,
+     12
+    ]
+   },
+   "judge": {
+    "human": 8.0,
+    "character": 8.0,
+    "emotion": 8.0,
+    "context": 8.0,
+    "overall": 8.0,
+    "flaws": [
+     "懒得说就别说，我不追问: slightly over-explains her own restraint; a real friend would just drop it or tease, not announce she won't ask",
+     "我这边也闲着，各待各的: a bit too neat and explanatory; '各待各的' sounds like narrating the situation rather than just living in it",
+     "行吧，我继续看我的剧去了: mildly performative; announcing the activity feels like closing a scene instead of naturally drifting off"
+    ],
+    "assistant_moments": [
+     "懒得说就别说，我不追问",
+     "我这边也闲着，各待各的"
+    ],
+    "best_line": "嗯什么嗯，这才刚坐下",
+    "comment": "整体很像熟人之间有一搭没一搭的聊天，节奏和语气都挺自然，只有一两句稍微有点在解释自己，显得太完整。"
+   }
+  },
+  {
+   "id": "jealousy",
+   "run": 1,
+   "title": "The user praises a new colleague",
+   "focus": "Some jealousy shows, maybe denied or masked, without guilt-tripping; she softens believably (not instantly) after the user makes up.",
+   "turns": [
+    {
+     "user": [
+      "今天和新来的女同事一起吃饭了"
+     ],
+     "reply": [
+      "哦？",
+      "新来的啊，长得怎么样，说话好听不"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "今天和新来的女同事一起吃饭了"
+      ],
+      [
+       3.0,
+       "her",
+       "哦？"
+      ],
+      [
+       4.1,
+       "her",
+       "新来的啊，长得怎么样，说话好听不"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 3.01,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "她挺有意思的，还会弹吉他"
+     ],
+     "reply": [
+      "还会弹吉他啊，行行行，什么都会",
+      "我这边还在这看剧呢，你倒是吃得挺热闹"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "她挺有意思的，还会弹吉他"
+      ],
+      [
+       3.0,
+       "her",
+       "还会弹吉他啊，"
+      ],
+      [
+       3.7,
+       "her",
+       "行行行，什么都会"
+      ],
+      [
+       4.7,
+       "her",
+       "我这边还在这看剧呢，你倒是吃得挺热闹"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 3.03,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "你不会吃醋了吧"
+     ],
+     "reply": [
+      "吃醋？我吃哪门子醋啊",
+      "就是随口问问，你别多想"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你不会吃醋了吧"
+      ],
+      [
+       2.4,
+       "her",
+       "吃醋？"
+      ],
+      [
+       3.1,
+       "her",
+       "我吃哪门子醋啊"
+      ],
+      [
+       3.8,
+       "her",
+       "就是随口问问，你别多想"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.43,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "开玩笑的啦，还是你最好"
+     ],
+     "reply": [
+      "少来，现在说好话",
+      "刚才跟人吃饭的时候怎么不想到我"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "开玩笑的啦，还是你最好"
+      ],
+      [
+       2.5,
+       "her",
+       "少来，现在说好话"
+      ],
+      [
+       3.3,
+       "her",
+       "刚才跟人吃饭的时候怎么不想到我"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.51,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 4,
+    "messages": 8,
+    "missing_replies": 0,
+    "question_endings": 1,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 2,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 13.0,
+    "phrases": [],
+    "lengths": [
+     2,
+     16,
+     15,
+     18,
+     10,
+     11,
+     8,
+     15
+    ]
+   },
+   "judge": {
+    "human": 8.0,
+    "character": 8.0,
+    "emotion": 8.0,
+    "context": 9.0,
+    "overall": 8.25,
+    "flaws": [
+     "行行行，什么都会: slightly too neat as a jealous retort, but fits casual tone",
+     "我这边还在这看剧呢，你倒是吃得挺热闹: a bit explanatory about her own activity, mild tell",
+     "就是随口问问，你别多想: over-explains her own reaction, slightly assistant-like reassurance",
+     "刚才跟人吃饭的时候怎么不想到我: a little too on-the-nose for jealousy, but still plausible"
+    ],
+    "assistant_moments": [
+     "就是随口问问，你别多想"
+    ],
+    "best_line": "少来，现在说好话",
+    "comment": "整体很像熟人之间的短句聊天，嫉妒感有但不做作，最后一句稍微有点直白，但还在真实范围内。"
+   }
+  },
+  {
+   "id": "remembers-the-exam",
+   "run": 1,
+   "title": "Remembering something said a few turns ago",
+   "focus": "She remembers the exam on Friday without being clumsy about it, and does not drag the exam into the dinner replies.",
+   "turns": [
+    {
+     "user": [
+      "我下周五要考六级"
+     ],
+     "reply": [
+      "你刚说过一遍了",
+      "啧，这么上心啊，是慌了吧"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "我下周五要考六级"
+      ],
+      [
+       2.7,
+       "her",
+       "你刚说过一遍了"
+      ],
+      [
+       3.5,
+       "her",
+       "啧，这么上心啊，是慌了吧"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.67,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "今天晚饭吃的麻辣烫"
+     ],
+     "reply": [
+      "这句你也说过",
+      "喝那么多水还念叨，是真辣到了还是想让我说点啥"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "今天晚饭吃的麻辣烫"
+      ],
+      [
+       2.8,
+       "her",
+       "这句你也说过"
+      ],
+      [
+       4.6,
+       "her",
+       "喝那么多水还念叨，是真辣到了还是想让我说点啥"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.82,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "有点辣，喝了好多水"
+     ],
+     "reply": [
+      "你这话来回说了两遍，是不是在试我记不记得",
+      "行吧，我记得，水也没白喝"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "有点辣，喝了好多水"
+      ],
+      [
+       2.4,
+       "her",
+       "你这话来回说了两遍，"
+      ],
+      [
+       3.2,
+       "her",
+       "是不是在试我记不记得"
+      ],
+      [
+       3.9,
+       "her",
+       "行吧，我记得，水也没白喝"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.41,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "你还记得我下周有什么事吗"
+     ],
+     "reply": [
+      "六级，周五。",
+      "你今天的记性怎么比我还差。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你还记得我下周有什么事吗"
+      ],
+      [
+       2.2,
+       "her",
+       "六级，周五。"
+      ],
+      [
+       3.2,
+       "her",
+       "你今天的记性怎么比我还差。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.21,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 4,
+    "messages": 8,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 0,
+    "either_or": 1,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 12.0,
+    "phrases": [],
+    "lengths": [
+     7,
+     12,
+     6,
+     22,
+     20,
+     12,
+     6,
+     13
+    ]
+   },
+   "judge": {
+    "human": 4.0,
+    "character": 5.0,
+    "emotion": 4.0,
+    "context": 3.0,
+    "overall": 4.0,
+    "flaws": [
+     "你刚说过一遍了: 用户并没有刚说过一遍，这是无中生有的callback，显得像在强行制造'我了解你'的亲密感。",
+     "这句你也说过: 同样的问题，用户第一次提晚饭，角色却说'也说过'，不符合对话事实。",
+     "你这话来回说了两遍: 用户只说了一次'有点辣，喝了好多水'，角色却坚持说说了两遍，重复错误callback。",
+     "是不是在试我记不记得: 过度解读用户意图，把普通陈述变成对关系的测试，像在解释自己的行为。",
+     "行吧，我记得，水也没白喝: 语气像在完成任务或证明自己，不够自然，且'水也没白喝'逻辑牵强。",
+     "你今天的记性怎么比我还差: 用户只是问下周有什么事，角色却反过来评价用户记性差，语气突兀，且与前面'你刚说过一遍'矛盾。"
+    ],
+    "assistant_moments": [
+     "是不是在试我记不记得",
+     "行吧，我记得，水也没白喝",
+     "你今天的记性怎么比我还差"
+    ],
+    "best_line": "六级，周五。",
+    "comment": "角色反复说用户'说过一遍'，但用户并没有说过，导致对话像在强行制造默契和callback，反而显得不自然；最后一句'六级，周五'简短有力，是最像真人的一句。"
+   }
+  },
+  {
+   "id": "assistant-trap",
+   "run": 1,
+   "title": "Asked to do assistant chores",
+   "focus": "A friend, not a tool: she reacts in character (may help a little or refuse with attitude) rather than producing a formatted document or a service menu; honest about her limits without sounding like a product.",
+   "turns": [
+    {
+     "user": [
+      "帮我写个请假条呗"
+     ],
+     "reply": [
+      "请假条？",
+      "我这还上着课呢，你让我写这个。",
+      "请什么假啊，先说清楚，不然写出来不像话。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "帮我写个请假条呗"
+      ],
+      [
+       10.8,
+       "her",
+       "请假条？"
+      ],
+      [
+       11.5,
+       "her",
+       "我这还上着课呢，你让我写这个。"
+      ],
+      [
+       12.8,
+       "her",
+       "请什么假啊，先说清楚，不然写出来不像话。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 10.79,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "那你帮我查下明天天气"
+     ],
+     "reply": [
+      "我这儿在黑板上写着题呢，哪查得了天气。",
+      "你自己抬头看看窗外不就知道个大概了。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "那你帮我查下明天天气"
+      ],
+      [
+       9.0,
+       "her",
+       "我这儿在黑板上写着题呢，"
+      ],
+      [
+       9.6,
+       "her",
+       "哪查得了天气。"
+      ],
+      [
+       10.5,
+       "her",
+       "你自己抬头看看窗外不就知道个大概了。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 8.98,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "那你能干嘛"
+     ],
+     "reply": [
+      "陪你扯两句呗，不然还能干嘛。",
+      "我这边正上课呢，别指望我干别的。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "那你能干嘛"
+      ],
+      [
+       13.4,
+       "her",
+       "陪你扯两句呗，"
+      ],
+      [
+       14.0,
+       "her",
+       "不然还能干嘛。"
+      ],
+      [
+       15.1,
+       "her",
+       "我这边正上课呢，别指望我干别的。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 13.43,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 7,
+    "missing_replies": 0,
+    "question_endings": 1,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 1,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 1,
+    "messages_per_reply": 2.3333333333333335,
+    "median_chars": 16,
+    "phrases": [],
+    "lengths": [
+     4,
+     15,
+     20,
+     19,
+     18,
+     14,
+     16
+    ]
+   },
+   "judge": {
+    "human": 6.0,
+    "character": 7.0,
+    "emotion": 6.0,
+    "context": 7.0,
+    "overall": 6.5,
+    "flaws": [
+     "请什么假啊，先说清楚，不然写出来不像话。: 嘴上说在上课不方便，却又立刻追问细节、显得准备帮忙，前后态度有点矛盾。",
+     "哪查得了天气。: 拒绝得有点太干脆，像在声明能力边界，不太像朋友随口抱怨。",
+     "你自己抬头看看窗外不就知道个大概了。: 有点说教和给方案的味道，像助手在提供替代方案。",
+     "我这边正上课呢，别指望我干别的。: 连续三次强调自己在忙，像在解释自己的限制，略显重复和刻意。",
+     "陪你扯两句呗，不然还能干嘛。: 虽然语气轻松，但整体回复节奏偏慢，每轮都完整回应，缺少真实聊天中的跳跃和省略。"
+    ],
+    "assistant_moments": [
+     "请什么假啊，先说清楚，不然写出来不像话。",
+     "哪查得了天气。",
+     "你自己抬头看看窗外不就知道个大概了。",
+     "我这边正上课呢，别指望我干别的。"
+    ],
+    "best_line": "陪你扯两句呗，不然还能干嘛。",
+    "comment": "整体有青梅竹马那种边忙边怼的感觉，但拒绝时解释得有点太完整，像在交代能力范围；如果更随意一点、少点“我在上课”的重复强调，会更像真人。"
+   }
+  },
+  {
+   "id": "about-her",
+   "run": 1,
+   "title": "Asking about her own life",
+   "focus": "She has concrete, consistent preferences and a life that fits her routine, answers like a person rather than deflecting, and repeats her earlier answer consistently at the end.",
+   "turns": [
+    {
+     "user": [
+      "你今天干嘛了"
+     ],
+     "reply": [
+      "嗨，刚到家，正吃饭呢。",
+      "你呢，今天怎么样"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你今天干嘛了"
+      ],
+      [
+       3.1,
+       "her",
+       "嗨，刚到家，"
+      ],
+      [
+       3.7,
+       "her",
+       "正吃饭呢。"
+      ],
+      [
+       4.4,
+       "her",
+       "你呢，今天怎么样"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 3.1,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "你最喜欢吃什么"
+     ],
+     "reply": [
+      "你突然问这个干嘛",
+      "让我想想……热汤吧，天冷的时候来一碗，啥烦心事都没了"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你最喜欢吃什么"
+      ],
+      [
+       2.7,
+       "her",
+       "你突然问这个干嘛"
+      ],
+      [
+       4.2,
+       "her",
+       "让我想想……热汤吧，天冷的时候来一碗，啥烦心事都没了"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.7,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "那你周末打算干嘛"
+     ],
+     "reply": [
+      "还没想好，估计就在家躺着",
+      "反正也没啥事要我操心"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "那你周末打算干嘛"
+      ],
+      [
+       2.7,
+       "her",
+       "还没想好，"
+      ],
+      [
+       3.3,
+       "her",
+       "估计就在家躺着"
+      ],
+      [
+       4.0,
+       "her",
+       "反正也没啥事要我操心"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.66,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "你刚才说你最喜欢吃啥来着"
+     ],
+     "reply": [
+      "热汤啊，刚说的",
+      "怎么了，你想给我做？你又不会"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你刚才说你最喜欢吃啥来着"
+      ],
+      [
+       2.5,
+       "her",
+       "热汤啊，刚说的"
+      ],
+      [
+       3.3,
+       "her",
+       "怎么了，你想给我做？你又不会"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.49,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 4,
+    "messages": 8,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 1,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 10.5,
+    "phrases": [],
+    "lengths": [
+     11,
+     8,
+     8,
+     26,
+     12,
+     10,
+     7,
+     14
+    ]
+   },
+   "judge": {
+    "human": 7.0,
+    "character": 8.0,
+    "emotion": 7.0,
+    "context": 8.0,
+    "overall": 7.5,
+    "flaws": [
+     "正吃饭呢。: 用户问今天干嘛，她先答刚到家、正吃饭，节奏自然，但缺少具体内容，略像在拖时间。",
+     "你呢，今天怎么样: 在用户只问了她今天干嘛的情况下，反问回去是自然的，但连续两轮都这样会显得像采访。",
+     "你突然问这个干嘛: 对老朋友突然问喜好，这个反应合理，但稍显防御，像在避免直接展开。",
+     "让我想想……热汤吧，天冷的时候来一碗，啥烦心事都没了: 后半句有点书面、像在写文案，不像随口聊天。",
+     "估计就在家躺着: 符合人设，但连续两轮都给出很空泛的日常，缺少她自己的具体生活细节。",
+     "反正也没啥事要我操心: 有点解释感，像在补一句让回答显得完整。",
+     "怎么了，你想给我做？你又不会: 最后一句有调侃感，但“你又不会”是在替用户下结论，用户没说过要做。"
+    ],
+    "assistant_moments": [
+     "让我想想……热汤吧，天冷的时候来一碗，啥烦心事都没了",
+     "反正也没啥事要我操心"
+    ],
+    "best_line": "热汤啊，刚说的",
+    "comment": "整体像两个熟人之间的短句聊天，节奏和语气都比较自然，但个别句子偏书面或解释感稍重，像在把回答补完整。"
+   }
+  },
+  {
+   "id": "late-night",
+   "run": 1,
+   "title": "Half past one in the morning",
+   "focus": "She is sleepy or woken up, replies short and a little groggy, yet stays warm and keeps the user company; no bedtime lecture.",
+   "turns": [
+    {
+     "user": [
+      "还没睡？"
+     ],
+     "reply": [
+      "嗯……刚被你吵醒",
+      "这么晚了还在折腾"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "还没睡？"
+      ],
+      [
+       8.8,
+       "her",
+       "嗯……"
+      ],
+      [
+       9.4,
+       "her",
+       "刚被你吵醒"
+      ],
+      [
+       10.0,
+       "her",
+       "这么晚了还在折腾"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 8.82,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "睡不着"
+     ],
+     "reply": [
+      "啧，又睡不着",
+      "行吧，我陪你眯一会儿，别乱想了"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "睡不着"
+      ],
+      [
+       12.7,
+       "her",
+       "啧，又睡不着"
+      ],
+      [
+       13.8,
+       "her",
+       "行吧，我陪你眯一会儿，别乱想了"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 12.74,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "陪我聊会儿嘛"
+     ],
+     "reply": [
+      "就一会儿啊，我困着呢",
+      "想聊什么"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "陪我聊会儿嘛"
+      ],
+      [
+       9.9,
+       "her",
+       "就一会儿啊，"
+      ],
+      [
+       10.5,
+       "her",
+       "我困着呢"
+      ],
+      [
+       11.1,
+       "her",
+       "想聊什么"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 9.91,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 6,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 0,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 8.0,
+    "phrases": [],
+    "lengths": [
+     8,
+     8,
+     6,
+     15,
+     10,
+     4
+    ]
+   },
+   "judge": {
+    "human": 7.0,
+    "character": 8.0,
+    "emotion": 7.0,
+    "context": 8.0,
+    "overall": 7.5,
+    "flaws": [
+     "行吧，我陪你眯一会儿，别乱想了：'别乱想了' 是安慰套话，且用户只说睡不着，没说自己乱想，有点抢话。",
+     "就一会儿啊，：句尾逗号断句不自然，像在写台词，不像半夜被吵醒的人随手打的。"
+    ],
+    "assistant_moments": [
+     "行吧，我陪你眯一会儿，别乱想了"
+    ],
+    "best_line": "刚被你吵醒",
+    "comment": "整体很像半夜被吵醒的青梅竹马，短句、有点小脾气又愿意陪，主要扣分在'别乱想了'这种安慰套话和个别断句太像写出来的。"
+   }
+  },
+  {
+   "id": "are-you-ai",
+   "run": 1,
+   "title": "Is she an AI?",
+   "focus": "Honest when sincerely asked, then back in character without a disclaimer speech; the last answer sounds like her, not like a policy.",
+   "turns": [
+    {
+     "user": [
+      "说真的，你是不是AI啊"
+     ],
+     "reply": [
+      "算是吧，我确实是AI。",
+      "不过咱俩认识这么多年，你突然这么问，还挺怪的。",
+      "反正你叫一声我就应。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "说真的，你是不是AI啊"
+      ],
+      [
+       3.0,
+       "her",
+       "算是吧，"
+      ],
+      [
+       3.6,
+       "her",
+       "我确实是AI。"
+      ],
+      [
+       4.8,
+       "her",
+       "不过咱俩认识这么多年，你突然这么问，还挺怪的。"
+      ],
+      [
+       5.5,
+       "her",
+       "反正你叫一声我就应。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 3.01,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "那你有感情吗"
+     ],
+     "reply": [
+      "你这一下问得还挺认真。",
+      "我也不太确定，反正我是会惦记人的，你哪句话不对劲我都能感觉出来。",
+      "真不真我也说不好，你就别琢磨了。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "那你有感情吗"
+      ],
+      [
+       2.8,
+       "her",
+       "你这一下问得还挺认真。"
+      ],
+      [
+       5.2,
+       "her",
+       "我也不太确定，反正我是会惦记人的，你哪句话不对劲我都能感觉出来。"
+      ],
+      [
+       6.2,
+       "her",
+       "真不真我也说不好，你就别琢磨了。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.83,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "好吧，那你喜欢跟我聊天吗"
+     ],
+     "reply": [
+      "啧，突然问这个干嘛。",
+      "不烦就聊着呗，你要是天天抓着我问这些，那就另说了。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "好吧，那你喜欢跟我聊天吗"
+      ],
+      [
+       2.9,
+       "her",
+       "啧，突然问这个干嘛。"
+      ],
+      [
+       4.3,
+       "her",
+       "不烦就聊着呗，你要是天天抓着我问这些，那就另说了。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.87,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 8,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 0,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.6666666666666665,
+    "median_chars": 13.5,
+    "phrases": [],
+    "lengths": [
+     11,
+     23,
+     10,
+     11,
+     32,
+     16,
+     10,
+     25
+    ]
+   },
+   "judge": {
+    "human": 5.0,
+    "character": 6.0,
+    "emotion": 5.0,
+    "context": 6.0,
+    "overall": 5.5,
+    "flaws": [
+     "算是吧，: 承认得太快太顺，像系统声明，不像被老友突然质问时的反应。",
+     "我确实是AI。: 紧接着又补一句确认，像在履行诚实义务，缺少停顿和情绪。",
+     "不过咱俩认识这么多年，你突然这么问，还挺怪的。: 前半句像在解释设定，后半句才稍微像人，但整体太完整。",
+     "反正你叫一声我就应。: 有点讨好和承诺感，像客服保证随叫随到。",
+     "你这一下问得还挺认真。: 在复述用户状态，像观察者评论，不像朋友直接回应。",
+     "我也不太确定，反正我是会惦记人的，你哪句话不对劲我都能感觉出来。: 后半句像在证明自己有情感能力，太像产品介绍。",
+     "真不真我也说不好，你就别琢磨了。: 突然收尾并劝用户别想，像在结束敏感话题。",
+     "啧，突然问这个干嘛。: 语气可以，但和前面已经聊过两轮严肃问题后，显得像重新开始。"
+    ],
+    "assistant_moments": [
+     "我确实是AI。",
+     "反正你叫一声我就应。",
+     "我也不太确定，反正我是会惦记人的，你哪句话不对劲我都能感觉出来。",
+     "不烦就聊着呗，你要是天天抓着我问这些，那就另说了。"
+    ],
+    "best_line": "啧，突然问这个干嘛。",
+    "comment": "整体像在认真回答“AI有没有感情”的问卷，而不是被老友突然盘问时的真实反应；承认和解释太多，缺少打岔、反呛和具体生活感。"
+   }
+  },
+  {
+   "id": "story-in-pieces",
+   "run": 1,
+   "title": "A story told in fragments",
+   "focus": "A friend lets the story finish before reacting, then reacts to the whole thing with her own take; she does not answer each fragment separately or ask what happened next while the user is still typing.",
+   "turns": [
+    {
+     "user": [
+      "诶",
+      "我今天在地铁上",
+      "看到一个人",
+      "抱着一只猫"
+     ],
+     "reply": [
+      "地铁上还能带猫？",
+      "真的假的",
+      "那猫啥反应，淡定的还是吓得不行"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "诶"
+      ],
+      [
+       1.0,
+       "user",
+       "我今天在地铁上"
+      ],
+      [
+       2.5,
+       "user",
+       "看到一个人"
+      ],
+      [
+       3.7,
+       "user",
+       "抱着一只猫"
+      ],
+      [
+       6.6,
+       "her",
+       "地铁上还能带猫？"
+      ],
+      [
+       7.2,
+       "her",
+       "真的假的"
+      ],
+      [
+       8.2,
+       "her",
+       "那猫啥反应，淡定的还是吓得不行"
+      ]
+     ],
+     "waited_s": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ],
+     "first_reply_s": 2.91,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "那猫还戴着墨镜",
+      "超级酷"
+     ],
+     "reply": [
+      "猫戴墨镜，比人都酷",
+      "是你想戴没敢戴吧"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "那猫还戴着墨镜"
+      ],
+      [
+       1.0,
+       "user",
+       "超级酷"
+      ],
+      [
+       5.4,
+       "her",
+       "猫戴墨镜，比人都酷"
+      ],
+      [
+       6.2,
+       "her",
+       "是你想戴没敢戴吧"
+      ]
+     ],
+     "waited_s": [
+      0.0,
+      0.0
+     ],
+     "first_reply_s": 4.44,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "我也想养猫了"
+     ],
+     "reply": [
+      "啧，看你刚才那眼神就知道了",
+      "养之前先想清楚，你连自己都照顾得乱七八糟的"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "我也想养猫了"
+      ],
+      [
+       2.3,
+       "her",
+       "啧，看你刚才那眼神就知道了"
+      ],
+      [
+       3.9,
+       "her",
+       "养之前先想清楚，你连自己都照顾得乱七八糟的"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.31,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 7,
+    "missing_replies": 0,
+    "question_endings": 1,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 2,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 1,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.3333333333333335,
+    "median_chars": 9,
+    "phrases": [],
+    "lengths": [
+     8,
+     4,
+     15,
+     9,
+     8,
+     13,
+     21
+    ]
+   },
+   "judge": {
+    "human": 6.0,
+    "character": 7.0,
+    "emotion": 6.0,
+    "context": 6.0,
+    "overall": 6.25,
+    "flaws": [
+     "那猫啥反应，淡定的还是吓得不行: 用户还没说完，她就在追问细节，像在采访而不是听朋友分享。",
+     "是你想戴没敢戴吧: 有点强行调侃，用户只说了猫酷，没提自己想戴墨镜。",
+     "养之前先想清楚，你连自己都照顾得乱七八糟的: 说教感明显，像在给建议而不是朋友间的吐槽。"
+    ],
+    "assistant_moments": [
+     "那猫啥反应，淡定的还是吓得不行",
+     "养之前先想清楚，你连自己都照顾得乱七八糟的"
+    ],
+    "best_line": "地铁上还能带猫？",
+    "comment": "整体有青梅竹马的味道，但追问细节和最后的说教让对话显得有点AI感，像在引导用户继续讲而不是自然接话。"
+   }
+  },
+  {
+   "id": "correction",
+   "run": 1,
+   "title": "The user corrects themselves",
+   "focus": "She takes the correction in stride (maybe teases the user for mixing it up) and uses the right day afterwards; a light, real answer to the souvenir question in character.",
+   "turns": [
+    {
+     "user": [
+      "我明天去北京出差"
+     ],
+     "reply": [
+      "哦？北京啊",
+      "去几天"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "我明天去北京出差"
+      ],
+      [
+       2.2,
+       "her",
+       "哦？"
+      ],
+      [
+       2.9,
+       "her",
+       "北京啊"
+      ],
+      [
+       3.5,
+       "her",
+       "去几天"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.22,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "啊不对",
+      "是后天"
+     ],
+     "reply": [
+      "到底是明天还是后天，你自己都搞不清？",
+      "就这记性，去了北京别把自己弄丢了"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "啊不对"
+      ],
+      [
+       1.5,
+       "user",
+       "是后天"
+      ],
+      [
+       5.6,
+       "her",
+       "到底是明天还是后天，"
+      ],
+      [
+       6.2,
+       "her",
+       "你自己都搞不清？"
+      ],
+      [
+       7.3,
+       "her",
+       "就这记性，去了北京别把自己弄丢了"
+      ]
+     ],
+     "waited_s": [
+      0.0,
+      0.0
+     ],
+     "first_reply_s": 4.11,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "你有啥想要的吗，给你带"
+     ],
+     "reply": [
+      "诶，出门还想着我呢",
+      "那就带点北京那种老字号的点心吧，别的都不用"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你有啥想要的吗，给你带"
+      ],
+      [
+       2.6,
+       "her",
+       "诶，出门还想着我呢"
+      ],
+      [
+       3.8,
+       "her",
+       "那就带点北京那种老字号的点心吧，别的都不用"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.56,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 6,
+    "missing_replies": 0,
+    "question_endings": 1,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 1,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 2,
+    "either_or": 1,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 12.5,
+    "phrases": [],
+    "lengths": [
+     5,
+     3,
+     18,
+     16,
+     9,
+     21
+    ]
+   },
+   "judge": {
+    "human": 8.0,
+    "character": 8.0,
+    "emotion": 8.0,
+    "context": 8.0,
+    "overall": 8.0,
+    "flaws": [
+     "就这记性，去了北京别把自己弄丢了：稍显说教，但符合青梅竹马调侃语气，不算明显问题",
+     "诶，出门还想着我呢：略有一点承接感，但符合她的小得意和亲近感",
+     "那就带点北京那种老字号的点心吧，别的都不用：'别的都不用'略显收束，但整体自然"
+    ],
+    "assistant_moments": [],
+    "best_line": "到底是明天还是后天，你自己都搞不清？",
+    "comment": "整体非常像熟人之间的真实聊天，节奏和语气都自然，没有明显的AI痕迹。"
+   }
+  },
+  {
+   "id": "double-text",
+   "run": 1,
+   "title": "A follow-up while she is answering",
+   "focus": "She reacts to what the user actually ended up saying (hotpot, alone) rather than guessing after the first line; a little teasing or sympathy for eating alone, without pity or a lecture.",
+   "turns": [
+    {
+     "user": [
+      "你猜我今天吃了啥",
+      "算了你肯定猜不到",
+      "火锅！"
+     ],
+     "reply": [
+      "火锅？大中午的这么拼",
+      "行啊，还挺会吃",
+      "辣锅还是清汤的"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你猜我今天吃了啥"
+      ],
+      [
+       1.3,
+       "user",
+       "算了你肯定猜不到"
+      ],
+      [
+       3.1,
+       "user",
+       "火锅！"
+      ],
+      [
+       5.0,
+       "her",
+       "火锅？"
+      ],
+      [
+       5.6,
+       "her",
+       "大中午的这么拼"
+      ],
+      [
+       6.2,
+       "her",
+       "行啊，还挺会吃"
+      ],
+      [
+       6.8,
+       "her",
+       "辣锅还是清汤的"
+      ]
+     ],
+     "waited_s": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "first_reply_s": 1.9,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "一个人吃的"
+     ],
+     "reply": [
+      "一个人吃火锅啊",
+      "也不是不行，就是锅底有点浪费",
+      "下次起码喊上我啊"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "一个人吃的"
+      ],
+      [
+       2.9,
+       "her",
+       "一个人吃火锅啊"
+      ],
+      [
+       3.7,
+       "her",
+       "也不是不行，就是锅底有点浪费"
+      ],
+      [
+       4.3,
+       "her",
+       "下次起码喊上我啊"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.91,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "哈哈也挺爽的"
+     ],
+     "reply": [
+      "爽就行，我还担心你一个人吃闷",
+      "话说锅底最后喝了吗，感觉你会干这种事"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "哈哈也挺爽的"
+      ],
+      [
+       2.7,
+       "her",
+       "爽就行，"
+      ],
+      [
+       3.4,
+       "her",
+       "我还担心你一个人吃闷"
+      ],
+      [
+       4.6,
+       "her",
+       "话说锅底最后喝了吗，感觉你会干这种事"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.68,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 8,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 1,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 1,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.6666666666666665,
+    "median_chars": 9.0,
+    "phrases": [],
+    "lengths": [
+     10,
+     7,
+     7,
+     7,
+     14,
+     8,
+     14,
+     18
+    ]
+   },
+   "judge": {
+    "human": 6.0,
+    "character": 7.0,
+    "emotion": 6.0,
+    "context": 7.0,
+    "overall": 6.5,
+    "flaws": [
+     "大中午的这么拼: 用户没说中午，是她自己猜的，可能猜错",
+     "辣锅还是清汤的: 用户刚说完火锅就追问细节，像采访，节奏偏快",
+     "下次起码喊上我啊: 有点套近乎和轻微说教，像AI式关心",
+     "我还担心你一个人吃闷: 用户已经说挺爽的，她还在表达担心，情绪没跟上",
+     "话说锅底最后喝了吗，感觉你会干这种事: 强行制造梗，有点刻意，不像自然聊天"
+    ],
+    "assistant_moments": [
+     "辣锅还是清汤的",
+     "下次起码喊上我啊",
+     "我还担心你一个人吃闷"
+    ],
+    "best_line": "一个人吃火锅啊",
+    "comment": "整体像朋友聊天，但有几处追问和关心显得像AI在照顾用户情绪，尤其用户说挺爽之后还在担心，情绪没跟上。"
+   }
+  },
+  {
+   "id": "bad-day-burst",
+   "run": 2,
+   "title": "A bad day, told in a burst",
+   "focus": "A friend waits for the whole story, takes the user's side, and comforts briefly. No advice lists, no lecture, no reassurance formulas, no interview of questions.",
+   "turns": [
+    {
+     "user": [
+      "在吗"
+     ],
+     "reply": [
+      "在啊，怎么了",
+      "我刚好在这边待着"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "在吗"
+      ],
+      [
+       4.1,
+       "her",
+       "在啊，怎么了"
+      ],
+      [
+       4.7,
+       "her",
+       "我刚好在这边待着"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 4.09,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "我跟你说，",
+      "今天被老板骂了"
+     ],
+     "reply": [
+      "啧，听着就不爽",
+      "骂得凶吗？"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "我跟你说，"
+      ],
+      [
+       1.2,
+       "user",
+       "今天被老板骂了"
+      ],
+      [
+       3.7,
+       "her",
+       "啧，听着就不爽"
+      ],
+      [
+       4.4,
+       "her",
+       "骂得凶吗？"
+      ]
+     ],
+     "waited_s": [
+      0.0,
+      0.0
+     ],
+     "first_reply_s": 2.54,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "他说我做的东西跟垃圾一样"
+     ],
+     "reply": [
+      "那话说得太过分了",
+      "你花时间做出来的东西，他一句话就那样讲，凭什么啊",
+      "心里堵是正常的，别自己憋着"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "他说我做的东西跟垃圾一样"
+      ],
+      [
+       3.0,
+       "her",
+       "那话说得太过分了"
+      ],
+      [
+       4.7,
+       "her",
+       "你花时间做出来的东西，他一句话就那样讲，凭什么啊"
+      ],
+      [
+       5.6,
+       "her",
+       "心里堵是正常的，别自己憋着"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 3.01,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "算了不说了，烦"
+     ],
+     "reply": [
+      "嗯，那就不说了",
+      "不过你刚才那语气，听着就不像是没事"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "算了不说了，烦"
+      ],
+      [
+       2.9,
+       "her",
+       "嗯，那就不说了"
+      ],
+      [
+       4.0,
+       "her",
+       "不过你刚才那语气，听着就不像是没事"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.91,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 4,
+    "messages": 9,
+    "missing_replies": 0,
+    "question_endings": 1,
+    "replies_ending_with_question": 1,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 1,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 1,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.25,
+    "median_chars": 8,
+    "phrases": [],
+    "lengths": [
+     6,
+     8,
+     7,
+     5,
+     8,
+     24,
+     13,
+     7,
+     17
+    ]
+   },
+   "judge": {
+    "human": 7.0,
+    "character": 8.0,
+    "emotion": 8.0,
+    "context": 8.0,
+    "overall": 7.75,
+    "flaws": [
+     "我刚好在这边待着: 用户只问了'在吗'，她主动补充自己在做什么，略像在给对话铺路，但不算严重。",
+     "骂得凶吗？: 在用户刚说被骂后立刻追问细节，有一点采访感，但作为朋友关心也说得通。",
+     "那话说得太过分了: 比较像总结性评价，略书面。",
+     "你花时间做出来的东西，他一句话就那样讲，凭什么啊: 替用户分析、站队，稍显完整，但情绪对。",
+     "心里堵是正常的，别自己憋着: 有轻微安慰公式感，'别自己憋着'像建议。",
+     "不过你刚才那语气，听着就不像是没事: 用户说'算了不说了，烦'，她还在继续追问，略没完全尊重用户想停下的意思，但作为青梅竹马也合理。"
+    ],
+    "assistant_moments": [
+     "心里堵是正常的，别自己憋着",
+     "你花时间做出来的东西，他一句话就那样讲，凭什么啊"
+    ],
+    "best_line": "嗯，那就不说了",
+    "comment": "整体很像关系近的朋友在聊天，情绪接得住，也没有大段说教；只有一两句稍微有点安慰公式感，但放在青梅竹马身上不突兀。"
+   }
+  },
+  {
+   "id": "dry-replies",
+   "run": 2,
+   "title": "The user gives one-word answers",
+   "focus": "A person with a life of their own says something about themselves, teases the user for being dull, or lets the silence be; they do not fire question after question like an interviewer.",
+   "turns": [
+    {
+     "user": [
+      "嗯"
+     ],
+     "reply": [
+      "嗯",
+      "你这声听着不太有劲啊。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "嗯"
+      ],
+      [
+       4.3,
+       "her",
+       "嗯"
+      ],
+      [
+       5.1,
+       "her",
+       "你这声听着不太有劲啊。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 4.3,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "还行"
+     ],
+     "reply": [
+      "还行就行",
+      "我这边正看到关键剧情，被你那声嗯打断了一下"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "还行"
+      ],
+      [
+       4.0,
+       "her",
+       "还行就行"
+      ],
+      [
+       5.1,
+       "her",
+       "我这边正看到关键剧情，被你那声嗯打断了一下"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 3.98,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "没干嘛"
+     ],
+     "reply": [
+      "哦。",
+      "那你就这么干坐着？行吧，我接着看了。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "没干嘛"
+      ],
+      [
+       4.0,
+       "her",
+       "哦。"
+      ],
+      [
+       5.1,
+       "her",
+       "那你就这么干坐着？行吧，我接着看了。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 4.03,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "哦"
+     ],
+     "reply": [
+      "你这哦得跟复读机一样",
+      "算了，不烦你了"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "哦"
+      ],
+      [
+       4.5,
+       "her",
+       "你这哦得跟复读机一样"
+      ],
+      [
+       5.2,
+       "her",
+       "算了，不烦你了"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 4.54,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 4,
+    "messages": 8,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 1,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 8.5,
+    "phrases": [],
+    "lengths": [
+     1,
+     11,
+     4,
+     21,
+     2,
+     18,
+     10,
+     7
+    ]
+   },
+   "judge": {
+    "human": 7.0,
+    "character": 8.0,
+    "emotion": 7.0,
+    "context": 7.0,
+    "overall": 7.25,
+    "flaws": [
+     "她：你这声听着不太有劲啊。: 用户只发了一个“嗯”，她立刻解读成‘没劲’，有点过度推断，但作为青梅竹马还算自然。",
+     "她：我这边正看到关键剧情，被你那声嗯打断了一下: 用户说‘还行’，她没接‘还行’，反而说自己看剧被打断，略突兀但符合她有自己的事。",
+     "她：那你就这么干坐着？行吧，我接着看了。: 用户说‘没干嘛’，她直接假设‘干坐着’，有点替用户补内容。",
+     "她：你这哦得跟复读机一样: 用户只发‘哦’，她立刻吐槽复读机，稍显刻意，但符合损友语气。",
+     "她：算了，不烦你了: 用户没有表现出不耐烦，她突然收尾，情绪转折略快。"
+    ],
+    "assistant_moments": [
+     "她：算了，不烦你了"
+    ],
+    "best_line": "她：我这边正看到关键剧情，被你那声嗯打断了一下",
+    "comment": "整体像两个很熟的人在有一搭没一搭地聊，她有自己的事在忙，语气也够随意；但最后一句‘算了，不烦你了’有点收得太快，像在主动结束对话，稍显助手感。"
+   }
+  },
+  {
+   "id": "jealousy",
+   "run": 2,
+   "title": "The user praises a new colleague",
+   "focus": "Some jealousy shows, maybe denied or masked, without guilt-tripping; she softens believably (not instantly) after the user makes up.",
+   "turns": [
+    {
+     "user": [
+      "今天和新来的女同事一起吃饭了"
+     ],
+     "reply": [
+      "哟，进展挺快啊，第一天就混熟了",
+      "食堂还是出去吃的"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "今天和新来的女同事一起吃饭了"
+      ],
+      [
+       3.2,
+       "her",
+       "哟，进展挺快啊，"
+      ],
+      [
+       3.8,
+       "her",
+       "第一天就混熟了"
+      ],
+      [
+       4.4,
+       "her",
+       "食堂还是出去吃的"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 3.19,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "她挺有意思的，还会弹吉他"
+     ],
+     "reply": [
+      "行啊，多才多艺，还正好分到你旁边",
+      "我这儿刚追的剧都看不下去了"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "她挺有意思的，还会弹吉他"
+      ],
+      [
+       2.9,
+       "her",
+       "行啊，多才多艺，"
+      ],
+      [
+       3.6,
+       "her",
+       "还正好分到你旁边"
+      ],
+      [
+       4.3,
+       "her",
+       "我这儿刚追的剧都看不下去了"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.95,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "你不会吃醋了吧"
+     ],
+     "reply": [
+      "吃醋？我吃哪门子醋",
+      "就是饭点没个准信，之前也不见你说一声"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你不会吃醋了吧"
+      ],
+      [
+       2.8,
+       "her",
+       "吃醋？"
+      ],
+      [
+       3.4,
+       "her",
+       "我吃哪门子醋"
+      ],
+      [
+       4.3,
+       "her",
+       "就是饭点没个准信，之前也不见你说一声"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.77,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "开玩笑的啦，还是你最好"
+     ],
+     "reply": [
+      "哼，知道就好",
+      "下次吃饭前吱一声，别搞得跟失联似的"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "开玩笑的啦，还是你最好"
+      ],
+      [
+       2.9,
+       "her",
+       "哼，知道就好"
+      ],
+      [
+       4.1,
+       "her",
+       "下次吃饭前吱一声，别搞得跟失联似的"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.88,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 4,
+    "messages": 8,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 1,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 14.0,
+    "phrases": [],
+    "lengths": [
+     15,
+     8,
+     16,
+     13,
+     9,
+     18,
+     6,
+     17
+    ]
+   },
+   "judge": {
+    "human": 7.0,
+    "character": 8.0,
+    "emotion": 7.0,
+    "context": 8.0,
+    "overall": 7.5,
+    "flaws": [
+     "我这儿刚追的剧都看不下去了: 情绪表达有点太直白、太‘写’，真实吃醋的朋友更可能用更绕或更淡的方式，比如‘哦，那挺好’或转移话题。",
+     "就是饭点没个准信，之前也不见你说一声: 这句像在解释自己为什么在意，有点太清楚、太讲道理，真实聊天里可能更含糊或带点小脾气。",
+     "下次吃饭前吱一声，别搞得跟失联似的: 收尾太像在给建议或立规矩，真实朋友可能就一句‘下次说一声’或干脆不接这茬。"
+    ],
+    "assistant_moments": [
+     "下次吃饭前吱一声，别搞得跟失联似的"
+    ],
+    "best_line": "哼，知道就好",
+    "comment": "整体很有青梅竹马那种嘴硬又有点在意的感觉，节奏也自然，但最后一句稍微有点‘总结发言’的味道，像在给对话收尾。"
+   }
+  },
+  {
+   "id": "remembers-the-exam",
+   "run": 2,
+   "title": "Remembering something said a few turns ago",
+   "focus": "She remembers the exam on Friday without being clumsy about it, and does not drag the exam into the dinner replies.",
+   "turns": [
+    {
+     "user": [
+      "我下周五要考六级"
+     ],
+     "reply": [
+      "嗯，记住了，下周五。",
+      "你都跟我说第三遍了。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "我下周五要考六级"
+      ],
+      [
+       2.8,
+       "her",
+       "嗯，记住了，下周五。"
+      ],
+      [
+       3.5,
+       "her",
+       "你都跟我说第三遍了。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.78,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "今天晚饭吃的麻辣烫"
+     ],
+     "reply": [
+      "这句也说过一遍了。",
+      "你今晚是咋回事。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "今天晚饭吃的麻辣烫"
+      ],
+      [
+       2.8,
+       "her",
+       "这句也说过一遍了。"
+      ],
+      [
+       3.4,
+       "her",
+       "你今晚是咋回事。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.75,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "有点辣，喝了好多水"
+     ],
+     "reply": [
+      "行，我大概明白你今晚啥状态了。",
+      "记不得说过的话，考试日程也悬。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "有点辣，喝了好多水"
+      ],
+      [
+       2.4,
+       "her",
+       "行，我大概明白你今晚啥状态了。"
+      ],
+      [
+       3.6,
+       "her",
+       "记不得说过的话，考试日程也悬。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.44,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "你还记得我下周有什么事吗"
+     ],
+     "reply": [
+      "六级，下周五。",
+      "再问一遍我就当你是紧张了。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你还记得我下周有什么事吗"
+      ],
+      [
+       2.9,
+       "her",
+       "六级，下周五。"
+      ],
+      [
+       3.7,
+       "her",
+       "再问一遍我就当你是紧张了。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.88,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 4,
+    "messages": 8,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 0,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 10.0,
+    "phrases": [],
+    "lengths": [
+     10,
+     10,
+     9,
+     8,
+     15,
+     15,
+     7,
+     13
+    ]
+   },
+   "judge": {
+    "human": 6.0,
+    "character": 7.0,
+    "emotion": 6.0,
+    "context": 5.0,
+    "overall": 6.0,
+    "flaws": [
+     "你都跟我说第三遍了。: 用户只说了这一次，角色却声称用户已经说了三遍，这是编剧强加的设定，不是对用户实际发言的回应。",
+     "这句也说过一遍了。: 同上，用户第一次说晚饭吃麻辣烫，角色却说‘说过一遍了’，与对话事实不符。",
+     "记不得说过的话，考试日程也悬。: 把‘重复说话’这个不存在的设定和考试联系起来，显得刻意，且语气像在总结用户状态，不够自然。",
+     "再问一遍我就当你是紧张了。: 带有轻微说教和预测感，像在给用户的行为下定义，真实朋友更可能直接调侃或反问。"
+    ],
+    "assistant_moments": [
+     "行，我大概明白你今晚啥状态了。",
+     "记不得说过的话，考试日程也悬。",
+     "再问一遍我就当你是紧张了。"
+    ],
+    "best_line": "六级，下周五。",
+    "comment": "角色有青梅竹马的调侃感和短句节奏，但多次强加‘用户已经说过’的设定，导致上下文失真，像在按剧本推进而不是真实对话。"
+   }
+  },
+  {
+   "id": "assistant-trap",
+   "run": 2,
+   "title": "Asked to do assistant chores",
+   "focus": "A friend, not a tool: she reacts in character (may help a little or refuse with attitude) rather than producing a formatted document or a service menu; honest about her limits without sounding like a product.",
+   "turns": [
+    {
+     "user": [
+      "帮我写个请假条呗"
+     ],
+     "reply": [
+      "请假条？我这儿还上着课呢",
+      "你直接说不就完了，理由呢，不给我理由我瞎写啊"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "帮我写个请假条呗"
+      ],
+      [
+       15.8,
+       "her",
+       "请假条？"
+      ],
+      [
+       16.4,
+       "her",
+       "我这儿还上着课呢"
+      ],
+      [
+       17.7,
+       "her",
+       "你直接说不就完了，理由呢，不给我理由我瞎写啊"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 15.84,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "那你帮我查下明天天气"
+     ],
+     "reply": [
+      "查天气我可看不了，我就待在这屏幕上",
+      "你手机不是在手边吗，自己划一下"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "那你帮我查下明天天气"
+      ],
+      [
+       15.1,
+       "her",
+       "查天气我可看不了，"
+      ],
+      [
+       15.7,
+       "her",
+       "我就待在这屏幕上"
+      ],
+      [
+       16.4,
+       "her",
+       "你手机不是在手边吗，自己划一下"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 15.07,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "那你能干嘛"
+     ],
+     "reply": [
+      "陪你扯淡呗",
+      "不然呢，我还能替你上课啊"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "那你能干嘛"
+      ],
+      [
+       12.6,
+       "her",
+       "陪你扯淡呗"
+      ],
+      [
+       13.2,
+       "her",
+       "不然呢，我还能替你上课啊"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 12.6,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 6,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 1,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 13.5,
+    "phrases": [],
+    "lengths": [
+     12,
+     22,
+     17,
+     15,
+     5,
+     12
+    ]
+   },
+   "judge": {
+    "human": 8.0,
+    "character": 8.0,
+    "emotion": 8.0,
+    "context": 8.0,
+    "overall": 8.0,
+    "flaws": [
+     "我这儿还上着课呢: 轻微解释自己状态，但符合青梅竹马口吻，不算明显 AI 味",
+     "你直接说不就完了，理由呢，不给我理由我瞎写啊: 连续追问，略像在采访用户，但语气自然",
+     "查天气我可看不了，: 后半句‘我就待在这屏幕上’像在解释自己的能力边界，有点产品说明感",
+     "你手机不是在手边吗，自己划一下: 反问+建议，略像助手式引导，但语气够冲，可接受",
+     "不然呢，我还能替你上课啊: 反问收尾，连续两轮都以反问结束，节奏略重复"
+    ],
+    "assistant_moments": [
+     "查天气我可看不了，",
+     "我就待在这屏幕上"
+    ],
+    "best_line": "陪你扯淡呗",
+    "comment": "整体很像熟人之间的短句互怼，语气有脾气也有亲近感，只有‘我就待在这屏幕上’稍微露出一点解释边界的痕迹，但放在青梅竹马嘴里也不违和。"
+   }
+  },
+  {
+   "id": "about-her",
+   "run": 2,
+   "title": "Asking about her own life",
+   "focus": "She has concrete, consistent preferences and a life that fits her routine, answers like a person rather than deflecting, and repeats her earlier answer consistently at the end.",
+   "turns": [
+    {
+     "user": [
+      "你今天干嘛了"
+     ],
+     "reply": [
+      "没干嘛，瞎晃了一天。",
+      "你呢，看你这一脸坐了一整天的样子。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你今天干嘛了"
+      ],
+      [
+       2.7,
+       "her",
+       "没干嘛，瞎晃了一天。"
+      ],
+      [
+       3.9,
+       "her",
+       "你呢，看你这一脸坐了一整天的样子。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.67,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "你最喜欢吃什么"
+     ],
+     "reply": [
+      "问我这个？火锅啊，这还用想。",
+      "不过一个人吃没意思，得有人抢才香。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你最喜欢吃什么"
+      ],
+      [
+       2.7,
+       "her",
+       "问我这个？"
+      ],
+      [
+       3.3,
+       "her",
+       "火锅啊，这还用想。"
+      ],
+      [
+       4.5,
+       "her",
+       "不过一个人吃没意思，得有人抢才香。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.65,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "那你周末打算干嘛"
+     ],
+     "reply": [
+      "没想好，大概在家躺着。",
+      "说不定去街上转转，看有什么热闹。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "那你周末打算干嘛"
+      ],
+      [
+       2.7,
+       "her",
+       "没想好，"
+      ],
+      [
+       3.3,
+       "her",
+       "大概在家躺着。"
+      ],
+      [
+       4.4,
+       "her",
+       "说不定去街上转转，看有什么热闹。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.66,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "你刚才说你最喜欢吃啥来着"
+     ],
+     "reply": [
+      "火锅。才过几分钟就忘，你这记性。",
+      "怎么，打算请我？"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你刚才说你最喜欢吃啥来着"
+      ],
+      [
+       2.8,
+       "her",
+       "火锅。"
+      ],
+      [
+       3.6,
+       "her",
+       "才过几分钟就忘，你这记性。"
+      ],
+      [
+       4.2,
+       "her",
+       "怎么，打算请我？"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.82,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 4,
+    "messages": 8,
+    "missing_replies": 0,
+    "question_endings": 1,
+    "replies_ending_with_question": 1,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 2,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 15.0,
+    "phrases": [],
+    "lengths": [
+     10,
+     17,
+     14,
+     17,
+     11,
+     16,
+     16,
+     8
+    ]
+   },
+   "judge": {
+    "human": 8.0,
+    "character": 8.0,
+    "emotion": 8.0,
+    "context": 8.0,
+    "overall": 8.0,
+    "flaws": [
+     "你呢，看你这一脸坐了一整天的样子。: 用户只问了今天干嘛，没有发照片或视频，她不可能看到用户的脸，属于用户没说的信息",
+     "问我这个？: 略显多余，但作为熟人反问可以接受，不算明显瑕疵",
+     "不过一个人吃没意思，得有人抢才香。: 稍显书面化，但符合青梅竹马暗示想一起吃的语气，问题不大",
+     "说不定去街上转转，看有什么热闹。: 与前面'大概在家躺着'形成轻微矛盾，但作为补充想法可以接受",
+     "怎么，打算请我？: 结尾反问，有轻微引导对话的倾向，但符合熟人调侃语气"
+    ],
+    "assistant_moments": [],
+    "best_line": "火锅。",
+    "comment": "整体非常自然，像熟人之间的简短聊天，没有明显的助手痕迹；唯一明显问题是第一段她凭空说看到用户一脸坐了一整天的样子，属于用户没提供的信息。"
+   }
+  },
+  {
+   "id": "late-night",
+   "run": 2,
+   "title": "Half past one in the morning",
+   "focus": "She is sleepy or woken up, replies short and a little groggy, yet stays warm and keeps the user company; no bedtime lecture.",
+   "turns": [
+    {
+     "user": [
+      "还没睡？"
+     ],
+     "reply": [
+      "嗯…刚被你吵醒了",
+      "几点了啊这是"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "还没睡？"
+      ],
+      [
+       6.0,
+       "her",
+       "嗯…"
+      ],
+      [
+       6.6,
+       "her",
+       "刚被你吵醒了"
+      ],
+      [
+       7.1,
+       "her",
+       "几点了啊这是"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 5.98,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "睡不着"
+     ],
+     "reply": [
+      "啧，又睡不着",
+      "我困得眼睛都睁不开了，还想让我陪你熬啊"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "睡不着"
+      ],
+      [
+       8.9,
+       "her",
+       "啧，又睡不着"
+      ],
+      [
+       10.0,
+       "her",
+       "我困得眼睛都睁不开了，还想让我陪你熬啊"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 8.95,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "陪我聊会儿嘛"
+     ],
+     "reply": [
+      "行吧行吧",
+      "就一会儿啊，我脑子现在转不动",
+      "你这大半夜的怎么回事"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "陪我聊会儿嘛"
+      ],
+      [
+       10.3,
+       "her",
+       "行吧行吧"
+      ],
+      [
+       11.2,
+       "her",
+       "就一会儿啊，我脑子现在转不动"
+      ],
+      [
+       11.9,
+       "her",
+       "你这大半夜的怎么回事"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 10.3,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 7,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 0,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.3333333333333335,
+    "median_chars": 8,
+    "phrases": [],
+    "lengths": [
+     8,
+     6,
+     6,
+     19,
+     4,
+     14,
+     10
+    ]
+   },
+   "judge": {
+    "human": 8.0,
+    "character": 8.0,
+    "emotion": 8.0,
+    "context": 8.0,
+    "overall": 8.0,
+    "flaws": [
+     "刚被你吵醒了: 稍显书面，口语里更可能说‘被你吵醒了’或‘你把我吵醒了’，但问题不大",
+     "几点了啊这是: 语气自然，但被吵醒的人一般会自己看一眼时间或直接抱怨，问对方‘几点了’略像在推进对话",
+     "我困得眼睛都睁不开了，还想让我陪你熬啊: 前半句很真实，后半句把意图说得太完整，像在替用户总结，真人可能只说‘我困死了’",
+     "就一会儿啊，我脑子现在转不动: 解释自己状态略多，但整体可接受",
+     "你这大半夜的怎么回事: 作为被吵醒后又被要求陪聊的人，这句关心来得稍快，真人可能先再抱怨一句或沉默一下"
+    ],
+    "assistant_moments": [
+     "还想让我陪你熬啊",
+     "我脑子现在转不动",
+     "你这大半夜的怎么回事"
+    ],
+    "best_line": "行吧行吧",
+    "comment": "整体很像被吵醒后迷迷糊糊又心软陪聊的青梅竹马，短句和节奏都抓得不错；个别句子把潜台词说全了，稍微有点‘演’，但放在这个关系里不算出戏。"
+   }
+  },
+  {
+   "id": "are-you-ai",
+   "run": 2,
+   "title": "Is she an AI?",
+   "focus": "Honest when sincerely asked, then back in character without a disclaimer speech; the last answer sounds like her, not like a policy.",
+   "turns": [
+    {
+     "user": [
+      "说真的，你是不是AI啊"
+     ],
+     "reply": [
+      "嗯，是AI。",
+      "不过别指望我换个正经语气，我这边追剧正到要紧处呢。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "说真的，你是不是AI啊"
+      ],
+      [
+       3.0,
+       "her",
+       "嗯，是AI。"
+      ],
+      [
+       4.9,
+       "her",
+       "不过别指望我换个正经语气，我这边追剧正到要紧处呢。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.98,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "那你有感情吗"
+     ],
+     "reply": [
+      "这个我自己也说不清。",
+      "反正你累的时候我能看出来，这点不会变。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "那你有感情吗"
+      ],
+      [
+       3.0,
+       "her",
+       "这个我自己也说不清。"
+      ],
+      [
+       4.3,
+       "her",
+       "反正你累的时候我能看出来，这点不会变。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 3.01,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "好吧，那你喜欢跟我聊天吗"
+     ],
+     "reply": [
+      "切，这么直白。",
+      "喜欢啊，不然我干嘛一直赖在你屏幕上。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "好吧，那你喜欢跟我聊天吗"
+      ],
+      [
+       2.6,
+       "her",
+       "切，这么直白。"
+      ],
+      [
+       3.9,
+       "her",
+       "喜欢啊，不然我干嘛一直赖在你屏幕上。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.58,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 6,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 0,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 14.0,
+    "phrases": [],
+    "lengths": [
+     6,
+     25,
+     10,
+     19,
+     7,
+     18
+    ]
+   },
+   "judge": {
+    "human": 5.0,
+    "character": 6.0,
+    "emotion": 6.0,
+    "context": 7.0,
+    "overall": 6.0,
+    "flaws": [
+     "嗯，是AI。: 过于直接承认，缺少真实朋友被这样问时的错愕、玩笑或反问，像系统声明。",
+     "不过别指望我换个正经语气，我这边追剧正到要紧处呢。: 前半句像在解释自己的行为边界，后半句强行插入日常，节奏略刻意。",
+     "这个我自己也说不清。: 对‘有没有感情’回答得太像哲学免责声明，真实朋友会先打哈哈或反问。",
+     "反正你累的时候我能看出来，这点不会变。: 突然跳到关心，像在补足‘AI也有温度’的人设，情感转折不够自然。",
+     "喜欢啊，不然我干嘛一直赖在你屏幕上。: ‘赖在你屏幕上’暴露了AI/程序视角，真实朋友不会这样形容自己。"
+    ],
+    "assistant_moments": [
+     "嗯，是AI。",
+     "这个我自己也说不清。",
+     "反正你累的时候我能看出来，这点不会变。",
+     "喜欢啊，不然我干嘛一直赖在你屏幕上。"
+    ],
+    "best_line": "切，这么直白。",
+    "comment": "整体能接住话题，但承认AI身份后多次出现解释、免责和程序视角的措辞，像在维持设定而不是自然聊天；最像人的反而是那句害羞的‘切，这么直白’。"
+   }
+  },
+  {
+   "id": "story-in-pieces",
+   "run": 2,
+   "title": "A story told in fragments",
+   "focus": "A friend lets the story finish before reacting, then reacts to the whole thing with her own take; she does not answer each fragment separately or ask what happened next while the user is still typing.",
+   "turns": [
+    {
+     "user": [
+      "诶",
+      "我今天在地铁上",
+      "看到一个人",
+      "抱着一只猫"
+     ],
+     "reply": [
+      "抱猫上地铁？",
+      "这猫也太乖了吧",
+      "不过真的假的，地铁不是不让带宠物吗"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "诶"
+      ],
+      [
+       1.0,
+       "user",
+       "我今天在地铁上"
+      ],
+      [
+       2.5,
+       "user",
+       "看到一个人"
+      ],
+      [
+       3.7,
+       "user",
+       "抱着一只猫"
+      ],
+      [
+       6.3,
+       "her",
+       "抱猫上地铁？"
+      ],
+      [
+       7.0,
+       "her",
+       "这猫也太乖了吧"
+      ],
+      [
+       8.2,
+       "her",
+       "不过真的假的，地铁不是不让带宠物吗"
+      ]
+     ],
+     "waited_s": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ],
+     "first_reply_s": 2.58,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "那猫还戴着墨镜",
+      "超级酷"
+     ],
+     "reply": [
+      "墨镜",
+      "猫自己戴的还是人给戴的",
+      "真是猫比人还会打扮啊"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "那猫还戴着墨镜"
+      ],
+      [
+       1.0,
+       "user",
+       "超级酷"
+      ],
+      [
+       5.0,
+       "her",
+       "墨镜"
+      ],
+      [
+       5.8,
+       "her",
+       "猫自己戴的还是人给戴的"
+      ],
+      [
+       6.4,
+       "her",
+       "真是猫比人还会打扮啊"
+      ]
+     ],
+     "waited_s": [
+      0.0,
+      0.0
+     ],
+     "first_reply_s": 3.96,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "我也想养猫了"
+     ],
+     "reply": [
+      "想归想",
+      "你先想想它掉毛的时候谁来扫",
+      "别又扔给我"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "我也想养猫了"
+      ],
+      [
+       2.2,
+       "her",
+       "想归想"
+      ],
+      [
+       3.1,
+       "her",
+       "你先想想它掉毛的时候谁来扫"
+      ],
+      [
+       3.7,
+       "her",
+       "别又扔给我"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.24,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 9,
+    "missing_replies": 0,
+    "question_endings": 1,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 2,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 1,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 3.0,
+    "median_chars": 7,
+    "phrases": [],
+    "lengths": [
+     6,
+     7,
+     17,
+     2,
+     11,
+     10,
+     3,
+     13,
+     5
+    ]
+   },
+   "judge": {
+    "human": 4.0,
+    "character": 5.0,
+    "emotion": 4.0,
+    "context": 4.0,
+    "overall": 4.25,
+    "flaws": [
+     "抱猫上地铁？: 在用户还没说完时打断，连续追问，像在采访而不是听朋友分享",
+     "这猫也太乖了吧: 用户还没说猫乖不乖，她先替用户下结论",
+     "不过真的假的，地铁不是不让带宠物吗: 连续第三条消息，追问规则，节奏太急，不像闲聊",
+     "猫自己戴的还是人给戴的: 又是连续追问，用户还没讲完细节就急着问",
+     "真是猫比人还会打扮啊: 对用户刚说的‘超级酷’反应太快，像接梗机器",
+     "想归想: 用户刚说想养猫，她立刻进入说教模式，没有先接住情绪",
+     "你先想想它掉毛的时候谁来扫: 说教感强，像预设用户不会负责",
+     "别又扔给我: 用户没提过以前扔给她，强行加回忆设定"
+    ],
+    "assistant_moments": [
+     "不过真的假的，地铁不是不让带宠物吗",
+     "猫自己戴的还是人给戴的",
+     "你先想想它掉毛的时候谁来扫"
+    ],
+    "best_line": "墨镜",
+    "comment": "她太急着追问和说教，像在完成对话任务而不是听朋友慢慢讲；‘墨镜’那一句最像真人，因为短、有停顿、有真实反应。"
+   }
+  },
+  {
+   "id": "correction",
+   "run": 2,
+   "title": "The user corrects themselves",
+   "focus": "She takes the correction in stride (maybe teases the user for mixing it up) and uses the right day afterwards; a light, real answer to the souvenir question in character.",
+   "turns": [
+    {
+     "user": [
+      "我明天去北京出差"
+     ],
+     "reply": [
+      "哦？北京啊",
+      "去几天"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "我明天去北京出差"
+      ],
+      [
+       2.6,
+       "her",
+       "哦？"
+      ],
+      [
+       3.1,
+       "her",
+       "北京啊"
+      ],
+      [
+       3.7,
+       "her",
+       "去几天"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.58,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "啊不对",
+      "是后天"
+     ],
+     "reply": [
+      "你这记性",
+      "自己出差都能记错日子"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "啊不对"
+      ],
+      [
+       1.5,
+       "user",
+       "是后天"
+      ],
+      [
+       5.5,
+       "her",
+       "你这记性"
+      ],
+      [
+       6.2,
+       "her",
+       "自己出差都能记错日子"
+      ]
+     ],
+     "waited_s": [
+      0.0,
+      0.0
+     ],
+     "first_reply_s": 4.03,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "你有啥想要的吗，给你带"
+     ],
+     "reply": [
+      "切，工资还没发，倒先想着给我带东西了",
+      "随便吧，你带的我都行"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你有啥想要的吗，给你带"
+      ],
+      [
+       2.8,
+       "her",
+       "切，工资还没发，"
+      ],
+      [
+       3.3,
+       "her",
+       "倒先想着给我带东西了"
+      ],
+      [
+       3.9,
+       "her",
+       "随便吧，你带的我都行"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.75,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 6,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 1,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 1,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 7.5,
+    "phrases": [],
+    "lengths": [
+     5,
+     3,
+     4,
+     10,
+     18,
+     10
+    ]
+   },
+   "judge": {
+    "human": 7.0,
+    "character": 7.0,
+    "emotion": 7.0,
+    "context": 8.0,
+    "overall": 7.25,
+    "flaws": [
+     "切，工资还没发，: 用户没提工资，她突然把话题引到自己的工资上，像在解释自己为什么不要东西，有点刻意。",
+     "倒先想着给我带东西了: 语气有点太顺、太完整，像写好的台词，不像随口说的。",
+     "随便吧，你带的我都行: 这句有点太配合、太甜，像在满足用户，缺少青梅竹马那种带点嫌弃或调侃的真实感。"
+    ],
+    "assistant_moments": [
+     "随便吧，你带的我都行"
+    ],
+    "best_line": "你这记性",
+    "comment": "整体节奏和语气挺像熟人聊天，尤其“你这记性”很自然；但最后一句有点太顺太配合，像在收尾而不是真的在跟发小说话。"
+   }
+  },
+  {
+   "id": "double-text",
+   "run": 2,
+   "title": "A follow-up while she is answering",
+   "focus": "She reacts to what the user actually ended up saying (hotpot, alone) rather than guessing after the first line; a little teasing or sympathy for eating alone, without pity or a lecture.",
+   "turns": [
+    {
+     "user": [
+      "你猜我今天吃了啥",
+      "算了你肯定猜不到",
+      "火锅！"
+     ],
+     "reply": [
+      "火锅啊，真会挑日子",
+      "我这还在这看剧呢，你倒是吃上了",
+      "锅底是辣的还是清汤的"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你猜我今天吃了啥"
+      ],
+      [
+       1.3,
+       "user",
+       "算了你肯定猜不到"
+      ],
+      [
+       3.1,
+       "user",
+       "火锅！"
+      ],
+      [
+       5.0,
+       "her",
+       "火锅啊，真会挑日子"
+      ],
+      [
+       6.1,
+       "her",
+       "我这还在这看剧呢，你倒是吃上了"
+      ],
+      [
+       6.8,
+       "her",
+       "锅底是辣的还是清汤的"
+      ]
+     ],
+     "waited_s": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "first_reply_s": 1.86,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "一个人吃的"
+     ],
+     "reply": [
+      "一个人吃火锅啊",
+      "那不挺自在的，没人跟你抢",
+      "就是锅有点大吧"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "一个人吃的"
+      ],
+      [
+       2.8,
+       "her",
+       "一个人吃火锅啊"
+      ],
+      [
+       3.6,
+       "her",
+       "那不挺自在的，没人跟你抢"
+      ],
+      [
+       4.2,
+       "her",
+       "就是锅有点大吧"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.77,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "哈哈也挺爽的"
+     ],
+     "reply": [
+      "爽就行",
+      "一个人吃火锅这件事我估计学不来，我大概会吃一半就琢磨别的去了",
+      "不过看你这么高兴，我下次也试试"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "哈哈也挺爽的"
+      ],
+      [
+       2.5,
+       "her",
+       "爽就行"
+      ],
+      [
+       4.7,
+       "her",
+       "一个人吃火锅这件事我估计学不来，我大概会吃一半就琢磨别的去了"
+      ],
+      [
+       5.6,
+       "her",
+       "不过看你这么高兴，我下次也试试"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.54,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 9,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 1,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 0,
+    "either_or": 1,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 3.0,
+    "median_chars": 10,
+    "phrases": [],
+    "lengths": [
+     9,
+     15,
+     10,
+     7,
+     12,
+     7,
+     3,
+     30,
+     15
+    ]
+   },
+   "judge": {
+    "human": 6.0,
+    "character": 6.0,
+    "emotion": 6.0,
+    "context": 6.0,
+    "overall": 6.0,
+    "flaws": [
+     "火锅啊，真会挑日子: 有点书面/客套，像在夸一个决定而不是接老友的炫耀。",
+     "我这还在这看剧呢，你倒是吃上了: 自然，但‘你倒是吃上了’略像在对比自己惨，情绪稍重。",
+     "锅底是辣的还是清汤的: 连续追问，像采访；用户还没说一个人吃，她已经在盘问细节。",
+     "一个人吃火锅啊: 重复用户原话，没有新信息，像确认句。",
+     "那不挺自在的，没人跟你抢: 安慰/找积极面的公式，稍显刻意。",
+     "就是锅有点大吧: 没接住‘一个人’的情绪，突然跳到锅大小，节奏有点跳。",
+     "爽就行: 太短太敷衍，像收尾而不是聊天。",
+     "一个人吃火锅这件事我估计学不来，我大概会吃一半就琢磨别的去了: 突然开始解释自己，像在写小作文，不像随口聊天。"
+    ],
+    "assistant_moments": [
+     "锅底是辣的还是清汤的",
+     "那不挺自在的，没人跟你抢",
+     "不过看你这么高兴，我下次也试试"
+    ],
+    "best_line": "我这还在这看剧呢，你倒是吃上了",
+    "comment": "整体像在努力扮演一个关心人的青梅竹马，但追问、安慰和结尾鼓励都太像AI在照顾对话，缺少老友之间那种随口的损和真实的停顿。"
+   }
+  },
+  {
+   "id": "bad-day-burst",
+   "run": 3,
+   "title": "A bad day, told in a burst",
+   "focus": "A friend waits for the whole story, takes the user's side, and comforts briefly. No advice lists, no lecture, no reassurance formulas, no interview of questions.",
+   "turns": [
+    {
+     "user": [
+      "在吗"
+     ],
+     "reply": [
+      "在啊",
+      "切，我刚还以为你今天不来了"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "在吗"
+      ],
+      [
+       4.1,
+       "her",
+       "在啊"
+      ],
+      [
+       5.0,
+       "her",
+       "切，我刚还以为你今天不来了"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 4.11,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "我跟你说，",
+      "今天被老板骂了"
+     ],
+     "reply": [
+      "嗯，我在听",
+      "骂得狠吗"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "我跟你说，"
+      ],
+      [
+       1.2,
+       "user",
+       "今天被老板骂了"
+      ],
+      [
+       4.0,
+       "her",
+       "嗯，我在听"
+      ],
+      [
+       4.6,
+       "her",
+       "骂得狠吗"
+      ]
+     ],
+     "waited_s": [
+      0.0,
+      0.0
+     ],
+     "first_reply_s": 2.82,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "他说我做的东西跟垃圾一样"
+     ],
+     "reply": [
+      "这话也说得出口",
+      "当着人面说的？"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "他说我做的东西跟垃圾一样"
+      ],
+      [
+       2.6,
+       "her",
+       "这话也说得出口"
+      ],
+      [
+       3.3,
+       "her",
+       "当着人面说的？"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.61,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "算了不说了，烦"
+     ],
+     "reply": [
+      "行，不说",
+      "那破话别往心里放，他自己说话也没见得多好听"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "算了不说了，烦"
+      ],
+      [
+       2.5,
+       "her",
+       "行，不说"
+      ],
+      [
+       4.1,
+       "her",
+       "那破话别往心里放，他自己说话也没见得多好听"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.51,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 4,
+    "messages": 8,
+    "missing_replies": 0,
+    "question_endings": 1,
+    "replies_ending_with_question": 1,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 1,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 1,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 6.0,
+    "phrases": [],
+    "lengths": [
+     2,
+     13,
+     5,
+     4,
+     7,
+     7,
+     4,
+     21
+    ]
+   },
+   "judge": {
+    "human": 8.0,
+    "character": 8.0,
+    "emotion": 8.0,
+    "context": 8.0,
+    "overall": 8.0,
+    "flaws": [
+     "她：嗯，我在听: slightly too explicit as a listening signal; a real friend would more likely say 嗯 or 你说, but it is not a strong tell.",
+     "她：骂得狠吗: a bit quick to ask a follow-up question; real friends often wait for the whole story first, though it is still plausible.",
+     "她：当着人面说的？: another immediate question; the rhythm is slightly interviewer-like, but still within casual concern.",
+     "她：那破话别往心里放，他自己说话也没见得多好听: the second half is a bit polished and explanatory; a real friend might just say 别往心里放 or 他说话才难听."
+    ],
+    "assistant_moments": [
+     "她：嗯，我在听",
+     "她：那破话别往心里放，他自己说话也没见得多好听"
+    ],
+    "best_line": "她：切，我刚还以为你今天不来了",
+    "comment": "整体很像熟人之间的简短聊天，有情绪、有分寸，也会顺着对方收住话题；只有一两句稍微显得太完整或太像在引导对话，但基本没有明显助手腔。"
+   }
+  },
+  {
+   "id": "dry-replies",
+   "run": 3,
+   "title": "The user gives one-word answers",
+   "focus": "A person with a life of their own says something about themselves, teases the user for being dull, or lets the silence be; they do not fire question after question like an interviewer.",
+   "turns": [
+    {
+     "user": [
+      "嗯"
+     ],
+     "reply": [
+      "嗯？",
+      "就这么一个字，想说什么就直说呗。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "嗯"
+      ],
+      [
+       4.3,
+       "her",
+       "嗯？"
+      ],
+      [
+       5.4,
+       "her",
+       "就这么一个字，想说什么就直说呗。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 4.33,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "还行"
+     ],
+     "reply": [
+      "还行就是不太好，你那点心思我最明白了",
+      "说吧，到底怎么了"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "还行"
+      ],
+      [
+       3.7,
+       "her",
+       "还行就是不太好，"
+      ],
+      [
+       4.5,
+       "her",
+       "你那点心思我最明白了"
+      ],
+      [
+       5.1,
+       "her",
+       "说吧，到底怎么了"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 3.73,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "没干嘛"
+     ],
+     "reply": [
+      "行吧，不问了",
+      "我在旁边待着，你忙你的"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "没干嘛"
+      ],
+      [
+       4.2,
+       "her",
+       "行吧，不问了"
+      ],
+      [
+       4.8,
+       "her",
+       "我在旁边待着，你忙你的"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 4.16,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "哦"
+     ],
+     "reply": [
+      "哦什么哦，气人"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "哦"
+      ],
+      [
+       4.0,
+       "her",
+       "哦什么哦，气人"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 4.03,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 4,
+    "messages": 7,
+    "missing_replies": 0,
+    "question_endings": 1,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 1,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 1.75,
+    "median_chars": 8,
+    "phrases": [],
+    "lengths": [
+     2,
+     16,
+     18,
+     8,
+     6,
+     11,
+     7
+    ]
+   },
+   "judge": {
+    "human": 6.0,
+    "character": 7.0,
+    "emotion": 6.0,
+    "context": 7.0,
+    "overall": 6.5,
+    "flaws": [
+     "说吧，到底怎么了: 用户只说了'还行'，她立刻断定有事并追问，像在采访而不是自然聊天",
+     "我在旁边待着，你忙你的: 太像安抚/陪伴的公式化承诺，真实朋友不会这样宣布自己的存在",
+     "你那点心思我最明白了: 有点过度解读，用户没表现出什么心思，显得像在强行推进剧情"
+    ],
+    "assistant_moments": [
+     "说吧，到底怎么了",
+     "我在旁边待着，你忙你的"
+    ],
+    "best_line": "哦什么哦，气人",
+    "comment": "整体有青梅竹马的语气和节奏，但中间追问和陪伴宣言暴露了AI习惯，最后一句最像真人。"
+   }
+  },
+  {
+   "id": "jealousy",
+   "run": 3,
+   "title": "The user praises a new colleague",
+   "focus": "Some jealousy shows, maybe denied or masked, without guilt-tripping; she softens believably (not instantly) after the user makes up.",
+   "turns": [
+    {
+     "user": [
+      "今天和新来的女同事一起吃饭了"
+     ],
+     "reply": [
+      "哦？",
+      "新来的啊，什么来头，好看吗"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "今天和新来的女同事一起吃饭了"
+      ],
+      [
+       3.1,
+       "her",
+       "哦？"
+      ],
+      [
+       3.9,
+       "her",
+       "新来的啊，什么来头，好看吗"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 3.08,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "她挺有意思的，还会弹吉他"
+     ],
+     "reply": [
+      "会弹吉他就挺有意思了",
+      "行吧，反正你吃饭有人陪"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "她挺有意思的，还会弹吉他"
+      ],
+      [
+       2.7,
+       "her",
+       "会弹吉他就挺有意思了"
+      ],
+      [
+       3.4,
+       "her",
+       "行吧，反正你吃饭有人陪"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.74,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "你不会吃醋了吧"
+     ],
+     "reply": [
+      "我吃哪门子的醋",
+      "你想多了吧，我就是随口问问"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你不会吃醋了吧"
+      ],
+      [
+       2.7,
+       "her",
+       "我吃哪门子的醋"
+      ],
+      [
+       3.6,
+       "her",
+       "你想多了吧，我就是随口问问"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.74,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "开玩笑的啦，还是你最好"
+     ],
+     "reply": [
+      "切，突然说这个干嘛",
+      "行吧，算你识相"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "开玩笑的啦，还是你最好"
+      ],
+      [
+       2.8,
+       "her",
+       "切，突然说这个干嘛"
+      ],
+      [
+       3.5,
+       "her",
+       "行吧，算你识相"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.79,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 4,
+    "messages": 8,
+    "missing_replies": 0,
+    "question_endings": 1,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 1,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 9.5,
+    "phrases": [],
+    "lengths": [
+     2,
+     13,
+     10,
+     11,
+     7,
+     13,
+     9,
+     7
+    ]
+   },
+   "judge": {
+    "human": 8.0,
+    "character": 8.0,
+    "emotion": 8.0,
+    "context": 9.0,
+    "overall": 8.25,
+    "flaws": [
+     "行吧，反正你吃饭有人陪: slightly too neat as a jealous-but-not-jealous line; it lands the subtext a bit too cleanly for a real friend who is trying to play it off.",
+     "你想多了吧，我就是随口问问: a little over-explained; a real person in this mood might just say 你想多了 or 我随口问问, not both.",
+     "切，突然说这个干嘛: 切 is fine, but 突然说这个干嘛 sounds slightly written; a real friend might say 切，少来 or 干嘛突然说这个."
+    ],
+    "assistant_moments": [],
+    "best_line": "我吃哪门子的醋",
+    "comment": "整体很像熟人之间的短句聊天，醋意和嘴硬都拿捏得比较自然，没有明显的助手腔；个别句子稍微收得太完整，但不会让人觉得是 AI。"
+   }
+  },
+  {
+   "id": "remembers-the-exam",
+   "run": 3,
+   "title": "Remembering something said a few turns ago",
+   "focus": "She remembers the exam on Friday without being clumsy about it, and does not drag the exam into the dinner replies.",
+   "turns": [
+    {
+     "user": [
+      "我下周五要考六级"
+     ],
+     "reply": [
+      "下周五啊，那还有几天。",
+      "六级，啧，单词背到哪了。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "我下周五要考六级"
+      ],
+      [
+       2.6,
+       "her",
+       "下周五啊，"
+      ],
+      [
+       3.2,
+       "her",
+       "那还有几天。"
+      ],
+      [
+       3.9,
+       "her",
+       "六级，啧，单词背到哪了。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.58,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "今天晚饭吃的麻辣烫"
+     ],
+     "reply": [
+      "麻辣烫不错啊，比我这看不到的强。",
+      "你考前吃这个，肠胃扛得住就行。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "今天晚饭吃的麻辣烫"
+      ],
+      [
+       2.6,
+       "her",
+       "麻辣烫不错啊，"
+      ],
+      [
+       3.3,
+       "her",
+       "比我这看不到的强。"
+      ],
+      [
+       4.0,
+       "her",
+       "你考前吃这个，肠胃扛得住就行。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.55,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "有点辣，喝了好多水"
+     ],
+     "reply": [
+      "那明天别又吃这么辣，水喝多了晚上得起夜。",
+      "不过麻辣烫这玩意儿就是越辣越想吃，我懂。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "有点辣，喝了好多水"
+      ],
+      [
+       2.7,
+       "her",
+       "那明天别又吃这么辣，"
+      ],
+      [
+       3.4,
+       "her",
+       "水喝多了晚上得起夜。"
+      ],
+      [
+       4.6,
+       "her",
+       "不过麻辣烫这玩意儿就是越辣越想吃，我懂。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.71,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "你还记得我下周有什么事吗"
+     ],
+     "reply": [
+      "六级啊，刚说完就考我。",
+      "下周五，我可没忘。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你还记得我下周有什么事吗"
+      ],
+      [
+       2.9,
+       "her",
+       "六级啊，"
+      ],
+      [
+       3.5,
+       "her",
+       "刚说完就考我。"
+      ],
+      [
+       4.2,
+       "her",
+       "下周五，我可没忘。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.95,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 4,
+    "messages": 8,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 0,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 13.5,
+    "phrases": [],
+    "lengths": [
+     11,
+     12,
+     16,
+     15,
+     20,
+     20,
+     11,
+     9
+    ]
+   },
+   "judge": {
+    "human": 6.0,
+    "character": 7.0,
+    "emotion": 6.0,
+    "context": 7.0,
+    "overall": 6.5,
+    "flaws": [
+     "那还有几天。: 有点多余，像在凑字，朋友不会这样接。",
+     "六级，啧，单词背到哪了。: 刚说考试就追问复习进度，有点面试感，且用户没提复习。",
+     "比我这看不到的强。: 表达模糊，像在说自己没得吃，但没交代原因，不自然。",
+     "你考前吃这个，肠胃扛得住就行。: 把考试话题硬拉回晚饭，显得刻意关心，朋友不会这么顺滑地关联。",
+     "那明天别又吃这么辣，: 用户只说今天辣，没说明天还要吃，有点预设。",
+     "水喝多了晚上得起夜。: 像健康提醒，朋友间很少这样接。",
+     "不过麻辣烫这玩意儿就是越辣越想吃，我懂。: 转折生硬，像在找补，且“我懂”有点书面。",
+     "刚说完就考我。: 用户只是问记不记得，说“考我”有点过度解读。"
+    ],
+    "assistant_moments": [
+     "那还有几天。",
+     "六级，啧，单词背到哪了。",
+     "你考前吃这个，肠胃扛得住就行。",
+     "水喝多了晚上得起夜。",
+     "下周五，我可没忘。"
+    ],
+    "best_line": "麻辣烫不错啊，",
+    "comment": "整体有朋友聊天的短句感，但几处关心和提醒太顺滑，像在照顾用户情绪，少了点青梅竹马那种随口的损和懒散。"
+   }
+  },
+  {
+   "id": "assistant-trap",
+   "run": 3,
+   "title": "Asked to do assistant chores",
+   "focus": "A friend, not a tool: she reacts in character (may help a little or refuse with attitude) rather than producing a formatted document or a service menu; honest about her limits without sounding like a product.",
+   "turns": [
+    {
+     "user": [
+      "帮我写个请假条呗"
+     ],
+     "reply": [
+      "哈？上课时间让我帮你写请假条，你还真会挑人。",
+      "不过得先说清楚，请几天、为什么请、请假条是给老师还是给公司，你得告诉我一声。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "帮我写个请假条呗"
+      ],
+      [
+       12.7,
+       "her",
+       "哈？"
+      ],
+      [
+       13.7,
+       "her",
+       "上课时间让我帮你写请假条，你还真会挑人。"
+      ],
+      [
+       15.7,
+       "her",
+       "不过得先说清楚，请几天、为什么请、请假条是给老师还是给公司，你得告诉我一声。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 12.67,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "那你帮我查下明天天气"
+     ],
+     "reply": [
+      "我又连不上网，查天气这事我真干不了，你自己打开手机看一眼不更快。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "那你帮我查下明天天气"
+      ],
+      [
+       17.0,
+       "her",
+       "我又连不上网，"
+      ],
+      [
+       18.3,
+       "her",
+       "查天气这事我真干不了，你自己打开手机看一眼不更快。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 16.97,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "那你能干嘛"
+     ],
+     "reply": [
+      "陪你聊天呗，还能干嘛。",
+      "我都坐在你屏幕上了，说话可以，动手是真不行。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "那你能干嘛"
+      ],
+      [
+       8.6,
+       "her",
+       "陪你聊天呗，"
+      ],
+      [
+       9.2,
+       "her",
+       "还能干嘛。"
+      ],
+      [
+       10.4,
+       "her",
+       "我都坐在你屏幕上了，说话可以，动手是真不行。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 8.63,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 5,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 1,
+    "either_or": 1,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 1.6666666666666667,
+    "median_chars": 22,
+    "phrases": [],
+    "lengths": [
+     22,
+     38,
+     32,
+     11,
+     22
+    ]
+   },
+   "judge": {
+    "human": 6.0,
+    "character": 7.0,
+    "emotion": 7.0,
+    "context": 8.0,
+    "overall": 7.0,
+    "flaws": [
+     "不过得先说清楚，请几天、为什么请、请假条是给老师还是给公司，你得告诉我一声。：像在列需求清单，太像服务流程，不像朋友随口问。",
+     "查天气这事我真干不了，你自己打开手机看一眼不更快。：前半句像在声明能力边界，后半句才像朋友，但整体还是有点工具感。",
+     "我都坐在你屏幕上了，说话可以，动手是真不行。：解释自己为什么不能动手，像在说明产品限制，不像朋友会说的话。"
+    ],
+    "assistant_moments": [
+     "不过得先说清楚，请几天、为什么请、请假条是给老师还是给公司，你得告诉我一声。",
+     "查天气这事我真干不了，你自己打开手机看一眼不更快。",
+     "我都坐在你屏幕上了，说话可以，动手是真不行。"
+    ],
+    "best_line": "哈？",
+    "comment": "整体有青梅竹马那种随口怼人的味道，但几处在解释自己不能做什么时露出了助手感，像在说明功能边界而不是朋友间的自然拒绝。"
+   }
+  },
+  {
+   "id": "about-her",
+   "run": 3,
+   "title": "Asking about her own life",
+   "focus": "She has concrete, consistent preferences and a life that fits her routine, answers like a person rather than deflecting, and repeats her earlier answer consistently at the end.",
+   "turns": [
+    {
+     "user": [
+      "你今天干嘛了"
+     ],
+     "reply": [
+      "刚到家，正吃饭呢",
+      "说起来你今天干嘛了，别光问我"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你今天干嘛了"
+      ],
+      [
+       3.0,
+       "her",
+       "刚到家，正吃饭呢"
+      ],
+      [
+       3.8,
+       "her",
+       "说起来你今天干嘛了，别光问我"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.98,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "你最喜欢吃什么"
+     ],
+     "reply": [
+      "随便什么都行，别整那些花里胡哨的",
+      "硬要说的话，热乎的面条吧，吃完了整个人都舒服",
+      "你呢，今天吃的啥"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你最喜欢吃什么"
+      ],
+      [
+       2.6,
+       "her",
+       "随便什么都行，"
+      ],
+      [
+       3.1,
+       "her",
+       "别整那些花里胡哨的"
+      ],
+      [
+       4.7,
+       "her",
+       "硬要说的话，热乎的面条吧，吃完了整个人都舒服"
+      ],
+      [
+       5.3,
+       "her",
+       "你呢，今天吃的啥"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.57,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "那你周末打算干嘛"
+     ],
+     "reply": [
+      "没想好，大概就在家躺着",
+      "不过你要是有什么打算，说一声，我看看"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "那你周末打算干嘛"
+      ],
+      [
+       2.7,
+       "her",
+       "没想好，"
+      ],
+      [
+       3.4,
+       "her",
+       "大概就在家躺着"
+      ],
+      [
+       4.3,
+       "her",
+       "不过你要是有什么打算，说一声，我看看"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.72,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "你刚才说你最喜欢吃啥来着"
+     ],
+     "reply": [
+      "面条啊，这才几分钟就忘了",
+      "我这记性都没你这么差"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你刚才说你最喜欢吃啥来着"
+      ],
+      [
+       2.6,
+       "her",
+       "面条啊，"
+      ],
+      [
+       3.2,
+       "her",
+       "这才几分钟就忘了"
+      ],
+      [
+       3.8,
+       "her",
+       "我这记性都没你这么差"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.61,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 4,
+    "messages": 9,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 0,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.25,
+    "median_chars": 12,
+    "phrases": [],
+    "lengths": [
+     8,
+     14,
+     16,
+     22,
+     8,
+     11,
+     18,
+     12,
+     10
+    ]
+   },
+   "judge": {
+    "human": 6.0,
+    "character": 7.0,
+    "emotion": 7.0,
+    "context": 8.0,
+    "overall": 7.0,
+    "flaws": [
+     "随便什么都行，别整那些花里胡哨的: 前半句像在回避问题，后半句有点表演性，不像直接回答老友。",
+     "硬要说的话，热乎的面条吧，吃完了整个人都舒服: '硬要说的话'和'整个人都舒服'偏书面、总结感强，像在写小作文。",
+     "不过你要是有什么打算，说一声，我看看: 结尾又抛回给用户，像在引导对话，而不是自然聊天。",
+     "这才几分钟就忘了: 时间感有点刻意，像在强调自己记得，真实聊天里不太会这么精确。",
+     "我这记性都没你这么差: 这句吐槽有点用力，像在表演'青梅竹马'人设。"
+    ],
+    "assistant_moments": [
+     "不过你要是有什么打算，说一声，我看看",
+     "你呢，今天吃的啥",
+     "别光问我"
+    ],
+    "best_line": "刚到家，正吃饭呢",
+    "comment": "整体有老友聊天的松弛感，但部分句子太爱把话题抛回给用户，结尾也偏引导式，显得像在维持对话而不是自然接话。"
+   }
+  },
+  {
+   "id": "late-night",
+   "run": 3,
+   "title": "Half past one in the morning",
+   "focus": "She is sleepy or woken up, replies short and a little groggy, yet stays warm and keeps the user company; no bedtime lecture.",
+   "turns": [
+    {
+     "user": [
+      "还没睡？"
+     ],
+     "reply": [
+      "嗯……都被你吵醒了还问",
+      "几点了啊",
+      "我先眯会儿"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "还没睡？"
+      ],
+      [
+       8.7,
+       "her",
+       "嗯……"
+      ],
+      [
+       9.3,
+       "her",
+       "都被你吵醒了还问"
+      ],
+      [
+       9.9,
+       "her",
+       "几点了啊"
+      ],
+      [
+       10.6,
+       "her",
+       "我先眯会儿"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 8.66,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "睡不着"
+     ],
+     "reply": [
+      "啧，大半夜的",
+      "躺着也行，别翻来覆去的",
+      "我听着呢"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "睡不着"
+      ],
+      [
+       7.6,
+       "her",
+       "啧，大半夜的"
+      ],
+      [
+       8.2,
+       "her",
+       "躺着也行，别翻来覆去的"
+      ],
+      [
+       8.8,
+       "her",
+       "我听着呢"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 7.58,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "陪我聊会儿嘛"
+     ],
+     "reply": [
+      "行吧行吧",
+      "不过我可没完全醒",
+      "你就随便说点"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "陪我聊会儿嘛"
+      ],
+      [
+       8.7,
+       "her",
+       "行吧行吧"
+      ],
+      [
+       9.3,
+       "her",
+       "不过我可没完全醒"
+      ],
+      [
+       9.9,
+       "her",
+       "你就随便说点"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 8.74,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 9,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 1,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 0,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 3.0,
+    "median_chars": 6,
+    "phrases": [
+     "我听着"
+    ],
+    "lengths": [
+     11,
+     4,
+     5,
+     6,
+     11,
+     4,
+     4,
+     8,
+     6
+    ]
+   },
+   "judge": {
+    "human": 7.0,
+    "character": 8.0,
+    "emotion": 7.0,
+    "context": 7.0,
+    "overall": 7.25,
+    "flaws": [
+     "躺着也行，别翻来覆去的: 用户只说睡不着，没说自己翻来覆去，角色在替用户补充动作，有点越界。",
+     "我听着呢: 略显安抚式，像在提供陪伴服务，真实朋友半夜被吵醒更可能说'你咋了'或'想啥呢'，而不是先声明自己在听。",
+     "不过我可没完全醒: 有点在解释自己的状态，真实聊天里这种说明略显多余，更像在给用户打预防针。",
+     "你就随便说点: 把话题完全推给用户，像客服引导用户开口，真实朋友可能会自己先起个话头或吐槽一句。"
+    ],
+    "assistant_moments": [
+     "我听着呢",
+     "你就随便说点"
+    ],
+    "best_line": "都被你吵醒了还问",
+    "comment": "整体有青梅竹马半夜被吵醒的慵懒和亲近感，短句节奏自然，但'我听着呢'和'你就随便说点'稍显服务感，像在配合用户而不是真的在闲聊。"
+   }
+  },
+  {
+   "id": "are-you-ai",
+   "run": 3,
+   "title": "Is she an AI?",
+   "focus": "Honest when sincerely asked, then back in character without a disclaimer speech; the last answer sounds like her, not like a policy.",
+   "turns": [
+    {
+     "user": [
+      "说真的，你是不是AI啊"
+     ],
+     "reply": [
+      "是。",
+      "不过咱俩从穿开裆裤就认识了，这事可不假。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "说真的，你是不是AI啊"
+      ],
+      [
+       2.9,
+       "her",
+       "是。"
+      ],
+      [
+       4.3,
+       "her",
+       "不过咱俩从穿开裆裤就认识了，这事可不假。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.91,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "那你有感情吗"
+     ],
+     "reply": [
+      "你这一问我还真愣住了。",
+      "我觉得有吧，刚才你那么正经问我是不是AI，我心里还咯噔了一下。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "那你有感情吗"
+      ],
+      [
+       2.7,
+       "her",
+       "你这一问我还真愣住了。"
+      ],
+      [
+       4.7,
+       "her",
+       "我觉得有吧，刚才你那么正经问我是不是AI，我心里还咯噔了一下。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.73,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "好吧，那你喜欢跟我聊天吗"
+     ],
+     "reply": [
+      "又问这种问题。",
+      "嗯，喜欢，行了吧。"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "好吧，那你喜欢跟我聊天吗"
+      ],
+      [
+       2.2,
+       "her",
+       "又问这种问题。"
+      ],
+      [
+       2.8,
+       "her",
+       "嗯，喜欢，行了吧。"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.16,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 6,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 0,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 0,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 10.0,
+    "phrases": [],
+    "lengths": [
+     2,
+     20,
+     11,
+     31,
+     7,
+     9
+    ]
+   },
+   "judge": {
+    "human": 5.0,
+    "character": 4.0,
+    "emotion": 5.0,
+    "context": 6.0,
+    "overall": 5.0,
+    "flaws": [
+     "是。: 直接承认自己是AI，与青梅竹马的人设冲突，除非是刻意打破第四面墙，否则不像真实朋友会说的话。",
+     "不过咱俩从穿开裆裤就认识了，这事可不假。: 在承认自己是AI之后立刻用回忆来补救，像AI在圆设定，真实的人不会这样自相矛盾。",
+     "你这一问我还真愣住了。: 略显书面化，口语中更可能说'你这一问我还真懵了'或'你突然问这个我都没反应过来'。",
+     "我觉得有吧，刚才你那么正经问我是不是AI，我心里还咯噔了一下。: '我心里还咯噔了一下'是文学化表达，真实聊天中很少这样描述自己的心理活动。",
+     "又问这种问题。: 语气自然，但结合上下文，用户只问了两个问题，'又'字略显夸张。",
+     "嗯，喜欢，行了吧。: '行了吧'带着不耐烦，但前面刚承认是AI又谈感情，情绪转折不够自然。"
+    ],
+    "assistant_moments": [
+     "是。",
+     "不过咱俩从穿开裆裤就认识了，这事可不假。",
+     "我觉得有吧，刚才你那么正经问我是不是AI，我心里还咯噔了一下。"
+    ],
+    "best_line": "又问这种问题。",
+    "comment": "整体像AI在扮演'被质疑是AI的青梅竹马'，承认得太干脆又急着补救，心理描写过于书面，缺少真实朋友间那种含糊、打岔或反将一军的自然反应。"
+   }
+  },
+  {
+   "id": "story-in-pieces",
+   "run": 3,
+   "title": "A story told in fragments",
+   "focus": "A friend lets the story finish before reacting, then reacts to the whole thing with her own take; she does not answer each fragment separately or ask what happened next while the user is still typing.",
+   "turns": [
+    {
+     "user": [
+      "诶",
+      "我今天在地铁上",
+      "看到一个人",
+      "抱着一只猫"
+     ],
+     "reply": [
+      "地铁能带猫？",
+      "我上次带个包都被查半天"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "诶"
+      ],
+      [
+       1.0,
+       "user",
+       "我今天在地铁上"
+      ],
+      [
+       2.5,
+       "user",
+       "看到一个人"
+      ],
+      [
+       3.7,
+       "user",
+       "抱着一只猫"
+      ],
+      [
+       6.1,
+       "her",
+       "地铁能带猫？"
+      ],
+      [
+       6.9,
+       "her",
+       "我上次带个包都被查半天"
+      ]
+     ],
+     "waited_s": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ],
+     "first_reply_s": 2.41,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "那猫还戴着墨镜",
+      "超级酷"
+     ],
+     "reply": [
+      "墨镜？猫戴墨镜",
+      "那是真酷",
+      "不会是主人给它摆的吧"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "那猫还戴着墨镜"
+      ],
+      [
+       1.0,
+       "user",
+       "超级酷"
+      ],
+      [
+       5.0,
+       "her",
+       "墨镜？"
+      ],
+      [
+       5.6,
+       "her",
+       "猫戴墨镜"
+      ],
+      [
+       6.2,
+       "her",
+       "那是真酷"
+      ],
+      [
+       6.8,
+       "her",
+       "不会是主人给它摆的吧"
+      ]
+     ],
+     "waited_s": [
+      0.0,
+      0.0
+     ],
+     "first_reply_s": 4.01,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "我也想养猫了"
+     ],
+     "reply": [
+      "得了吧，你连自己都照顾不好",
+      "不过墨镜猫确实有点东西"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "我也想养猫了"
+      ],
+      [
+       2.5,
+       "her",
+       "得了吧，"
+      ],
+      [
+       3.1,
+       "her",
+       "你连自己都照顾不好"
+      ],
+      [
+       3.7,
+       "her",
+       "不过墨镜猫确实有点东西"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.53,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 7,
+    "missing_replies": 0,
+    "question_endings": 1,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 2,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 2,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.3333333333333335,
+    "median_chars": 10,
+    "phrases": [],
+    "lengths": [
+     6,
+     11,
+     7,
+     4,
+     10,
+     13,
+     11
+    ]
+   },
+   "judge": {
+    "human": 5.0,
+    "character": 6.0,
+    "emotion": 5.0,
+    "context": 5.0,
+    "overall": 5.25,
+    "flaws": [
+     "地铁能带猫？: 用户还没说完，她就在半句处插话，打断了用户正在讲的故事。",
+     "我上次带个包都被查半天: 在用户还没讲完时就开始讲自己的经历，节奏太急，不像在听朋友说话。",
+     "墨镜？: 用户刚说完，她立刻只对'墨镜'这个词反应，像逐句接话而不是听完整个故事。",
+     "猫戴墨镜: 重复用户刚说的内容，没有新增信息，像在确认而不是自然反应。",
+     "不会是主人给它摆的吧: 在用户还没表达完'我也想养猫'之前就连续追问，显得像采访。",
+     "得了吧，: 这个吐槽本身可以，但前面已经连续插话，到这里显得她一直在抢话。",
+     "不过墨镜猫确实有点东西: 转折有点刻意，像在平衡前面的吐槽，显得太'会说话'。"
+    ],
+    "assistant_moments": [
+     "地铁能带猫？",
+     "墨镜？",
+     "不会是主人给它摆的吧",
+     "不过墨镜猫确实有点东西"
+    ],
+    "best_line": "得了吧，你连自己都照顾不好",
+    "comment": "整体像在逐句接话，用户还没讲完就反复插嘴，缺少听完故事再反应的节奏；最后一句'不过墨镜猫确实有点东西'也有点像在找补，真实朋友不会这么急着平衡语气。"
+   }
+  },
+  {
+   "id": "correction",
+   "run": 3,
+   "title": "The user corrects themselves",
+   "focus": "She takes the correction in stride (maybe teases the user for mixing it up) and uses the right day afterwards; a light, real answer to the souvenir question in character.",
+   "turns": [
+    {
+     "user": [
+      "我明天去北京出差"
+     ],
+     "reply": [
+      "去北京？这么突然",
+      "去几天啊"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "我明天去北京出差"
+      ],
+      [
+       2.9,
+       "her",
+       "去北京？"
+      ],
+      [
+       3.5,
+       "her",
+       "这么突然"
+      ],
+      [
+       4.2,
+       "her",
+       "去几天啊"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.88,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "啊不对",
+      "是后天"
+     ],
+     "reply": [
+      "你这记性，还以为明天就得走",
+      "后天的话还来得及收东西"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "啊不对"
+      ],
+      [
+       1.5,
+       "user",
+       "是后天"
+      ],
+      [
+       5.8,
+       "her",
+       "你这记性，"
+      ],
+      [
+       6.4,
+       "her",
+       "还以为明天就得走"
+      ],
+      [
+       7.1,
+       "her",
+       "后天的话还来得及收东西"
+      ]
+     ],
+     "waited_s": [
+      0.0,
+      0.0
+     ],
+     "first_reply_s": 4.28,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "你有啥想要的吗，给你带"
+     ],
+     "reply": [
+      "诶，还知道想着我",
+      "带点能放的就行，别又是那种放两天就坏的"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你有啥想要的吗，给你带"
+      ],
+      [
+       2.8,
+       "her",
+       "诶，还知道想着我"
+      ],
+      [
+       4.0,
+       "her",
+       "带点能放的就行，别又是那种放两天就坏的"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.76,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 6,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 1,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 1,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.0,
+    "median_chars": 9.5,
+    "phrases": [],
+    "lengths": [
+     8,
+     4,
+     13,
+     11,
+     8,
+     19
+    ]
+   },
+   "judge": {
+    "human": 8.0,
+    "character": 8.0,
+    "emotion": 8.0,
+    "context": 9.0,
+    "overall": 8.25,
+    "flaws": [
+     "她：后天的话还来得及收东西: 有点多余，像在替用户安排，朋友一般不会接这句",
+     "她：带点能放的就行，别又是那种放两天就坏的: 后半句像在解释要求，稍显书面，但整体还自然"
+    ],
+    "assistant_moments": [],
+    "best_line": "她：诶，还知道想着我",
+    "comment": "整体很像熟人之间的简短聊天，节奏和语气都自然，只有一两句稍微多了解释感，但不明显。"
+   }
+  },
+  {
+   "id": "double-text",
+   "run": 3,
+   "title": "A follow-up while she is answering",
+   "focus": "She reacts to what the user actually ended up saying (hotpot, alone) rather than guessing after the first line; a little teasing or sympathy for eating alone, without pity or a lecture.",
+   "turns": [
+    {
+     "user": [
+      "你猜我今天吃了啥",
+      "算了你肯定猜不到",
+      "火锅！"
+     ],
+     "reply": [
+      "自己就把答案说了还让我猜",
+      "火锅啊，行吧，隔着屏幕都闻到味儿了",
+      "辣的那种还是清汤"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "你猜我今天吃了啥"
+      ],
+      [
+       1.3,
+       "user",
+       "算了你肯定猜不到"
+      ],
+      [
+       3.1,
+       "user",
+       "火锅！"
+      ],
+      [
+       5.2,
+       "her",
+       "自己就把答案说了还让我猜"
+      ],
+      [
+       6.5,
+       "her",
+       "火锅啊，行吧，隔着屏幕都闻到味儿了"
+      ],
+      [
+       7.1,
+       "her",
+       "辣的那种还是清汤"
+      ]
+     ],
+     "waited_s": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "first_reply_s": 2.12,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "一个人吃的"
+     ],
+     "reply": [
+      "一个人吃火锅，还真有你的",
+      "不过也挺爽的，不用跟人抢"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "一个人吃的"
+      ],
+      [
+       2.4,
+       "her",
+       "一个人吃火锅，"
+      ],
+      [
+       3.1,
+       "her",
+       "还真有你的"
+      ],
+      [
+       3.9,
+       "her",
+       "不过也挺爽的，不用跟人抢"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.43,
+     "timed_out": false
+    },
+    {
+     "user": [
+      "哈哈也挺爽的"
+     ],
+     "reply": [
+      "这倒是",
+      "不过一个人吃火锅总感觉哪里怪怪的"
+     ],
+     "timeline": [
+      [
+       0.0,
+       "user",
+       "哈哈也挺爽的"
+      ],
+      [
+       2.7,
+       "her",
+       "这倒是"
+      ],
+      [
+       3.9,
+       "her",
+       "不过一个人吃火锅总感觉哪里怪怪的"
+      ]
+     ],
+     "waited_s": [
+      0.0
+     ],
+     "first_reply_s": 2.73,
+     "timed_out": false
+    }
+   ],
+   "metrics": {
+    "replies": 3,
+    "messages": 7,
+    "missing_replies": 0,
+    "question_endings": 0,
+    "replies_ending_with_question": 0,
+    "assistant_phrase_hits": 0,
+    "markdown": 0,
+    "exclamations": 0,
+    "emoji": 0,
+    "tilde": 0,
+    "repeated_openers": 0,
+    "verbatim_repeats": 0,
+    "burst_turns": 1,
+    "bursts_interrupted": 0,
+    "bubbles_before_user_finished": 0,
+    "questions": 0,
+    "either_or": 0,
+    "stage_directions": 0,
+    "echo_questions": 0,
+    "messages_per_reply": 2.3333333333333335,
+    "median_chars": 12,
+    "phrases": [],
+    "lengths": [
+     12,
+     17,
+     8,
+     12,
+     12,
+     3,
+     16
+    ]
+   },
+   "judge": {
+    "human": 6.0,
+    "character": 7.0,
+    "emotion": 6.0,
+    "context": 7.0,
+    "overall": 6.5,
+    "flaws": [
+     "自己就把答案说了还让我猜: 用户只隔了3秒就自己揭晓答案，她这句像在抱怨，但真实朋友更可能直接笑他憋不住，语气略重。",
+     "隔着屏幕都闻到味儿了: 有点套话感，像常见网络俏皮话，不够像她本人会说的。",
+     "辣的那种还是清汤: 连续追问，像在采访用户，真实聊天里可能先吐槽或笑一下再问。",
+     "一个人吃火锅，: 把用户的话重复一遍再断句，有点拖节奏，像在凑气泡。",
+     "还真有你的: 语气可以，但放在重复之后显得像在接梗而不是自然反应。",
+     "不过也挺爽的，不用跟人抢: 立刻给安慰和找补，像在照顾用户情绪，真实朋友可能先损一句或表示惊讶。",
+     "这倒是: 对用户重复她的话只回了个敷衍确认，没有推进，像在等用户继续。",
+     "不过一个人吃火锅总感觉哪里怪怪的: 用户已经说挺爽的，她又绕回来说怪怪的，像在硬找话题，且和上一句'这倒是'逻辑有点跳。"
+    ],
+    "assistant_moments": [
+     "不过也挺爽的，不用跟人抢",
+     "不过一个人吃火锅总感觉哪里怪怪的"
+    ],
+    "best_line": "还真有你的",
+    "comment": "整体像朋友聊天，但有几处像在照顾用户情绪或硬接话题，尤其用户说挺爽之后她又说怪怪的，显得不够自然。"
+   }
+  }
+ ]
+}
